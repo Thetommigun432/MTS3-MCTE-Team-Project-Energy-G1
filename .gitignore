@@ -17,7 +17,11 @@ ENV/
 *.swo
 *~
 
-
+# Data files (large datasets - keep local only)
+data/new_data/*.csv
+data/*.xlsx
+data/*.json
+data/*.csv
 
 # Model files
 models/*.h5
@@ -40,6 +44,8 @@ Thumbs.db
 
 # Unrelated projects
 go-cursor-help/
+
+
 
 # Distribution / packaging
 dist/
