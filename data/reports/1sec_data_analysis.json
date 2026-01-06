@@ -1,0 +1,92 @@
+[
+  {
+    "file": "samengevoegd_2024-03.csv",
+    "rows": 154236,
+    "days": 17.711643518518517,
+    "resolution_sec": 10.0,
+    "completeness": 88.94448250569803,
+    "gaps": 13,
+    "gap_hours": 3.3755555555555556
+  },
+  {
+    "file": "samengevoegd_2024-04.csv",
+    "rows": 218819,
+    "days": 29.99988425925926,
+    "resolution_sec": 10.0,
+    "completeness": 60.445102025856585,
+    "gaps": 29,
+    "gap_hours": 111.84444444444445
+  },
+  {
+    "file": "samengevoegd_2024-05.csv",
+    "rows": 1080769,
+    "days": 30.99997685185185,
+    "resolution_sec": 1.0,
+    "completeness": 0,
+    "gaps": 178721,
+    "gap_hours": 443.7861111111111
+  },
+  {
+    "file": "samengevoegd_2024-06.csv",
+    "rows": 2590063,
+    "days": 29.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 80.95857290068399,
+    "gaps": 5,
+    "gap_hours": 0.5380555555555555
+  },
+  {
+    "file": "samengevoegd_2024-07.csv",
+    "rows": 2673691,
+    "days": 30.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 79.68356469667143,
+    "gaps": 8,
+    "gap_hours": 1.3080555555555555
+  },
+  {
+    "file": "samengevoegd_2024-08.csv",
+    "rows": 2677884,
+    "days": 30.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 82.74772728036413,
+    "gaps": 9,
+    "gap_hours": 0.14222222222222222
+  },
+  {
+    "file": "samengevoegd_2024-09.csv",
+    "rows": 2590681,
+    "days": 29.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 89.9167746592495,
+    "gaps": 139,
+    "gap_hours": 0.2697222222222222
+  },
+  {
+    "file": "samengevoegd_2024-10.csv",
+    "rows": 2046753,
+    "days": 30.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 45.2194277252941,
+    "gaps": 663,
+    "gap_hours": 175.25583333333333
+  },
+  {
+    "file": "samengevoegd_2024-11.csv",
+    "rows": 2589683,
+    "days": 29.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 89.83023141598436,
+    "gaps": 6,
+    "gap_hours": 0.6433333333333333
+  },
+  {
+    "file": "samengevoegd_2024-12.csv",
+    "rows": 2675505,
+    "days": 30.999988425925924,
+    "resolution_sec": 1.0,
+    "completeness": 89.8070265109866,
+    "gaps": 263,
+    "gap_hours": 0.7122222222222222
+  }
+]
