@@ -18,10 +18,9 @@ ENV/
 *~
 
 # Data files (large datasets - keep local only)
-data/new_data/*.csv
-data/*.xlsx
-data/*.json
-data/*.csv
+data/**/*.csv
+data/**/*.xlsx
+data/**/*.json
 
 # Model files
 models/*.h5
@@ -41,6 +40,7 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+temp/
 
 # Unrelated projects
 go-cursor-help/
