@@ -10,7 +10,7 @@
 |--------|-------|
 | Raw data rows | 630,662 |
 | Output rows | 35,040 |
-| Output columns | 14 (Time + Aggregate + 12 appliances) |
+| Output columns | 20 (Time + Aggregate + 12 appliances + 6 temporal features) |
 | Time range | 2024-10-20 → 2025-10-20 |
 | Resolution | 15 minutes |
 | Time gaps after interpolation | 0 |
@@ -136,8 +136,30 @@ Kast garage (CT on garage circuit)
 | 12 | HeatPump | Warmtepomp |
 | 13 | HeatPump_Controller | Warmtepomp - Sturing |
 | 14 | WashingMachine | Wasmachine |
+| 15 | hour_sin | - (derived) |
+| 16 | hour_cos | - (derived) |
+| 17 | dow_sin | - (derived) |
+| 18 | dow_cos | - (derived) |
+| 19 | month_sin | - (derived) |
+| 20 | month_cos | - (derived) |
 
-### 6.2 Value Ranges
+### 6.2 Temporal Features
+
+| Feature | Cycle | Range | Purpose |
+|---------|-------|-------|---------|
+| hour_sin | 24h | [-1, 1] | Daily pattern (sin component) |
+| hour_cos | 24h | [-1, 1] | Daily pattern (cos component) |
+| dow_sin | 7 days | [-0.97, 0.97] | Weekly pattern (sin component) |
+| dow_cos | 7 days | [-0.90, 1] | Weekly pattern (cos component) |
+| month_sin | 12 months | [-1, 1] | Seasonal pattern (sin component) |
+| month_cos | 12 months | [-1, 1] | Seasonal pattern (cos component) |
+
+**Why cyclical encoding?**
+- Continuity at boundaries (23:59→00:00, Dec→Jan)
+- Equal distance between consecutive values
+- No artificial ordinal relationships (e.g., Sunday=6 not "bigger" than Monday=0)
+
+### 6.3 Value Ranges
 
 | Column | Min | Max | Mean |
 |--------|-----|-----|------|
@@ -252,12 +274,59 @@ Referenced approaches for 15-min resolution:
 
 | File | Size |
 |------|------|
-| `data/processed/15min/nilm_ready_dataset.parquet` | 1.43 MB |
-| `data/processed/15min/nilm_ready_dataset.csv` | 5.31 MB |
+| `data/processed/15min/nilm_ready_dataset.parquet` | 1.44 MB |
+| `data/processed/15min/nilm_ready_dataset.csv` | 8.88 MB |
+| `data/processed/15min/model_ready/scaler.pkl` | ~2 KB |
+| `data/processed/15min/model_ready/heatpump/X_train.npy` | 63.69 MB |
+| `data/processed/15min/model_ready/heatpump/y_train.npy` | 9.10 MB |
 
 ---
 
-## 11. Summary
+## 11. Pretraining Pipeline
+
+### 11.1 Split Strategy (Block Time-Series Interleaved)
+
+| Parameter | Value |
+|-----------|-------|
+| Block size | 7 days (672 samples) |
+| Pattern | [Train, Train, Train, Train, Val, Test] |
+| Train | 24,192 rows (69.0%) |
+| Validation | 5,472 rows (15.6%) |
+| Test | 5,376 rows (15.3%) |
+
+**Seasonal Coverage**: Each set contains ~25% from each season (Winter, Spring, Summer, Autumn).
+
+### 11.2 Windowing Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Window size | 99 samples (~25 hours) |
+| Stride | 1 |
+| Architecture | Seq2Seq |
+| Input shape | (n_samples, 99, 7) |
+| Output shape | (n_samples, 99, 1) |
+
+### 11.3 Input Features
+
+| Index | Feature | Description |
+|-------|---------|-------------|
+| 0 | Aggregate | Total power consumption (kW) |
+| 1 | hour_sin | Daily cycle (sin) |
+| 2 | hour_cos | Daily cycle (cos) |
+| 3 | dow_sin | Weekly cycle (sin) |
+| 4 | dow_cos | Weekly cycle (cos) |
+| 5 | month_sin | Yearly cycle (sin) |
+| 6 | month_cos | Yearly cycle (cos) |
+
+### 11.4 Scaling
+
+- Method: MinMax scaling [0, 1]
+- Fitted on: Train set only (no data leakage)
+- Features scaled: 19 (Aggregate + 12 appliances + 6 temporal)
+
+---
+
+## 12. Summary
 
 | Item | Value |
 |------|-------|
@@ -267,6 +336,8 @@ Referenced approaches for 15-min resolution:
 | Double counting correction | EV chargers subtracted from Kast garage |
 | Time gaps | Interpolated (3 → 0) |
 | Energy balance | -0.33% |
-| Format | Time, Aggregate, 12 Appliances |
+| Temporal features | 6 cyclical features (hour, dow, month sin/cos) |
+| Format | Time, Aggregate, 12 Appliances, 6 Temporal Features |
+| Total columns | 20 |
 | Resolution | 15 minutes |
 | Duration | 1 year (35,040 rows) |
