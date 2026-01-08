@@ -47,7 +47,7 @@ go-cursor-help/
 
 
 
-# Distribution / packaging
+# Distribution / ok ckaging
 dist/
 build/
 *.egg-info/
