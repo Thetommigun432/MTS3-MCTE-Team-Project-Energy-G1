@@ -22,6 +22,9 @@ data/**/*.csv
 data/**/*.xlsx
 data/**/*.json
 
+# report files
+data/reports/
+
 # Model files
 models/*.h5
 models/*.pt

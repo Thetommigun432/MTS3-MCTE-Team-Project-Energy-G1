@@ -4,6 +4,20 @@
 
 ---
 
+## 0. Field Mapping (Requirements → Dataset)
+
+| Requirement Name | Dataset Field(s) | Filter Applied | Status |
+|------------------|------------------|----------------|--------|
+| `msr_subject` | `msr_subject` column | N/A | ✅ Used for appliance identification |
+| `msr_category` | `msr_category` column | `Power_active` only | ✅ Reactive power filtered (6%) |
+| Grid | `msr_subject='Grid'` | Dropped | Redundant (Grid = Building - Solar) |
+| Building - consumption - Total - Smappee | `msr_subject='Building'` + `msr_device='Smappee'` + `msr_spec='Consumption'` | Used as **Aggregate** | ✅ Main meter |
+| Building - consumption - Total - Calculated | `msr_device='Calculated'` | Filtered out | Derived value, Smappee used instead |
+| Building - production | `msr_subject='Zonne-energie'` (Solar) | Dropped | Pattern captured by hour_sin/cos |
+| Building - power_reactive | `msr_category='Power_reactive'` | Filtered out | Not relevant for NILM |
+
+---
+
 ## 1. Dataset Overview
 
 | Metric | Value |
@@ -109,8 +123,8 @@ Kast garage (CT on garage circuit)
 | Ghost Load (final) | 0.3% | 0.3% |
 | Aggregate negatives | Identified (11%) | Clipped to 0 |
 | Time gaps | 3 gaps, 99.98% coverage | Interpolated to 100% |
-| Solar column | Kept | Dropped |
-| Grid column | Kept | Dropped |
+| Solar column | Kept | Dropped (pattern captured by hour_sin/cos) |
+| Grid column | Kept | Dropped (redundant: Grid = Building - Solar) |
 
 **Note**: Ghost Load difference (-23.1% vs -29.9%) is due to different aggregation timing (before/after Building clipping).
 
