@@ -19,18 +19,19 @@ ENV/
 *~
 
 # Data files (large datasets - keep local only)
-data/**/*.csv
-data/**/*.xlsx
-data/**/*.json
+data/
+*.parquet
 
 # report files
-data/reports/
+# data/reports/ (Covered by data/)
 
 # Model files
 models/*.h5
 models/*.pt
 models/*.pth
 models/*.pkl
+model_highfreq/*.pth
+model_highfreq/*.pkl
 
 # Logs
 *.log
