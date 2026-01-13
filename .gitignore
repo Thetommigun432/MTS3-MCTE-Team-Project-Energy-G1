@@ -8,6 +8,7 @@ __pycache__/
 # Virtual Environment
 venv/
 env/
+.venv/
 ENV/
 
 # IDE
@@ -44,6 +45,8 @@ Thumbs.db
 *.temp
 *.bak
 temp/
+temp_model/
+tempo/
 
 # Unrelated projects
 go-cursor-help/
