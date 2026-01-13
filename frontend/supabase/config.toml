@@ -1,0 +1,37 @@
+project_id = "igjunwmftcjoxcelifjk"
+
+[functions.parse-nilm-csv]
+verify_jwt = false
+
+[functions.admin-invite]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.log-login-event]
+verify_jwt = false
+
+[functions.accept-invite]
+verify_jwt = false
+
+[functions.get-readings]
+verify_jwt = false
+
+[functions.register-model]
+verify_jwt = false
+
+[functions.create-model-version-upload]
+verify_jwt = false
+
+[functions.finalize-model-version]
+verify_jwt = false
+
+[functions.set-active-model-version]
+verify_jwt = false
+
+[functions.generate-report]
+verify_jwt = false
+
+[functions.ensure-demo-user]
+verify_jwt = false

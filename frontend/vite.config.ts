@@ -5,8 +5,6 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // GitHub Pages serves from /repo-name/ so we need to set base path for production
-  base: mode === "production" ? "/MTS3-MCTE-Team-Project-Energy-G1/" : "/",
   server: {
     host: "::",
     port: 8080,
@@ -19,5 +17,9 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     sourcemap: true,
+  },
+  esbuild: {
+    // Strip console logs and debugger statements in production builds
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
 }));
