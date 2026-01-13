@@ -601,7 +601,9 @@ Once you have local development working:
 
 3. **Integrate with ML Models**: Replace mock generator with actual NILM model inference
 
-4. **Deploy to Production**: See [DEPLOYMENT_STEPS.md](../DEPLOYMENT_STEPS.md) for cloud deployment
+4. **Deploy to Production**: See deployment guides:
+   - **[Cloudflare Pages Deployment](../frontend/docs/DEPLOY_CLOUDFLARE_PAGES.md)** (current, recommended)
+   - ~~[Azure Storage](../frontend/DEPLOYMENT_STEPS.md)~~ (deprecated)
 
 ---
 

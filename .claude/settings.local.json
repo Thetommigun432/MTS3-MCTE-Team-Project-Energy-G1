@@ -27,7 +27,9 @@
       "Bash(git rm:*)",
       "Bash(npm run typecheck:*)",
       "Bash(npm run lint:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(ls:*)",
+      "Bash(test:*)"
     ]
   }
 }

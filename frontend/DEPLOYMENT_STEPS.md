@@ -1,5 +1,26 @@
 # Complete Deployment Steps - NILM Energy Monitor
 
+## ⚠️ DEPLOYMENT METHOD CHANGED
+
+**New deployment method: Cloudflare Pages (automated)**
+
+This document describes the **legacy Azure Storage deployment** method for frontend hosting.
+
+For new deployments, see: **[docs/DEPLOY_CLOUDFLARE_PAGES.md](./docs/DEPLOY_CLOUDFLARE_PAGES.md)**
+
+## ⚠️ SECURITY WARNING
+
+**NEVER commit `.env`, `.env.production`, or `.env.local` files to git.**
+
+These files contain sensitive credentials:
+- Supabase API keys
+- InfluxDB tokens
+- Production URLs
+
+Only commit `.env.example` with placeholder values.
+
+---
+
 ## Current Status ✅
 
 - ✅ Frontend built and deployed to Azure Storage Static Website

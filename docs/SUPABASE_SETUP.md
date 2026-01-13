@@ -4,7 +4,7 @@ This guide covers the complete Supabase setup for the NILM Energy Monitor projec
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
-2. [Azure Storage Static Website Setup](#azure-storage-static-website-setup)
+2. [Frontend Hosting Setup](#frontend-hosting-setup)
 3. [Supabase Dashboard Configuration](#supabase-dashboard-configuration)
 4. [Database Migrations](#database-migrations)
 5. [Storage Bucket Setup](#storage-bucket-setup)
@@ -40,9 +40,36 @@ SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 
 ---
 
-## Azure Storage Static Website Setup
+## Frontend Hosting Setup
 
-### 1. Enable Static Website Hosting
+### Current: Cloudflare Pages
+
+The frontend is hosted on **Cloudflare Pages** with automated deployments from GitHub.
+
+See complete guide: **[frontend/docs/DEPLOY_CLOUDFLARE_PAGES.md](../frontend/docs/DEPLOY_CLOUDFLARE_PAGES.md)**
+
+**Key features:**
+- Automatic deployments on git push
+- SPA routing via `_redirects` file
+- Security headers via `_headers` file
+- Free SSL certificates
+- Global CDN
+
+**Redirect URLs**: Configure in Supabase Dashboard → Authentication → URL Configuration:
+```
+https://your-site.pages.dev/**
+https://your-site.pages.dev/auth/**
+https://your-site.pages.dev/login
+https://your-site.pages.dev/verify-email
+https://your-site.pages.dev/reset-password
+```
+
+### Legacy: Azure Storage (Deprecated)
+
+<details>
+<summary>Azure Storage Static Website setup (click to expand)</summary>
+
+#### 1. Enable Static Website Hosting
 
 1. Go to Azure Portal → Storage Account → **Static website**
 2. Enable static website hosting
@@ -50,9 +77,13 @@ SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 4. Set **Error document**: `index.html` (critical for SPA routing!)
 5. Copy the **Primary endpoint** URL
 
-### 2. Why Error Document = index.html?
+#### 2. Why Error Document = index.html?
 
 Supabase Auth sends email links to routes like `/auth/confirm` and `/auth/callback`. Without this setting, Azure returns 404 for these routes instead of serving the SPA.
+
+**Note**: This method is deprecated. Use Cloudflare Pages for new deployments.
+
+</details>
 
 ---
 
