@@ -16,7 +16,7 @@ export interface DateRange {
   end: Date;
 }
 
-export type DataMode = 'demo' | 'api';
+export type DataMode = 'demo' | 'api' | 'local';
 
 export interface ApplianceStatus {
   name: string;

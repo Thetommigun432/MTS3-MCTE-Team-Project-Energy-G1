@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AdminRoute } from "@/components/auth/AdminRoute";
 import { AppShell } from "@/components/layout/AppShell";
@@ -81,13 +82,14 @@ const App = () => {
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
+      <AppearanceProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+          <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
               {/* Public */}
               <Route path="/" element={<Home />} />
               <Route path="/about" element={<About />} />
@@ -123,8 +125,9 @@ const App = () => {
             </Routes>
           </Suspense>
         </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
+          </TooltipProvider>
+        </AuthProvider>
+      </AppearanceProvider>
     </ThemeProvider>
   </QueryClientProvider>
   </ErrorBoundary>

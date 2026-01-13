@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
+    "@types/papaparse": "^5.5.2",
+    "dotenv": "^17.2.3",
+    "papaparse": "^5.5.3",
+    "tsx": "^4.21.0"
+  }
+}

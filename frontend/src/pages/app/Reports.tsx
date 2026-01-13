@@ -124,51 +124,8 @@ export default function Reports() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportError, setReportError] = useState<ReportError | null>(null);
 
-  const handleGenerateReport = useCallback(async () => {
-    setIsGenerating(true);
-    setReportError(null);
-    
-    // In API mode, attempt backend fetch
-    if (mode === 'api' && isEnergyApiAvailable()) {
-      try {
-        const response = await energyApi.generateReport({
-          building: selectedBuilding,
-          appliance: selectedAppliance !== 'All' ? selectedAppliance : undefined,
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
-          format: 'json',
-        });
-        
-        // If API returns data, transform and use it
-        if (response.data) {
-          // Transform API response to ReportData shape
-          // For now, we generate from local data as the API shape may differ
-          console.log('API report response:', response);
-        }
-      } catch (err) {
-        console.warn('API report generation failed, using demo data:', err);
-      }
-    }
-    
-    // Generate from local data (demo fallback or demo mode)
-    setTimeout(() => {
-      try {
-        const report = generateReportFromData();
-        setReportData(report);
-        setReportError(null);
-        toast.success('Report generated', {
-          description: `${report.dataPointsAnalyzed.toLocaleString()} data points analyzed`,
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to generate report';
-        setReportError({ message, retryable: true });
-        setReportData(null);
-      } finally {
-        setIsGenerating(false);
-      }
-    }, 400);
-  }, [mode, selectedBuilding, selectedAppliance, dateRange, generateReportFromData]);
-
+  // NOTE: generateReportFromData must be defined BEFORE handleGenerateReport
+  // to avoid temporal dead zone errors in the dependency array
   const generateReportFromData = useCallback((): ReportData => {
     if (filteredRows.length === 0) {
       throw new Error('No data available for the selected date range. Try expanding the date range.');
@@ -301,6 +258,51 @@ export default function Reports() {
       hourlyPattern,
     };
   }, [filteredRows, selectedAppliance, appliances, selectedBuilding, dateRange]);
+
+  const handleGenerateReport = useCallback(async () => {
+    setIsGenerating(true);
+    setReportError(null);
+    
+    // In API mode, attempt backend fetch
+    if (mode === 'api' && isEnergyApiAvailable()) {
+      try {
+        const response = await energyApi.generateReport({
+          building: selectedBuilding,
+          appliance: selectedAppliance !== 'All' ? selectedAppliance : undefined,
+          startDate: dateRange.start.toISOString(),
+          endDate: dateRange.end.toISOString(),
+          format: 'json',
+        });
+        
+        // If API returns data, transform and use it
+        if (response.data) {
+          // Transform API response to ReportData shape
+          // For now, we generate from local data as the API shape may differ
+          console.log('API report response:', response);
+        }
+      } catch (err) {
+        console.warn('API report generation failed, using demo data:', err);
+      }
+    }
+    
+    // Generate from local data (demo fallback or demo mode)
+    setTimeout(() => {
+      try {
+        const report = generateReportFromData();
+        setReportData(report);
+        setReportError(null);
+        toast.success('Report generated', {
+          description: `${report.dataPointsAnalyzed.toLocaleString()} data points analyzed`,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to generate report';
+        setReportError({ message, retryable: true });
+        setReportData(null);
+      } finally {
+        setIsGenerating(false);
+      }
+    }, 400);
+  }, [mode, selectedBuilding, selectedAppliance, dateRange, generateReportFromData]);
 
   const handleExport = (exportFormat: 'pdf' | 'csv') => {
     if (!reportData) {

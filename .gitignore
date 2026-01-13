@@ -47,7 +47,19 @@ go-cursor-help/
 
 
 
-# Distribution / ok ckaging
+# Distribution / packaging
 dist/
 build/
 *.egg-info/
+
+# Local InfluxDB data and config (Docker volumes)
+influxdb-data/
+influxdb-config/
+
+# Local environment files (contain secrets)
+.env.local
+.env.*.local
+
+# Backend node_modules
+backend/node_modules/
+backend/package-lock.json

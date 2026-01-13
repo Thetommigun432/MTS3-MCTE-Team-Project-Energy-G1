@@ -1,14 +1,15 @@
 import { createContext, useContext, useState, useMemo, useEffect, useCallback, ReactNode } from 'react';
 import { DataMode, DateRange, InsightData, ApplianceStatus } from '@/types/energy';
-import { 
-  useNilmCsvData, 
-  NilmDataRow, 
-  ON_THRESHOLD, 
-  computeConfidence, 
+import {
+  useNilmCsvData,
+  NilmDataRow,
+  ON_THRESHOLD,
+  computeConfidence,
   computeEnergyKwh,
-  getTopAppliancesByEnergy 
+  getTopAppliancesByEnergy
 } from '@/hooks/useNilmCsvData';
 import { useManagedAppliances, ManagedAppliance } from '@/hooks/useManagedAppliances';
+import { useLocalInfluxPredictions } from '@/hooks/useLocalInfluxPredictions';
 import { energyApi, isEnergyApiAvailable } from '@/services/energy';
 import { edgeFunctions } from '@/lib/supabaseHelpers';
 import { startOfDayLocal, endOfDayLocal } from '@/lib/dateUtils';
@@ -56,43 +57,71 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiRows, setApiRows] = useState<NilmDataRow[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
-  
-  const [mode, setModeInternal] = useState<DataMode>('demo');
+
+  // Determine initial mode from environment variables
+  const [mode, setModeInternal] = useState<DataMode>(() => {
+    if (import.meta.env.VITE_LOCAL_MODE === 'true') return 'local';
+    if (import.meta.env.VITE_DEMO_MODE === 'true') return 'demo';
+    return 'demo'; // Default to demo mode
+  });
   const [selectedBuilding, setSelectedBuilding] = useState('Demo Building');
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
   const [selectedAppliance, setSelectedAppliance] = useState('All');
 
+  // Date range for local influx queries (initialized below)
+  const [dateRange, setDateRangeInternal] = useState<DateRange>(() => {
+    const now = new Date();
+    const end = endOfDayLocal(now);
+    const start = startOfDayLocal(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+    return { start, end };
+  });
+
+  // Local InfluxDB data hook (only active when mode === 'local')
+  const {
+    data: localRows,
+    loading: localLoading,
+    error: localError,
+    refetch: localRefetch,
+  } = useLocalInfluxPredictions({
+    buildingId: 'local',
+    startDate: dateRange.start,
+    endDate: dateRange.end,
+    enabled: mode === 'local',
+  });
+
   // Check if API is available (user must be authenticated for API mode)
   const isApiAvailable = useMemo(() => isEnergyApiAvailable() || isAuthenticated, [isAuthenticated]);
 
-  // STRICT mode switching: API mode shows ONLY API data (empty if none), demo shows ONLY demo data
+  // STRICT mode switching: Each mode shows ONLY its own data (empty if none)
   const rows = useMemo(() => {
     if (mode === 'api') {
       // API mode: return API rows only, even if empty
       return apiRows;
     }
+    if (mode === 'local') {
+      // Local mode: return local InfluxDB rows only
+      return localRows;
+    }
     // Demo mode: return demo rows only
     return demoRows;
-  }, [mode, apiRows, demoRows]);
+  }, [mode, apiRows, localRows, demoRows]);
 
-  const loading = mode === 'api' ? apiLoading : demoLoading;
-  const error = mode === 'api' && apiError ? apiError : (mode === 'demo' ? demoError : null);
+  const loading = mode === 'api' ? apiLoading : mode === 'local' ? localLoading : demoLoading;
+  const error = mode === 'api' && apiError ? apiError : mode === 'local' && localError ? localError : (mode === 'demo' ? demoError : null);
 
   // Mode setter that clears stale data when switching
   const setMode = useCallback((newMode: DataMode) => {
     if (newMode === mode) return;
-    
+
     // Clear API data when switching away from API mode
-    if (mode === 'api' && newMode === 'demo') {
+    if (mode === 'api') {
       setApiRows([]);
       setApiError(null);
     }
-    
-    // Clear any errors when switching to demo
-    if (newMode === 'demo') {
-      setApiError(null);
-    }
-    
+
+    // Clear any errors when switching modes
+    setApiError(null);
+
     setModeInternal(newMode);
     setLastRefreshed(null);
   }, [mode]);
@@ -134,8 +163,11 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     if (isRefreshing || loading) return;
     setIsRefreshing(true);
     setApiError(null);
-    
-    if (mode === 'api') {
+
+    if (mode === 'local') {
+      // Local mode: refetch from local InfluxDB
+      await localRefetch();
+    } else if (mode === 'api') {
       // API mode: fetch from API only, do NOT fall back to demo
       if (isAuthenticated && selectedBuildingId) {
         // Supabase edge function mode
@@ -206,7 +238,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     
     setLastRefreshed(new Date());
     setIsRefreshing(false);
-  }, [mode, isApiAvailable, isAuthenticated, selectedBuildingId, isRefreshing, loading, demoRefetch, fetchApiReadings]);
+  }, [mode, isApiAvailable, isAuthenticated, selectedBuildingId, isRefreshing, loading, demoRefetch, localRefetch, fetchApiReadings]);
 
   // Set initial lastRefreshed when data first loads
   useEffect(() => {
@@ -223,14 +255,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       max: rows[rows.length - 1].time,
     };
   }, [rows]);
-
-  // Initialize date range to last 7 days of data
-  const [dateRange, setDateRangeInternal] = useState<DateRange>(() => {
-    const now = new Date();
-    const end = endOfDayLocal(now);
-    const start = startOfDayLocal(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
-    return { start, end };
-  });
 
   // Wrapper to ensure timezone-safe date range
   const setDateRange = useCallback((range: DateRange) => {

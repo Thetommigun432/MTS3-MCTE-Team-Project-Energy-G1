@@ -11,7 +11,11 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "local:server": "cd ../backend && npm start",
+    "local:dev": "concurrently \"npm run local:server\" \"npm run dev\" --names \"api,vite\" --prefix-colors \"blue,green\"",
+    "predictions:seed": "tsx ../scripts/write-to-influx.ts",
+    "predictions:verify": "tsx ../scripts/verify-influx.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -55,12 +59,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@influxdata/influxdb-client": "^1.33.2",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^8.2.2",
+    "dotenv": "^16.4.5",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -69,6 +76,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.7.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"
