@@ -1,17 +1,17 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useMemo, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -19,34 +19,48 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { 
-  Calendar, FileText, Download, Building2, Cpu, 
-  TrendingUp, Zap, Activity, CheckCircle2, AlertTriangle,
-  RefreshCw, Info, Printer
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { NILMPanel, NILMEmptyState } from '@/components/nilm/NILMPanel';
-import { WaveformDecoration } from '@/components/brand/WaveformIcon';
-import { ConfidenceIndicator } from '@/components/nilm/ApplianceStateBadge';
-import { EstimatedValueDisplay } from '@/components/nilm/EstimatedValueDisplay';
-import { ModelTrustBadge } from '@/components/nilm/ModelTrustBadge';
-import { 
-  computeConfidence, 
-  computeEnergyKwh, 
+} from "@/components/ui/tooltip";
+import { useEnergy } from "@/contexts/EnergyContext";
+import {
+  Calendar,
+  FileText,
+  Download,
+  Building2,
+  Cpu,
+  TrendingUp,
+  Zap,
+  Activity,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  Info,
+  Printer,
+} from "lucide-react";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
+import { WaveformDecoration } from "@/components/brand/WaveformIcon";
+import { ConfidenceIndicator } from "@/components/nilm/ApplianceStateBadge";
+import { EstimatedValueDisplay } from "@/components/nilm/EstimatedValueDisplay";
+import { ModelTrustBadge } from "@/components/nilm/ModelTrustBadge";
+import {
+  computeConfidence,
+  computeEnergyKwh,
   ON_THRESHOLD,
-  getTopAppliancesByEnergy 
-} from '@/hooks/useNilmCsvData';
-import { formatDateForInput, parseLocalDate, parseLocalDateEnd } from '@/lib/dateUtils';
-import { energyApi, isEnergyApiAvailable } from '@/services/energy';
+  getTopAppliancesByEnergy,
+} from "@/hooks/useNilmCsvData";
+import {
+  formatDateForInput,
+  parseLocalDate,
+  parseLocalDateEnd,
+} from "@/lib/dateUtils";
+import { energyApi, isEnergyApiAvailable } from "@/services/energy";
 import {
   BarChart,
   Bar,
@@ -56,13 +70,13 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Cell,
-} from 'recharts';
+} from "recharts";
 
 interface ReportData {
   generatedAt: Date;
   building: string;
   appliance: string;
-  scope: 'all' | 'single';
+  scope: "all" | "single";
   dateRange: { start: Date; end: Date };
   dataPointsAnalyzed: number;
   summary: {
@@ -93,9 +107,17 @@ interface ReportError {
 }
 
 // Custom tooltip for chart
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}) {
   if (!active || !payload || !payload.length) return null;
-  
+
   return (
     <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
       <p className="text-xs text-muted-foreground mb-1">Hour {label}:00</p>
@@ -128,11 +150,13 @@ export default function Reports() {
   // to avoid temporal dead zone errors in the dependency array
   const generateReportFromData = useCallback((): ReportData => {
     if (filteredRows.length === 0) {
-      throw new Error('No data available for the selected date range. Try expanding the date range.');
+      throw new Error(
+        "No data available for the selected date range. Try expanding the date range.",
+      );
     }
 
-    const isSingleAppliance = selectedAppliance !== 'All';
-    const scope = isSingleAppliance ? 'single' : 'all';
+    const isSingleAppliance = selectedAppliance !== "All";
+    const scope = isSingleAppliance ? "single" : "all";
 
     // For single appliance mode, compute metrics from that appliance only
     let totalEnergyKwh: number;
@@ -146,7 +170,7 @@ export default function Reports() {
       let peakValue = 0;
       let totalPower = 0;
 
-      filteredRows.forEach(row => {
+      filteredRows.forEach((row) => {
         const kw = row.appliances[selectedAppliance] || 0;
         totalPower += kw;
         if (kw > peakValue) {
@@ -156,8 +180,9 @@ export default function Reports() {
       });
 
       totalEnergyKwh = filteredRows.reduce(
-        (sum, row) => sum + computeEnergyKwh(row.appliances[selectedAppliance] || 0),
-        0
+        (sum, row) =>
+          sum + computeEnergyKwh(row.appliances[selectedAppliance] || 0),
+        0,
       );
       peakPowerKw = peakValue;
       peakPowerTimestamp = peakRow.time;
@@ -165,8 +190,8 @@ export default function Reports() {
     } else {
       // Aggregate metrics
       let peakRow = filteredRows[0];
-      
-      filteredRows.forEach(row => {
+
+      filteredRows.forEach((row) => {
         if (row.aggregate > peakRow.aggregate) {
           peakRow = row;
         }
@@ -174,28 +199,40 @@ export default function Reports() {
 
       totalEnergyKwh = filteredRows.reduce(
         (sum, row) => sum + computeEnergyKwh(row.aggregate),
-        0
+        0,
       );
       peakPowerKw = peakRow.aggregate;
       peakPowerTimestamp = peakRow.time;
-      avgPowerKw = filteredRows.reduce((sum, r) => sum + r.aggregate, 0) / filteredRows.length;
+      avgPowerKw =
+        filteredRows.reduce((sum, r) => sum + r.aggregate, 0) /
+        filteredRows.length;
     }
 
     // Get appliance breakdown
-    const appliancesToProcess = isSingleAppliance ? [selectedAppliance] : appliances;
-    const applianceEnergy = getTopAppliancesByEnergy(filteredRows, appliancesToProcess, appliancesToProcess.length);
-    
+    const appliancesToProcess = isSingleAppliance
+      ? [selectedAppliance]
+      : appliances;
+    const applianceEnergy = getTopAppliancesByEnergy(
+      filteredRows,
+      appliancesToProcess,
+      appliancesToProcess.length,
+    );
+
     // Total for percentage calculation (use appliance-specific total when filtering)
-    const breakdownTotal = isSingleAppliance ? totalEnergyKwh : 
-      filteredRows.reduce((sum, row) => sum + computeEnergyKwh(row.aggregate), 0);
+    const breakdownTotal = isSingleAppliance
+      ? totalEnergyKwh
+      : filteredRows.reduce(
+          (sum, row) => sum + computeEnergyKwh(row.aggregate),
+          0,
+        );
 
     // Calculate breakdown with confidence and hours on
-    const applianceBreakdown = applianceEnergy.map(app => {
+    const applianceBreakdown = applianceEnergy.map((app) => {
       let totalConfidence = 0;
       let hoursOn = 0;
       let count = 0;
 
-      filteredRows.forEach(row => {
+      filteredRows.forEach((row) => {
         const kw = row.appliances[app.name] || 0;
         totalConfidence += computeConfidence(kw);
         if (kw >= ON_THRESHOLD) {
@@ -207,7 +244,8 @@ export default function Reports() {
       return {
         name: app.name,
         totalKwh: app.totalKwh,
-        percentOfTotal: breakdownTotal > 0 ? (app.totalKwh / breakdownTotal) * 100 : 0,
+        percentOfTotal:
+          breakdownTotal > 0 ? (app.totalKwh / breakdownTotal) * 100 : 0,
         avgConfidence: count > 0 ? totalConfidence / count : 0,
         hoursOn,
       };
@@ -215,13 +253,13 @@ export default function Reports() {
 
     // Hourly pattern - compute energy per hour bucket
     const hourlyData: Record<number, { totalKw: number; count: number }> = {};
-    
-    filteredRows.forEach(row => {
+
+    filteredRows.forEach((row) => {
       const hour = row.time.getHours();
-      const value = isSingleAppliance 
-        ? (row.appliances[selectedAppliance] || 0) 
+      const value = isSingleAppliance
+        ? row.appliances[selectedAppliance] || 0
         : row.aggregate;
-      
+
       if (!hourlyData[hour]) {
         hourlyData[hour] = { totalKw: 0, count: 0 };
       }
@@ -235,7 +273,7 @@ export default function Reports() {
       const avgKw = data ? data.totalKw / data.count : 0;
       // Energy = sum of (kW * 0.25) for all readings in that hour
       const energyKwh = data ? data.totalKw * 0.25 : 0;
-      
+
       return { hour, avgKw, energyKwh };
     });
 
@@ -252,117 +290,139 @@ export default function Reports() {
         peakPowerTimestamp,
         avgPowerKw,
         totalReadings: filteredRows.length,
-        appliancesDetected: applianceBreakdown.filter(a => a.hoursOn > 0).length,
+        appliancesDetected: applianceBreakdown.filter((a) => a.hoursOn > 0)
+          .length,
       },
       applianceBreakdown,
       hourlyPattern,
     };
-  }, [filteredRows, selectedAppliance, appliances, selectedBuilding, dateRange]);
+  }, [
+    filteredRows,
+    selectedAppliance,
+    appliances,
+    selectedBuilding,
+    dateRange,
+  ]);
 
   const handleGenerateReport = useCallback(async () => {
     setIsGenerating(true);
     setReportError(null);
-    
+
     // In API mode, attempt backend fetch
-    if (mode === 'api' && isEnergyApiAvailable()) {
+    if (mode === "api" && isEnergyApiAvailable()) {
       try {
         const response = await energyApi.generateReport({
           building: selectedBuilding,
-          appliance: selectedAppliance !== 'All' ? selectedAppliance : undefined,
+          appliance:
+            selectedAppliance !== "All" ? selectedAppliance : undefined,
           startDate: dateRange.start.toISOString(),
           endDate: dateRange.end.toISOString(),
-          format: 'json',
+          format: "json",
         });
-        
+
         // If API returns data, transform and use it
         if (response.data) {
           // Transform API response to ReportData shape
           // For now, we generate from local data as the API shape may differ
-          console.log('API report response:', response);
+          console.log("API report response:", response);
         }
       } catch (err) {
-        console.warn('API report generation failed, using demo data:', err);
+        console.warn("API report generation failed, using demo data:", err);
       }
     }
-    
+
     // Generate from local data (demo fallback or demo mode)
     setTimeout(() => {
       try {
         const report = generateReportFromData();
         setReportData(report);
         setReportError(null);
-        toast.success('Report generated', {
+        toast.success("Report generated", {
           description: `${report.dataPointsAnalyzed.toLocaleString()} data points analyzed`,
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to generate report';
+        const message =
+          err instanceof Error ? err.message : "Failed to generate report";
         setReportError({ message, retryable: true });
         setReportData(null);
       } finally {
         setIsGenerating(false);
       }
     }, 400);
-  }, [mode, selectedBuilding, selectedAppliance, dateRange, generateReportFromData]);
+  }, [
+    mode,
+    selectedBuilding,
+    selectedAppliance,
+    dateRange,
+    generateReportFromData,
+  ]);
 
-  const handleExport = (exportFormat: 'pdf' | 'csv') => {
+  const handleExport = (exportFormat: "pdf" | "csv") => {
     if (!reportData) {
-      toast.error('Generate a report first');
+      toast.error("Generate a report first");
       return;
     }
 
-    if (exportFormat === 'csv') {
+    if (exportFormat === "csv") {
       // Generate CSV with full context
-      const scopeLabel = reportData.scope === 'single' 
-        ? `Appliance: ${reportData.appliance}` 
-        : 'All Appliances';
-      
-      const headers = ['Appliance', 'Total kWh', '% of Total', 'Avg Confidence', 'Hours On'];
-      const rows = reportData.applianceBreakdown.map(a => [
+      const scopeLabel =
+        reportData.scope === "single"
+          ? `Appliance: ${reportData.appliance}`
+          : "All Appliances";
+
+      const headers = [
+        "Appliance",
+        "Total kWh",
+        "% of Total",
+        "Avg Confidence",
+        "Hours On",
+      ];
+      const rows = reportData.applianceBreakdown.map((a) => [
         a.name,
         a.totalKwh.toFixed(2),
         a.percentOfTotal.toFixed(1),
-        (a.avgConfidence * 100).toFixed(0) + '%',
+        (a.avgConfidence * 100).toFixed(0) + "%",
         a.hoursOn.toFixed(1),
       ]);
 
       // Include hourly data
-      const hourlyHeaders = ['Hour', 'Energy (kWh)'];
-      const hourlyRows = reportData.hourlyPattern.map(h => [
-        h.hour.toString().padStart(2, '0') + ':00',
+      const hourlyHeaders = ["Hour", "Energy (kWh)"];
+      const hourlyRows = reportData.hourlyPattern.map((h) => [
+        h.hour.toString().padStart(2, "0") + ":00",
         h.energyKwh.toFixed(3),
       ]);
-      
+
       const csvContent = [
-        `# Energy Report - ${format(reportData.generatedAt, 'yyyy-MM-dd HH:mm')}`,
+        `# Energy Report - ${format(reportData.generatedAt, "yyyy-MM-dd HH:mm")}`,
         `# Building: ${reportData.building}`,
         `# Scope: ${scopeLabel}`,
-        `# Date Range: ${format(reportData.dateRange.start, 'yyyy-MM-dd')} to ${format(reportData.dateRange.end, 'yyyy-MM-dd')}`,
+        `# Date Range: ${format(reportData.dateRange.start, "yyyy-MM-dd")} to ${format(reportData.dateRange.end, "yyyy-MM-dd")}`,
         `# Data Points: ${reportData.dataPointsAnalyzed.toLocaleString()}`,
-        '',
-        '# Summary',
+        "",
+        "# Summary",
         `Total Energy (kWh),${reportData.summary.totalEnergyKwh.toFixed(2)}`,
         `Peak Power (kW),${reportData.summary.peakPowerKw.toFixed(2)}`,
-        `Peak Time,${format(reportData.summary.peakPowerTimestamp, 'yyyy-MM-dd HH:mm')}`,
+        `Peak Time,${format(reportData.summary.peakPowerTimestamp, "yyyy-MM-dd HH:mm")}`,
         `Average Power (kW),${reportData.summary.avgPowerKw.toFixed(2)}`,
-        '',
-        '# Appliance Breakdown',
-        headers.join(','),
-        ...rows.map(r => r.join(',')),
-        '',
-        '# Hourly Usage Pattern',
-        hourlyHeaders.join(','),
-        ...hourlyRows.map(r => r.join(',')),
-      ].join('\n');
+        "",
+        "# Appliance Breakdown",
+        headers.join(","),
+        ...rows.map((r) => r.join(",")),
+        "",
+        "# Hourly Usage Pattern",
+        hourlyHeaders.join(","),
+        ...hourlyRows.map((r) => r.join(",")),
+      ].join("\n");
 
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob([csvContent], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `energy-report-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+      a.download = `energy-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      
-      toast.success('CSV exported successfully');
+
+      toast.success("CSV exported successfully");
     } else {
       // PDF export via browser print
       window.print();
@@ -385,12 +445,12 @@ export default function Reports() {
   // Check if hourly data is empty
   const hasHourlyData = useMemo(() => {
     if (!reportData) return false;
-    return reportData.hourlyPattern.some(h => h.energyKwh > 0);
+    return reportData.hourlyPattern.some((h) => h.energyKwh > 0);
   }, [reportData]);
 
   const maxEnergy = useMemo(() => {
     if (!reportData) return 1;
-    return Math.max(...reportData.hourlyPattern.map(h => h.energyKwh), 0.01);
+    return Math.max(...reportData.hourlyPattern.map((h) => h.energyKwh), 0.01);
   }, [reportData]);
 
   return (
@@ -400,7 +460,10 @@ export default function Reports() {
         <div className="hidden print:block mb-6">
           <h1 className="text-2xl font-bold">Energy Consumption Report</h1>
           <p className="text-sm text-muted-foreground">
-            Generated {reportData ? format(reportData.generatedAt, 'MMMM d, yyyy HH:mm') : ''}
+            Generated{" "}
+            {reportData
+              ? format(reportData.generatedAt, "MMMM d, yyyy HH:mm")
+              : ""}
           </p>
         </div>
 
@@ -410,11 +473,13 @@ export default function Reports() {
         </div>
 
         {/* API Mode Banner */}
-        {mode === 'api' && (
+        {mode === "api" && (
           <Alert className="bg-energy-warning-bg border-energy-warning/30 print:hidden">
             <AlertTriangle className="h-4 w-4 text-energy-warning" />
             <AlertDescription className="text-foreground">
-              <span className="font-medium">API Mode</span> — {apiError || 'Will attempt backend connection on report generation. Falls back to demo data if unavailable.'}
+              <span className="font-medium">API Mode</span> —{" "}
+              {apiError ||
+                "Will attempt backend connection on report generation. Falls back to demo data if unavailable."}
             </AlertDescription>
           </Alert>
         )}
@@ -428,7 +493,10 @@ export default function Reports() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {/* Building Filter - Disabled */}
             <div className="space-y-2">
-              <Label htmlFor="building" className="text-foreground flex items-center gap-1.5">
+              <Label
+                htmlFor="building"
+                className="text-foreground flex items-center gap-1.5"
+              >
                 <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                 Building
                 <Tooltip>
@@ -445,18 +513,27 @@ export default function Reports() {
                   <SelectValue placeholder="Select building" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={selectedBuilding}>{selectedBuilding}</SelectItem>
+                  <SelectItem value={selectedBuilding}>
+                    {selectedBuilding}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Appliance Filter */}
             <div className="space-y-2">
-              <Label htmlFor="appliance" className="text-foreground flex items-center gap-1.5">
+              <Label
+                htmlFor="appliance"
+                className="text-foreground flex items-center gap-1.5"
+              >
                 <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
                 Appliance Scope
               </Label>
-              <Select value={selectedAppliance} onValueChange={setSelectedAppliance} disabled={loading}>
+              <Select
+                value={selectedAppliance}
+                onValueChange={setSelectedAppliance}
+                disabled={loading}
+              >
                 <SelectTrigger id="appliance" className="bg-popover">
                   <SelectValue placeholder="Select appliance" />
                 </SelectTrigger>
@@ -464,7 +541,7 @@ export default function Reports() {
                   <SelectItem value="All">All Appliances</SelectItem>
                   {appliances.map((appliance) => (
                     <SelectItem key={appliance} value={appliance}>
-                      {appliance.replace(/_/g, ' ')}
+                      {appliance.replace(/_/g, " ")}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -473,7 +550,9 @@ export default function Reports() {
 
             {/* Start Date */}
             <div className="space-y-2">
-              <Label htmlFor="startDate" className="text-foreground">Start Date</Label>
+              <Label htmlFor="startDate" className="text-foreground">
+                Start Date
+              </Label>
               <Input
                 id="startDate"
                 type="date"
@@ -486,7 +565,9 @@ export default function Reports() {
 
             {/* End Date */}
             <div className="space-y-2">
-              <Label htmlFor="endDate" className="text-foreground">End Date</Label>
+              <Label htmlFor="endDate" className="text-foreground">
+                End Date
+              </Label>
               <Input
                 id="endDate"
                 type="date"
@@ -508,16 +589,19 @@ export default function Reports() {
           <div className="space-y-4 relative">
             <WaveformDecoration className="absolute top-0 right-0 opacity-5" />
             <p className="text-muted-foreground">
-              Generate a detailed energy report with NILM disaggregation. 
-              {selectedAppliance !== 'All' && (
-                <Badge variant="outline" className="ml-2 bg-accent/10 text-accent border-accent/30">
-                  Filtered: {selectedAppliance.replace(/_/g, ' ')}
+              Generate a detailed energy report with NILM disaggregation.
+              {selectedAppliance !== "All" && (
+                <Badge
+                  variant="outline"
+                  className="ml-2 bg-accent/10 text-accent border-accent/30"
+                >
+                  Filtered: {selectedAppliance.replace(/_/g, " ")}
                 </Badge>
               )}
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button 
-                onClick={handleGenerateReport} 
+              <Button
+                onClick={handleGenerateReport}
                 className="bg-primary hover:bg-primary/90"
                 disabled={loading || isGenerating}
               >
@@ -533,12 +617,12 @@ export default function Reports() {
                   </>
                 )}
               </Button>
-              
+
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => handleExport('pdf')} 
+                  <Button
+                    variant="outline"
+                    onClick={() => handleExport("pdf")}
                     disabled={!reportData}
                   >
                     <Printer className="mr-2 h-4 w-4" />
@@ -549,10 +633,10 @@ export default function Reports() {
                   <p>Opens print dialog for PDF export</p>
                 </TooltipContent>
               </Tooltip>
-              
-              <Button 
-                variant="outline" 
-                onClick={() => handleExport('csv')} 
+
+              <Button
+                variant="outline"
+                onClick={() => handleExport("csv")}
                 disabled={!reportData}
               >
                 <Download className="mr-2 h-4 w-4" />
@@ -569,9 +653,9 @@ export default function Reports() {
             <AlertDescription className="flex items-center justify-between">
               <span className="text-foreground">{reportError.message}</span>
               {reportError.retryable && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleGenerateReport}
                   className="ml-4"
                 >
@@ -611,22 +695,30 @@ export default function Reports() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground print:text-foreground">
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-energy-success" />
-                Report generated {format(reportData.generatedAt, 'MMM d, yyyy HH:mm')}
+                Report generated{" "}
+                {format(reportData.generatedAt, "MMM d, yyyy HH:mm")}
               </span>
               <span className="text-border">•</span>
-              <span>{reportData.dataPointsAnalyzed.toLocaleString()} data points</span>
+              <span>
+                {reportData.dataPointsAnalyzed.toLocaleString()} data points
+              </span>
               <span className="text-border">•</span>
-              <Badge variant={reportData.scope === 'single' ? 'default' : 'secondary'} className="text-xs">
-                {reportData.scope === 'single' 
-                  ? `Appliance: ${reportData.appliance.replace(/_/g, ' ')}` 
-                  : 'All Appliances'}
+              <Badge
+                variant={
+                  reportData.scope === "single" ? "default" : "secondary"
+                }
+                className="text-xs"
+              >
+                {reportData.scope === "single"
+                  ? `Appliance: ${reportData.appliance.replace(/_/g, " ")}`
+                  : "All Appliances"}
               </Badge>
             </div>
 
             {/* Summary Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 print:grid-cols-4">
-              <NILMPanel 
-                title="Total Energy" 
+              <NILMPanel
+                title="Total Energy"
                 icon={<Zap className="h-4 w-4" />}
               >
                 <EstimatedValueDisplay
@@ -636,22 +728,31 @@ export default function Reports() {
                   showEstimatedLabel
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  {reportData.scope === 'single' ? 'Appliance only' : 'Aggregate total'}
+                  {reportData.scope === "single"
+                    ? "Appliance only"
+                    : "Aggregate total"}
                 </p>
               </NILMPanel>
-              
-              <NILMPanel title="Peak Power" icon={<TrendingUp className="h-4 w-4" />}>
+
+              <NILMPanel
+                title="Peak Power"
+                icon={<TrendingUp className="h-4 w-4" />}
+              >
                 <EstimatedValueDisplay
                   value={reportData.summary.peakPowerKw}
                   unit="kW"
                   size="lg"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  at {format(reportData.summary.peakPowerTimestamp, 'MMM d HH:mm')}
+                  at{" "}
+                  {format(reportData.summary.peakPowerTimestamp, "MMM d HH:mm")}
                 </p>
               </NILMPanel>
-              
-              <NILMPanel title="Avg Power" icon={<Activity className="h-4 w-4" />}>
+
+              <NILMPanel
+                title="Avg Power"
+                icon={<Activity className="h-4 w-4" />}
+              >
                 <Tooltip>
                   <TooltipTrigger>
                     <EstimatedValueDisplay
@@ -661,15 +762,21 @@ export default function Reports() {
                     />
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Mean power over {reportData.summary.totalReadings} readings</p>
+                    <p>
+                      Mean power over {reportData.summary.totalReadings}{" "}
+                      readings
+                    </p>
                   </TooltipContent>
                 </Tooltip>
                 <p className="text-xs text-muted-foreground mt-1">
                   over selected range
                 </p>
               </NILMPanel>
-              
-              <NILMPanel title="Appliances Detected" icon={<Cpu className="h-4 w-4" />}>
+
+              <NILMPanel
+                title="Appliances Detected"
+                icon={<Cpu className="h-4 w-4" />}
+              >
                 <Tooltip>
                   <TooltipTrigger>
                     <div className="flex items-baseline gap-1">
@@ -680,7 +787,10 @@ export default function Reports() {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Appliances with at least one ON reading (≥{ON_THRESHOLD} kW)</p>
+                    <p>
+                      Appliances with at least one ON reading (≥{ON_THRESHOLD}{" "}
+                      kW)
+                    </p>
                   </TooltipContent>
                 </Tooltip>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -694,24 +804,33 @@ export default function Reports() {
               title={
                 <span className="flex items-center gap-2">
                   Appliance Breakdown
-                  {reportData.scope === 'single' && (
-                    <Badge variant="outline" className="text-xs bg-accent/10 text-accent border-accent/30">
-                      {reportData.appliance.replace(/_/g, ' ')} only
+                  {reportData.scope === "single" && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-accent/10 text-accent border-accent/30"
+                    >
+                      {reportData.appliance.replace(/_/g, " ")} only
                     </Badge>
                   )}
                 </span>
               }
               icon={<Cpu className="h-5 w-5" />}
-              footer={`Energy percentages sum to 100% of ${reportData.scope === 'single' ? 'selected appliance' : 'total aggregate'}`}
+              footer={`Energy percentages sum to 100% of ${reportData.scope === "single" ? "selected appliance" : "total aggregate"}`}
             >
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-card z-10">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="font-semibold">Appliance</TableHead>
-                      <TableHead className="text-right font-semibold">Energy (kWh)</TableHead>
-                      <TableHead className="text-right font-semibold">% of Total</TableHead>
-                      <TableHead className="text-right font-semibold">Hours On</TableHead>
+                      <TableHead className="text-right font-semibold">
+                        Energy (kWh)
+                      </TableHead>
+                      <TableHead className="text-right font-semibold">
+                        % of Total
+                      </TableHead>
+                      <TableHead className="text-right font-semibold">
+                        Hours On
+                      </TableHead>
                       <TableHead className="font-semibold">
                         <Tooltip>
                           <TooltipTrigger className="flex items-center gap-1">
@@ -719,8 +838,14 @@ export default function Reports() {
                             <Info className="h-3 w-3 text-muted-foreground" />
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p className="font-medium mb-1">Model Confidence (demo)</p>
-                            <p className="text-xs">Heuristic based on estimated power. Higher power readings correlate with higher detection confidence.</p>
+                            <p className="font-medium mb-1">
+                              Model Confidence (demo)
+                            </p>
+                            <p className="text-xs">
+                              Heuristic based on estimated power. Higher power
+                              readings correlate with higher detection
+                              confidence.
+                            </p>
                           </TooltipContent>
                         </Tooltip>
                       </TableHead>
@@ -729,18 +854,21 @@ export default function Reports() {
                   <TableBody>
                     {reportData.applianceBreakdown.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell
+                          colSpan={5}
+                          className="text-center text-muted-foreground py-8"
+                        >
                           No appliance data for selected filters
                         </TableCell>
                       </TableRow>
                     ) : (
                       reportData.applianceBreakdown.map((appliance, idx) => (
-                        <TableRow 
-                          key={appliance.name} 
-                          className={idx % 2 === 1 ? 'bg-muted/20' : ''}
+                        <TableRow
+                          key={appliance.name}
+                          className={idx % 2 === 1 ? "bg-muted/20" : ""}
                         >
                           <TableCell className="font-medium text-foreground">
-                            {appliance.name.replace(/_/g, ' ')}
+                            {appliance.name.replace(/_/g, " ")}
                           </TableCell>
                           <TableCell className="text-right font-mono text-foreground">
                             {appliance.totalKwh.toFixed(2)}
@@ -748,9 +876,11 @@ export default function Reports() {
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
                               <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-                                <div 
+                                <div
                                   className="h-full bg-primary rounded-full transition-all"
-                                  style={{ width: `${Math.min(appliance.percentOfTotal, 100)}%` }}
+                                  style={{
+                                    width: `${Math.min(appliance.percentOfTotal, 100)}%`,
+                                  }}
                                 />
                               </div>
                               <span className="font-mono text-sm text-muted-foreground w-12 text-right">
@@ -762,9 +892,9 @@ export default function Reports() {
                             {appliance.hoursOn.toFixed(1)}h
                           </TableCell>
                           <TableCell>
-                            <ConfidenceIndicator 
-                              confidence={appliance.avgConfidence} 
-                              showLabel 
+                            <ConfidenceIndicator
+                              confidence={appliance.avgConfidence}
+                              showLabel
                             />
                           </TableCell>
                         </TableRow>
@@ -779,60 +909,68 @@ export default function Reports() {
             <NILMPanel
               title="Hourly Usage Pattern"
               icon={<Activity className="h-5 w-5" />}
-              footer={`Energy consumption by hour of day (${reportData.scope === 'single' ? reportData.appliance.replace(/_/g, ' ') : 'aggregate'})`}
+              footer={`Energy consumption by hour of day (${reportData.scope === "single" ? reportData.appliance.replace(/_/g, " ") : "aggregate"})`}
             >
               {hasHourlyData ? (
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart 
+                    <BarChart
                       data={reportData.hourlyPattern}
                       margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
                     >
-                      <CartesianGrid 
-                        strokeDasharray="3 3" 
-                        stroke="hsl(var(--border))" 
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(var(--border))"
                         vertical={false}
                       />
-                      <XAxis 
-                        dataKey="hour" 
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      <XAxis
+                        dataKey="hour"
+                        tick={{
+                          fill: "hsl(var(--muted-foreground))",
+                          fontSize: 11,
+                        }}
                         tickFormatter={(h) => `${h}`}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                        tickLine={{ stroke: 'hsl(var(--border))' }}
-                        label={{ 
-                          value: 'Hour of Day', 
-                          position: 'bottom', 
-                          fill: 'hsl(var(--muted-foreground))',
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tickLine={{ stroke: "hsl(var(--border))" }}
+                        label={{
+                          value: "Hour of Day",
+                          position: "bottom",
+                          fill: "hsl(var(--muted-foreground))",
                           fontSize: 12,
-                          offset: 0
+                          offset: 0,
                         }}
                       />
-                      <YAxis 
-                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+                      <YAxis
+                        tick={{
+                          fill: "hsl(var(--muted-foreground))",
+                          fontSize: 11,
+                        }}
                         tickFormatter={(v) => v.toFixed(1)}
-                        axisLine={{ stroke: 'hsl(var(--border))' }}
-                        tickLine={{ stroke: 'hsl(var(--border))' }}
-                        label={{ 
-                          value: 'Energy (kWh)', 
-                          angle: -90, 
-                          position: 'insideLeft',
-                          fill: 'hsl(var(--muted-foreground))',
+                        axisLine={{ stroke: "hsl(var(--border))" }}
+                        tickLine={{ stroke: "hsl(var(--border))" }}
+                        label={{
+                          value: "Energy (kWh)",
+                          angle: -90,
+                          position: "insideLeft",
+                          fill: "hsl(var(--muted-foreground))",
                           fontSize: 12,
-                          style: { textAnchor: 'middle' }
+                          style: { textAnchor: "middle" },
                         }}
                       />
                       <RechartsTooltip content={<ChartTooltip />} />
-                      <Bar 
-                        dataKey="energyKwh" 
+                      <Bar
+                        dataKey="energyKwh"
                         radius={[4, 4, 0, 0]}
                         maxBarSize={40}
                       >
                         {reportData.hourlyPattern.map((entry, index) => (
-                          <Cell 
+                          <Cell
                             key={`cell-${index}`}
-                            fill={entry.energyKwh > maxEnergy * 0.7 
-                              ? 'hsl(var(--primary))' 
-                              : 'hsl(var(--primary) / 0.6)'}
+                            fill={
+                              entry.energyKwh > maxEnergy * 0.7
+                                ? "hsl(var(--primary))"
+                                : "hsl(var(--primary) / 0.6)"
+                            }
                           />
                         ))}
                       </Bar>
@@ -842,7 +980,9 @@ export default function Reports() {
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-center">
                   <Activity className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                  <p className="text-muted-foreground font-medium">No hourly data available</p>
+                  <p className="text-muted-foreground font-medium">
+                    No hourly data available
+                  </p>
                   <p className="text-sm text-muted-foreground/70 mt-1">
                     Try expanding the date range or selecting different filters
                   </p>
@@ -859,7 +999,10 @@ export default function Reports() {
             title="No Report Generated"
             description="Configure the filters above and click 'Generate Report' to view energy disaggregation data with AI-estimated confidence metrics."
             action={
-              <Button onClick={handleGenerateReport} disabled={loading || isGenerating}>
+              <Button
+                onClick={handleGenerateReport}
+                disabled={loading || isGenerating}
+              >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Generate Report Now
               </Button>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from "react";
 
 interface RateLimitState {
   isLimited: boolean;
@@ -16,7 +16,7 @@ interface RateLimitState {
 export function useRateLimit(
   maxAttempts: number = 3,
   windowMs: number = 60000, // 1 minute
-  cooldownMs: number = 60000 // 1 minute cooldown
+  cooldownMs: number = 60000, // 1 minute cooldown
 ): RateLimitState {
   const [isLimited, setIsLimited] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
@@ -29,8 +29,11 @@ export function useRateLimit(
 
     const interval = setInterval(() => {
       const now = Date.now();
-      const remaining = Math.max(0, Math.ceil((cooldownEndRef.current - now) / 1000));
-      
+      const remaining = Math.max(
+        0,
+        Math.ceil((cooldownEndRef.current - now) / 1000),
+      );
+
       if (remaining === 0) {
         setIsLimited(false);
         setRemainingTime(0);
@@ -53,7 +56,7 @@ export function useRateLimit(
 
     // Clean old attempts outside the window
     attemptsRef.current = attemptsRef.current.filter(
-      (timestamp) => now - timestamp < windowMs
+      (timestamp) => now - timestamp < windowMs,
     );
 
     // Check if we've exceeded the limit

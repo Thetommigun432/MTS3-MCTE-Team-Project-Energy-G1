@@ -1,5 +1,8 @@
-import { Link } from 'react-router-dom';
-import { WaveformIcon, WaveformDecoration } from '@/components/brand/WaveformIcon';
+import { Link } from "react-router-dom";
+import {
+  WaveformIcon,
+  WaveformDecoration,
+} from "@/components/brand/WaveformIcon";
 
 export function PublicFooter() {
   return (
@@ -16,10 +19,13 @@ export function PublicFooter() {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary transition-transform group-hover:scale-105">
                 <WaveformIcon className="h-5 w-5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-foreground">Energy Monitor</span>
+              <span className="font-semibold text-foreground">
+                Energy Monitor
+              </span>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              AI-powered NILM technology for real-time appliance-level energy insights from a single meter.
+              AI-powered NILM technology for real-time appliance-level energy
+              insights from a single meter.
             </p>
           </div>
 
@@ -27,17 +33,26 @@ export function PublicFooter() {
             <h4 className="font-semibold text-foreground mb-4">Product</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/about"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   About NILM
                 </Link>
               </li>
               <li>
-                <Link to="/docs" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/docs"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Documentation
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/contact"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Contact Us
                 </Link>
               </li>
@@ -48,12 +63,18 @@ export function PublicFooter() {
             <h4 className="font-semibold text-foreground mb-4">Support</h4>
             <ul className="space-y-2.5 text-sm">
               <li>
-                <Link to="/docs" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/docs"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Help Center
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">
+                <Link
+                  to="/contact"
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                >
                   Get in Touch
                 </Link>
               </li>
@@ -62,7 +83,9 @@ export function PublicFooter() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Energy Monitor. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()} Energy Monitor. All rights reserved.
+          </p>
           <p className="flex items-center gap-1.5">
             <span>Powered by</span>
             <span className="font-medium text-primary">NILM AI</span>

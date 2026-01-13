@@ -1,6 +1,6 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 /**
  * AdminRoute component - Guards routes that require admin privileges
@@ -31,7 +31,7 @@ export function AdminRoute({ children }: { children: React.ReactNode }) {
 
   // Redirect to dashboard if authenticated but not an admin
   // IMPORTANT: Backend must also validate this on every API call
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== "admin") {
     return <Navigate to="/app/dashboard" replace />;
   }
 

@@ -1,112 +1,171 @@
-# Welcome to your Lovable project
+# NILM Energy Monitor - Frontend
 
-## Project info
+React/TypeScript dashboard for Non-Intrusive Load Monitoring (NILM) energy disaggregation.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Appliance Detection**: See which appliances are currently ON based on total building consumption
+- **Energy Disaggregation**: View predicted kW breakdown across ~15 appliances
+- **Data Modes**:
+  - **Demo Mode**: Uses bundled CSV training data for testing
+  - **API Mode**: Live predictions from Supabase backend
+  - **Local Mode**: Predictions from local InfluxDB (for development)
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **Vite** - Build tool and dev server
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **shadcn/ui** - Component library (Radix + Tailwind)
+- **Recharts** - Data visualization
+- **Supabase** - Auth and database (production)
+- **InfluxDB** - Time-series storage (local dev)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Quick Start
 
-**Use your preferred IDE**
+### Prerequisites
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Node.js 18+ with npm
+- Docker (for local InfluxDB mode)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Installation
 
-Follow these steps:
+```bash
+cd frontend
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Environment Setup
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Copy `.env.example` to `.env` and configure:
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+cp .env.example .env
+```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+**Required variables for production:**
+
+```env
+VITE_SUPABASE_PROJECT_ID="your-project-id"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key"
+VITE_SUPABASE_URL="https://your-project.supabase.co"
+```
+
+**For local development with InfluxDB:**
+
+```env
+VITE_LOCAL_MODE="true"
+VITE_LOCAL_API_URL="http://localhost:3001"
+```
+
+---
+
+## Development
+
+### Standard Dev (Demo/API Mode)
+
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Opens at http://localhost:8080
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Local InfluxDB Mode
 
-**Use GitHub Codespaces**
+```bash
+# 1. Start InfluxDB (from repo root)
+docker compose up -d
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# 2. Seed predictions
+npm run predictions:seed
 
-## What technologies are used for this project?
+# 3. Start frontend + local API together
+npm run local:dev
+```
 
-This project is built with:
+Access:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **Dashboard**: http://localhost:8080
+- **InfluxDB UI**: http://localhost:8086 (admin / admin12345)
+
+### Verify Local Data
+
+```bash
+npm run predictions:verify
+```
+
+---
+
+## Available Scripts
+
+| Script                       | Description                       |
+| ---------------------------- | --------------------------------- |
+| `npm run dev`                | Start Vite dev server             |
+| `npm run build`              | Production build                  |
+| `npm run preview`            | Preview production build          |
+| `npm run lint`               | ESLint check                      |
+| `npm run typecheck`          | TypeScript type check             |
+| `npm run format`             | Format with Prettier              |
+| `npm run format:check`       | Check formatting                  |
+| `npm run local:dev`          | Start frontend + local API server |
+| `npm run local:server`       | Start local API server only       |
+| `npm run predictions:seed`   | Seed InfluxDB with predictions    |
+| `npm run predictions:verify` | Verify InfluxDB data              |
+
+---
+
+## Project Structure
+
+```
+src/
+├── components/         # UI components
+│   ├── ui/            # shadcn/ui primitives
+│   ├── nilm/          # NILM-specific components
+│   ├── layout/        # Navigation, sidebar
+│   └── brand/         # Logo, illustrations
+├── contexts/          # React contexts (Auth, Energy, Theme)
+├── hooks/             # Custom hooks
+├── pages/             # Route pages
+│   ├── app/           # Protected app pages
+│   └── auth/          # Auth flow pages
+├── services/          # API service layer
+├── types/             # TypeScript types
+└── lib/               # Utilities
+```
+
+---
 
 ## Demo Mode
 
-This project includes a demo mode for presentations and testing. When enabled, it shows demo credentials on the login page and allows quick login as a demo admin user.
+For presentations, enable demo mode:
 
-### Enabling Demo Mode
+```env
+VITE_DEMO_MODE="true"
+```
 
-1. Set the environment variable in your `.env` file:
-   ```
-   VITE_DEMO_MODE="true"
-   ```
+Demo credentials:
 
-2. Set the Supabase Edge Function secret (in Supabase Dashboard > Edge Functions > Secrets):
-   ```
-   DEMO_MODE_ENABLED=true
-   ```
+- **Email**: admin@demo.local
+- **Password**: admin123
 
-### Demo Credentials
+---
 
-When demo mode is enabled:
-- **Username:** `admin`
-- **Password:** `admin123`
-- **Email:** `admin@demo.local`
+## Building for Production
 
-You can either:
-- Click the "Log in as demo admin" button on the login page
-- Type `admin` in the email field (it will auto-map to `admin@demo.local`)
-- Use the full email `admin@demo.local` with password `admin123`
+```bash
+npm run build
+```
 
-### Disabling Demo Mode
+Output is in `dist/`. Deploy to any static host (Azure Static Web Apps, Vercel, Netlify).
 
-For production deployments, ensure demo mode is disabled:
-- Remove or set `VITE_DEMO_MODE="false"` in your environment
-- Remove or set `DEMO_MODE_ENABLED=false` in Supabase Edge Function secrets
+For Azure Static Web Apps, see [DEPLOYMENT_STEPS.md](./DEPLOYMENT_STEPS.md).
 
-This ensures:
-- Demo credentials UI is hidden
-- Username shortcuts are disabled
-- The `ensure-demo-user` edge function will reject requests
+---
 
-## How can I deploy this project?
+## Documentation
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- [Local Development Guide](../docs/LOCAL_DEVELOPMENT.md) - Full local setup with InfluxDB
+- [Security Notes](./docs/SECURITY.md) - Auth and API security
+- [Supabase Setup](../docs/SUPABASE_SETUP.md) - Backend configuration

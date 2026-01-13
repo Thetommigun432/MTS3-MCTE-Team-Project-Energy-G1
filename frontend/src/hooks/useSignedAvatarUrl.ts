@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Hook to generate and manage signed URLs for private avatar storage
  * Signed URLs expire after 1 hour and are automatically refreshed
  */
-export function useSignedAvatarUrl(avatarPath: string | null | undefined): string | null {
+export function useSignedAvatarUrl(
+  avatarPath: string | null | undefined,
+): string | null {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -17,8 +19,13 @@ export function useSignedAvatarUrl(avatarPath: string | null | undefined): strin
     // Extract the file path from the full URL if it's a public URL
     // Format: https://...supabase.co/storage/v1/object/public/avatars/userId/timestamp.ext
     let filePath = avatarPath;
-    
-    if (avatarPath.includes('/storage/v1/object/')) {
+
+    // Normalize legacy values that were stored with bucket prefix
+    if (filePath.startsWith("avatars/")) {
+      filePath = filePath.replace(/^avatars\//, "");
+    }
+
+    if (avatarPath.includes("/storage/v1/object/")) {
       const match = avatarPath.match(/\/avatars\/(.+)$/);
       if (match) {
         filePath = match[1];
@@ -28,18 +35,18 @@ export function useSignedAvatarUrl(avatarPath: string | null | undefined): strin
     const getSignedUrl = async () => {
       try {
         const { data, error } = await supabase.storage
-          .from('avatars')
+          .from("avatars")
           .createSignedUrl(filePath, 3600); // 1 hour expiry
 
         if (error) {
-          console.error('Failed to get signed URL:', error);
+          console.error("Failed to get signed URL:", error);
           setSignedUrl(null);
           return;
         }
 
         setSignedUrl(data.signedUrl);
       } catch (err) {
-        console.error('Error getting signed avatar URL:', err);
+        console.error("Error getting signed avatar URL:", err);
         setSignedUrl(null);
       }
     };

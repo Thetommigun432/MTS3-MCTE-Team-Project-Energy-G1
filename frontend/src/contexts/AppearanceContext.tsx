@@ -1,4 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
 
 interface AppearanceSettings {
   highContrast: boolean;
@@ -13,9 +19,11 @@ interface AppearanceContextType {
   setShowAnimations: (enabled: boolean) => void;
 }
 
-const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined);
+const AppearanceContext = createContext<AppearanceContextType | undefined>(
+  undefined,
+);
 
-const STORAGE_KEY = 'nilm-appearance';
+const STORAGE_KEY = "nilm-appearance";
 
 const defaultSettings: AppearanceSettings = {
   highContrast: false,
@@ -25,7 +33,7 @@ const defaultSettings: AppearanceSettings = {
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppearanceSettings>(() => {
-    if (typeof window === 'undefined') return defaultSettings;
+    if (typeof window === "undefined") return defaultSettings;
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -41,9 +49,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     if (settings.highContrast) {
-      root.classList.add('high-contrast');
+      root.classList.add("high-contrast");
     } else {
-      root.classList.remove('high-contrast');
+      root.classList.remove("high-contrast");
     }
   }, [settings.highContrast]);
 
@@ -51,9 +59,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     if (settings.compactMode) {
-      root.classList.add('compact-mode');
+      root.classList.add("compact-mode");
     } else {
-      root.classList.remove('compact-mode');
+      root.classList.remove("compact-mode");
     }
   }, [settings.compactMode]);
 
@@ -61,9 +69,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     if (!settings.showAnimations) {
-      root.classList.add('reduce-motion');
+      root.classList.add("reduce-motion");
     } else {
-      root.classList.remove('reduce-motion');
+      root.classList.remove("reduce-motion");
     }
   }, [settings.showAnimations]);
 
@@ -73,24 +81,26 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   }, [settings]);
 
   const setHighContrast = (enabled: boolean) => {
-    setSettings(prev => ({ ...prev, highContrast: enabled }));
+    setSettings((prev) => ({ ...prev, highContrast: enabled }));
   };
 
   const setCompactMode = (enabled: boolean) => {
-    setSettings(prev => ({ ...prev, compactMode: enabled }));
+    setSettings((prev) => ({ ...prev, compactMode: enabled }));
   };
 
   const setShowAnimations = (enabled: boolean) => {
-    setSettings(prev => ({ ...prev, showAnimations: enabled }));
+    setSettings((prev) => ({ ...prev, showAnimations: enabled }));
   };
 
   return (
-    <AppearanceContext.Provider value={{
-      settings,
-      setHighContrast,
-      setCompactMode,
-      setShowAnimations,
-    }}>
+    <AppearanceContext.Provider
+      value={{
+        settings,
+        setHighContrast,
+        setCompactMode,
+        setShowAnimations,
+      }}
+    >
       {children}
     </AppearanceContext.Provider>
   );
@@ -99,7 +109,7 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 export function useAppearance() {
   const context = useContext(AppearanceContext);
   if (!context) {
-    throw new Error('useAppearance must be used within AppearanceProvider');
+    throw new Error("useAppearance must be used within AppearanceProvider");
   }
   return context;
 }

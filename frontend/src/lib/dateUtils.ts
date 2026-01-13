@@ -7,7 +7,7 @@
  * Avoids UTC parsing which can shift dates
  */
 export function parseLocalDate(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
@@ -15,7 +15,7 @@ export function parseLocalDate(dateStr: string): Date {
  * Parse a YYYY-MM-DD string to end of that day (23:59:59.999)
  */
 export function parseLocalDateEnd(dateStr: string): Date {
-  const [year, month, day] = dateStr.split('-').map(Number);
+  const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day, 23, 59, 59, 999);
 }
 
@@ -42,7 +42,7 @@ export function endOfDayLocal(date: Date): Date {
  */
 export function formatDateForInput(date: Date): string {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }

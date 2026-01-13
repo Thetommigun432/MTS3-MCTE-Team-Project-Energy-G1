@@ -16,7 +16,7 @@ export interface DateRange {
   end: Date;
 }
 
-export type DataMode = 'demo' | 'api' | 'local';
+export type DataMode = "demo" | "api" | "local";
 
 export interface ApplianceStatus {
   name: string;
@@ -32,5 +32,5 @@ export interface InsightData {
   peakLoad: { kW: number; timestamp: string };
   totalEnergy: number;
   topAppliance: { name: string; confidence: number };
-  overallConfidence: { level: 'Good' | 'Medium' | 'Low'; percentage: number };
+  overallConfidence: { level: "Good" | "Medium" | "Low"; percentage: number };
 }

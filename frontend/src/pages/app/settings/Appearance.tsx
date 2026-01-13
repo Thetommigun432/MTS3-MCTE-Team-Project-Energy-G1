@@ -1,20 +1,36 @@
-import { NILMPanel } from '@/components/nilm/NILMPanel';
-import { Palette, Sun, Moon, Monitor, Eye } from 'lucide-react';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useAppearance } from '@/contexts/AppearanceContext';
-import { cn } from '@/lib/utils';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { NILMPanel } from "@/components/nilm/NILMPanel";
+import { Palette, Sun, Moon, Monitor, Eye } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useAppearance } from "@/contexts/AppearanceContext";
+import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const themeOptions = [
-  { value: 'light', label: 'Light', icon: Sun, description: 'Bright interface for daytime use' },
-  { value: 'dark', label: 'Dark', icon: Moon, description: 'Easy on the eyes in low light' },
-  { value: 'system', label: 'System', icon: Monitor, description: 'Follows your device settings' },
+  {
+    value: "light",
+    label: "Light",
+    icon: Sun,
+    description: "Bright interface for daytime use",
+  },
+  {
+    value: "dark",
+    label: "Dark",
+    icon: Moon,
+    description: "Easy on the eyes in low light",
+  },
+  {
+    value: "system",
+    label: "System",
+    icon: Monitor,
+    description: "Follows your device settings",
+  },
 ] as const;
 
 export default function Appearance() {
   const { theme, setTheme } = useTheme();
-  const { settings, setHighContrast, setCompactMode, setShowAnimations } = useAppearance();
+  const { settings, setHighContrast, setCompactMode, setShowAnimations } =
+    useAppearance();
 
   return (
     <div className="space-y-6">
@@ -31,23 +47,29 @@ export default function Appearance() {
                 key={option.value}
                 onClick={() => setTheme(option.value)}
                 className={cn(
-                  'flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all text-left',
+                  "flex flex-col items-center gap-3 p-4 rounded-lg border-2 transition-all text-left",
                   isActive
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent bg-muted/30 hover:bg-muted/50'
+                    ? "border-primary bg-primary/5"
+                    : "border-transparent bg-muted/30 hover:bg-muted/50",
                 )}
               >
-                <div className={cn(
-                  'p-3 rounded-full',
-                  isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                )}>
+                <div
+                  className={cn(
+                    "p-3 rounded-full",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
                   <option.icon className="h-5 w-5" />
                 </div>
                 <div className="text-center">
-                  <p className={cn(
-                    'font-medium text-sm',
-                    isActive ? 'text-primary' : 'text-foreground'
-                  )}>
+                  <p
+                    className={cn(
+                      "font-medium text-sm",
+                      isActive ? "text-primary" : "text-foreground",
+                    )}
+                  >
                     {option.label}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -60,7 +82,7 @@ export default function Appearance() {
         </div>
       </NILMPanel>
 
-      <NILMPanel 
+      <NILMPanel
         title="Accessibility"
         icon={<Eye className="h-5 w-5" />}
         footer="Adjust visual settings for better accessibility"
@@ -68,12 +90,14 @@ export default function Appearance() {
         <div className="space-y-4">
           <div className="flex items-center justify-between py-2">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium text-foreground">High Contrast</Label>
+              <Label className="text-sm font-medium text-foreground">
+                High Contrast
+              </Label>
               <p className="text-sm text-muted-foreground">
                 Increase contrast for better visibility (WCAG-friendly)
               </p>
             </div>
-            <Switch 
+            <Switch
               checked={settings.highContrast}
               onCheckedChange={setHighContrast}
             />
@@ -81,24 +105,35 @@ export default function Appearance() {
         </div>
       </NILMPanel>
 
-      <NILMPanel title="Display Options" footer="Customize the interface layout and behavior">
+      <NILMPanel
+        title="Display Options"
+        footer="Customize the interface layout and behavior"
+      >
         <div className="space-y-4">
           <div className="flex items-center justify-between py-2">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium text-foreground">Compact Mode</Label>
-              <p className="text-sm text-muted-foreground">Reduce spacing for more data density</p>
+              <Label className="text-sm font-medium text-foreground">
+                Compact Mode
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Reduce spacing for more data density
+              </p>
             </div>
-            <Switch 
+            <Switch
               checked={settings.compactMode}
               onCheckedChange={setCompactMode}
             />
           </div>
           <div className="flex items-center justify-between py-2">
             <div className="space-y-0.5">
-              <Label className="text-sm font-medium text-foreground">Show Animations</Label>
-              <p className="text-sm text-muted-foreground">Enable chart and UI animations</p>
+              <Label className="text-sm font-medium text-foreground">
+                Show Animations
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Enable chart and UI animations
+              </p>
             </div>
-            <Switch 
+            <Switch
               checked={settings.showAnimations}
               onCheckedChange={setShowAnimations}
             />

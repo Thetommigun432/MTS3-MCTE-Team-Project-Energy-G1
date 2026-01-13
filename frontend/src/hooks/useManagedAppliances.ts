@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ManagedAppliance {
   id: string;
@@ -42,8 +42,9 @@ export function useManagedAppliances(): ManagedAppliancesData {
 
       // Fetch appliances with their building names
       const { data, error: fetchError } = await supabase
-        .from('appliances')
-        .select(`
+        .from("appliances")
+        .select(
+          `
           id,
           building_id,
           name,
@@ -52,9 +53,10 @@ export function useManagedAppliances(): ManagedAppliancesData {
           status,
           notes,
           buildings!inner(name)
-        `)
-        .eq('status', 'active')
-        .order('name');
+        `,
+        )
+        .eq("status", "active")
+        .order("name");
 
       if (fetchError) throw fetchError;
 
@@ -62,7 +64,7 @@ export function useManagedAppliances(): ManagedAppliancesData {
       const transformed: ManagedAppliance[] = (data || []).map((item) => ({
         id: item.id,
         building_id: item.building_id,
-        building_name: item.buildings?.name || 'Unknown Building',
+        building_name: item.buildings?.name || "Unknown Building",
         name: item.name,
         type: item.type,
         rated_power_kw: item.rated_power_kw,
@@ -72,8 +74,10 @@ export function useManagedAppliances(): ManagedAppliancesData {
 
       setAppliances(transformed);
     } catch (err) {
-      console.error('Error fetching managed appliances:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load appliances');
+      console.error("Error fetching managed appliances:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to load appliances",
+      );
     } finally {
       setLoading(false);
     }
@@ -94,7 +98,9 @@ export function useManagedAppliances(): ManagedAppliancesData {
 /**
  * Get a mapping of appliance names to their rated power
  */
-export function getAppliancePowerMap(appliances: ManagedAppliance[]): Record<string, number | null> {
+export function getAppliancePowerMap(
+  appliances: ManagedAppliance[],
+): Record<string, number | null> {
   const map: Record<string, number | null> = {};
   appliances.forEach((a) => {
     map[a.name] = a.rated_power_kw;

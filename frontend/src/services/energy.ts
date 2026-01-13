@@ -3,7 +3,7 @@
  * Typed interface for energy data endpoints.
  */
 
-import { api, isApiConfigured } from './api';
+import { api, isApiConfigured } from "./api";
 
 export interface EnergyReading {
   timestamp: string;
@@ -11,11 +11,11 @@ export interface EnergyReading {
   appliance: string;
   power_kw: number;
   energy_kwh: number;
-  status: 'on' | 'off';
+  status: "on" | "off";
 }
 
 export interface EnergyInsight {
-  type: 'consumption' | 'anomaly' | 'saving';
+  type: "consumption" | "anomaly" | "saving";
   title: string;
   description: string;
   value?: number;
@@ -37,12 +37,12 @@ export interface ReportRequest {
   appliance?: string;
   startDate: string;
   endDate: string;
-  format?: 'json' | 'pdf' | 'csv';
+  format?: "json" | "pdf" | "csv";
 }
 
 export interface ReportResponse {
   id: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: "pending" | "completed" | "failed";
   downloadUrl?: string;
   data?: {
     totalConsumption: number;
@@ -65,7 +65,7 @@ export const energyApi = {
     startDate?: string;
     endDate?: string;
     limit?: number;
-  }) => api.get<EnergyDataResponse>('/api/energy/readings', { params }),
+  }) => api.get<EnergyDataResponse>("/api/energy/readings", { params }),
 
   /**
    * Fetch insights for the dashboard
@@ -74,13 +74,13 @@ export const energyApi = {
     building?: string;
     startDate?: string;
     endDate?: string;
-  }) => api.get<EnergyInsight[]>('/api/energy/insights', { params }),
+  }) => api.get<EnergyInsight[]>("/api/energy/insights", { params }),
 
   /**
    * Generate a report
    */
   generateReport: (request: ReportRequest) =>
-    api.post<ReportResponse>('/api/energy/reports', request),
+    api.post<ReportResponse>("/api/energy/reports", request),
 
   /**
    * Get report status and download URL
@@ -91,13 +91,13 @@ export const energyApi = {
   /**
    * Get available buildings
    */
-  getBuildings: () => api.get<string[]>('/api/energy/buildings'),
+  getBuildings: () => api.get<string[]>("/api/energy/buildings"),
 
   /**
    * Get available appliances for a building
    */
   getAppliances: (building?: string) =>
-    api.get<string[]>('/api/energy/appliances', {
+    api.get<string[]>("/api/energy/appliances", {
       params: building ? { building } : undefined,
     }),
 };

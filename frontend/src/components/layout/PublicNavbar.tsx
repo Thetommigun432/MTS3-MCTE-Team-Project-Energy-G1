@@ -1,16 +1,16 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { WaveformIcon } from '@/components/brand/WaveformIcon';
-import { ThemeToggleCompact } from '@/components/theme/ThemeToggle';
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { WaveformIcon } from "@/components/brand/WaveformIcon";
+import { ThemeToggleCompact } from "@/components/theme/ThemeToggle";
 
 const navLinks = [
-  { label: 'Home', path: '/' },
-  { label: 'About', path: '/about' },
-  { label: 'Docs', path: '/docs' },
-  { label: 'Contact', path: '/contact' },
+  { label: "Home", path: "/" },
+  { label: "About", path: "/about" },
+  { label: "Docs", path: "/docs" },
+  { label: "Contact", path: "/contact" },
 ];
 
 export function PublicNavbar() {
@@ -24,7 +24,9 @@ export function PublicNavbar() {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary transition-transform group-hover:scale-105">
             <WaveformIcon className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-lg text-foreground">Energy Monitor</span>
+          <span className="font-semibold text-lg text-foreground">
+            Energy Monitor
+          </span>
         </Link>
 
         {/* Desktop Nav */}
@@ -37,7 +39,7 @@ export function PublicNavbar() {
                 "px-3 py-2 rounded-md text-sm font-medium transition-colors",
                 location.pathname === link.path
                   ? "text-primary bg-primary/5"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
               )}
             >
               {link.label}
@@ -47,14 +49,18 @@ export function PublicNavbar() {
 
         <div className="flex items-center gap-2">
           <ThemeToggleCompact />
-          
+
           <Link
             to="/login"
             className="hidden sm:inline-flex text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
           >
             Log in
           </Link>
-          <Button asChild size="sm" className="hidden sm:inline-flex bg-primary hover:bg-primary/90">
+          <Button
+            asChild
+            size="sm"
+            className="hidden sm:inline-flex bg-primary hover:bg-primary/90"
+          >
             <Link to="/signup">Get Started</Link>
           </Button>
 
@@ -66,7 +72,11 @@ export function PublicNavbar() {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
         </div>
       </div>
@@ -84,7 +94,7 @@ export function PublicNavbar() {
                   "block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   location.pathname === link.path
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 {link.label}

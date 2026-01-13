@@ -1,16 +1,16 @@
-import { Moon, Sun } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { useTheme } from '@/contexts/ThemeContext';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 export function ThemeToggle() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -22,16 +22,16 @@ export function ThemeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="bg-popover border-border">
-        <DropdownMenuItem 
-          onClick={() => setTheme('light')}
-          className={cn(theme === 'light' && 'bg-muted')}
+        <DropdownMenuItem
+          onClick={() => setTheme("light")}
+          className={cn(theme === "light" && "bg-muted")}
         >
           <Sun className="mr-2 h-4 w-4" />
           Light
         </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={() => setTheme('dark')}
-          className={cn(theme === 'dark' && 'bg-muted')}
+        <DropdownMenuItem
+          onClick={() => setTheme("dark")}
+          className={cn(theme === "dark" && "bg-muted")}
         >
           <Moon className="mr-2 h-4 w-4" />
           Dark
@@ -48,18 +48,18 @@ export function ThemeToggleCompact() {
   const { resolvedTheme, setTheme, theme } = useTheme();
 
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    setTheme(theme === "light" ? "dark" : "light");
   };
 
   return (
-    <Button 
-      variant="ghost" 
-      size="icon" 
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={toggleTheme}
       className="h-8 w-8 text-muted-foreground hover:text-foreground"
       title={`Current: ${theme}`}
     >
-      {resolvedTheme === 'dark' ? (
+      {resolvedTheme === "dark" ? (
         <Moon className="h-4 w-4" />
       ) : (
         <Sun className="h-4 w-4" />

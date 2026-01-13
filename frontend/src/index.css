@@ -8,7 +8,7 @@
   :root {
     /* NILM Dark-First Design System: Gruvbox-Inspired Industrial Energy Palette */
     /* Dark mode is default - these are dark theme values */
-    
+
     /* Background & Surfaces - Warm dark neutrals */
     --background: 20 10% 12%; /* #1d2021 */
     --foreground: 43 38% 87%; /* #ebdbb2 */
@@ -84,7 +84,7 @@
     --state-on: 27 99% 55%; /* primary amber */
     --state-off: 20 7% 35%;
     --teal-highlight: 27 99% 55%;
-    
+
     /* Prediction/AI accent glow */
     --prediction-glow: 330 35% 54%;
   }
@@ -167,23 +167,23 @@
   /* Increase text contrast */
   --foreground: 0 0% 100%;
   --muted-foreground: 0 0% 85%;
-  
+
   /* Stronger borders */
   --border: 0 0% 50%;
   --input: 0 0% 50%;
-  
+
   /* More visible primary */
   --primary: 27 100% 60%;
-  
+
   /* Higher contrast backgrounds */
   --card: 0 0% 8%;
   --popover: 0 0% 5%;
-  
+
   /* Energy semantics - higher contrast */
   --energy-success: 120 80% 50%;
   --energy-warning: 45 100% 55%;
   --energy-error: 0 90% 55%;
-  
+
   /* Confidence colors - brighter */
   --confidence-high: 120 80% 50%;
   --confidence-medium: 45 100% 55%;
@@ -242,7 +242,11 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family:
+      "Inter",
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 
   /* Numeric/metric font styling - tabular nums for alignment */
@@ -253,10 +257,10 @@
 
   /* Mono for timestamps/IDs */
   .mono {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
     @apply text-sm;
   }
-  
+
   /* Focus rings for accessibility */
   :focus-visible {
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
@@ -303,13 +307,17 @@
   .prediction-indicator {
     @apply relative;
   }
-  
+
   .prediction-indicator::after {
-    content: '';
+    content: "";
     @apply absolute -inset-0.5 rounded-lg opacity-0 transition-opacity;
-    background: linear-gradient(135deg, hsl(var(--prediction-glow) / 0.2), transparent);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--prediction-glow) / 0.2),
+      transparent
+    );
   }
-  
+
   .prediction-indicator:hover::after {
     @apply opacity-100;
   }
@@ -323,9 +331,11 @@
   .pulse-live {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
-  
+
   /* Dark-native form inputs */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     @apply bg-popover text-foreground placeholder:text-muted-foreground;
   }
 }
@@ -342,7 +352,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

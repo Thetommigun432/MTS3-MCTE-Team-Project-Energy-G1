@@ -1,10 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useState, useEffect, useCallback } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -13,14 +19,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -28,17 +34,25 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
+} from "@/components/ui/table";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { Plus, Building2, MapPin, Pencil, Trash2, Zap, ChevronDown, ChevronRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+} from "@/components/ui/collapsible";
+import {
+  Plus,
+  Building2,
+  MapPin,
+  Pencil,
+  Trash2,
+  Zap,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Building {
   id: string;
@@ -64,15 +78,15 @@ interface Appliance {
 }
 
 const APPLIANCE_TYPES = [
-  { value: 'hvac', label: 'HVAC' },
-  { value: 'lighting', label: 'Lighting' },
-  { value: 'refrigeration', label: 'Refrigeration' },
-  { value: 'computing', label: 'Computing' },
-  { value: 'kitchen', label: 'Kitchen' },
-  { value: 'laundry', label: 'Laundry' },
-  { value: 'water_heater', label: 'Water Heater' },
-  { value: 'ev_charger', label: 'EV Charger' },
-  { value: 'other', label: 'Other' },
+  { value: "hvac", label: "HVAC" },
+  { value: "lighting", label: "Lighting" },
+  { value: "refrigeration", label: "Refrigeration" },
+  { value: "computing", label: "Computing" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "laundry", label: "Laundry" },
+  { value: "water_heater", label: "Water Heater" },
+  { value: "ev_charger", label: "EV Charger" },
+  { value: "other", label: "Other" },
 ];
 
 export default function Buildings() {
@@ -80,49 +94,55 @@ export default function Buildings() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [appliances, setAppliances] = useState<Record<string, Appliance[]>>({});
   const [loading, setLoading] = useState(true);
-  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(new Set());
-  
+  const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(
+    new Set(),
+  );
+
   // Building dialogs
   const [isAddBuildingOpen, setIsAddBuildingOpen] = useState(false);
   const [isEditBuildingOpen, setIsEditBuildingOpen] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [buildingForm, setBuildingForm] = useState({
-    name: '',
-    address: '',
-    description: '',
-    status: 'active' as 'active' | 'inactive' | 'maintenance',
+    name: "",
+    address: "",
+    description: "",
+    status: "active" as "active" | "inactive" | "maintenance",
   });
-  
+
   // Appliance dialogs
   const [isAddApplianceOpen, setIsAddApplianceOpen] = useState(false);
   const [isEditApplianceOpen, setIsEditApplianceOpen] = useState(false);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
-  const [editingAppliance, setEditingAppliance] = useState<Appliance | null>(null);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(
+    null,
+  );
+  const [editingAppliance, setEditingAppliance] = useState<Appliance | null>(
+    null,
+  );
   const [applianceForm, setApplianceForm] = useState({
-    name: '',
-    type: 'other',
-    rated_power_kw: '',
-    status: 'active' as 'active' | 'inactive' | 'unknown',
-    notes: '',
+    name: "",
+    type: "other",
+    rated_power_kw: "",
+    status: "active" as "active" | "inactive" | "unknown",
+    notes: "",
   });
-  
+
   const [saving, setSaving] = useState(false);
 
   const fetchBuildings = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('buildings')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("buildings")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setBuildings(data || []);
     } catch (error) {
-      console.error('Error fetching buildings:', error);
-      toast.error('Failed to load buildings');
+      console.error("Error fetching buildings:", error);
+      toast.error("Failed to load buildings");
     } finally {
       setLoading(false);
     }
@@ -131,15 +151,15 @@ export default function Buildings() {
   const fetchAppliances = async (buildingId: string) => {
     try {
       const { data, error } = await supabase
-        .from('appliances')
-        .select('*')
-        .eq('building_id', buildingId)
-        .order('name');
+        .from("appliances")
+        .select("*")
+        .eq("building_id", buildingId)
+        .order("name");
 
       if (error) throw error;
-      setAppliances(prev => ({ ...prev, [buildingId]: data || [] }));
+      setAppliances((prev) => ({ ...prev, [buildingId]: data || [] }));
     } catch (error) {
-      console.error('Error fetching appliances:', error);
+      console.error("Error fetching appliances:", error);
     }
   };
 
@@ -165,28 +185,28 @@ export default function Buildings() {
     const trimmedName = buildingForm.name.trim();
     const trimmedAddress = buildingForm.address.trim();
     const trimmedDescription = buildingForm.description.trim();
-    
+
     // Client-side validation matching database constraints
     if (!user || !trimmedName) {
-      toast.error('Building name is required');
+      toast.error("Building name is required");
       return;
     }
     if (trimmedName.length > 200) {
-      toast.error('Building name must be 200 characters or less');
+      toast.error("Building name must be 200 characters or less");
       return;
     }
     if (trimmedAddress.length > 500) {
-      toast.error('Address must be 500 characters or less');
+      toast.error("Address must be 500 characters or less");
       return;
     }
     if (trimmedDescription.length > 1000) {
-      toast.error('Description must be 1000 characters or less');
+      toast.error("Description must be 1000 characters or less");
       return;
     }
 
     try {
       setSaving(true);
-      const { error } = await supabase.from('buildings').insert({
+      const { error } = await supabase.from("buildings").insert({
         user_id: user.id,
         name: trimmedName,
         address: trimmedAddress || null,
@@ -195,13 +215,13 @@ export default function Buildings() {
       });
 
       if (error) throw error;
-      toast.success('Building added successfully');
+      toast.success("Building added successfully");
       setIsAddBuildingOpen(false);
       resetBuildingForm();
       fetchBuildings();
     } catch (error) {
-      console.error('Error adding building:', error);
-      toast.error('Failed to add building');
+      console.error("Error adding building:", error);
+      toast.error("Failed to add building");
     } finally {
       setSaving(false);
     }
@@ -211,46 +231,46 @@ export default function Buildings() {
     const trimmedName = buildingForm.name.trim();
     const trimmedAddress = buildingForm.address.trim();
     const trimmedDescription = buildingForm.description.trim();
-    
+
     // Client-side validation matching database constraints
     if (!editingBuilding || !trimmedName) {
-      toast.error('Building name is required');
+      toast.error("Building name is required");
       return;
     }
     if (trimmedName.length > 200) {
-      toast.error('Building name must be 200 characters or less');
+      toast.error("Building name must be 200 characters or less");
       return;
     }
     if (trimmedAddress.length > 500) {
-      toast.error('Address must be 500 characters or less');
+      toast.error("Address must be 500 characters or less");
       return;
     }
     if (trimmedDescription.length > 1000) {
-      toast.error('Description must be 1000 characters or less');
+      toast.error("Description must be 1000 characters or less");
       return;
     }
 
     try {
       setSaving(true);
       const { error } = await supabase
-        .from('buildings')
+        .from("buildings")
         .update({
           name: trimmedName,
           address: trimmedAddress || null,
           description: trimmedDescription || null,
           status: buildingForm.status,
         })
-        .eq('id', editingBuilding.id);
+        .eq("id", editingBuilding.id);
 
       if (error) throw error;
-      toast.success('Building updated');
+      toast.success("Building updated");
       setIsEditBuildingOpen(false);
       setEditingBuilding(null);
       resetBuildingForm();
       fetchBuildings();
     } catch (error) {
-      console.error('Error updating building:', error);
-      toast.error('Failed to update building');
+      console.error("Error updating building:", error);
+      toast.error("Failed to update building");
     } finally {
       setSaving(false);
     }
@@ -258,13 +278,13 @@ export default function Buildings() {
 
   const handleDeleteBuilding = async (id: string) => {
     try {
-      const { error } = await supabase.from('buildings').delete().eq('id', id);
+      const { error } = await supabase.from("buildings").delete().eq("id", id);
       if (error) throw error;
-      toast.success('Building deleted');
+      toast.success("Building deleted");
       fetchBuildings();
     } catch (error) {
-      console.error('Error deleting building:', error);
-      toast.error('Failed to delete building');
+      console.error("Error deleting building:", error);
+      toast.error("Failed to delete building");
     }
   };
 
@@ -272,44 +292,51 @@ export default function Buildings() {
     setEditingBuilding(building);
     setBuildingForm({
       name: building.name,
-      address: building.address || '',
-      description: building.description || '',
-      status: building.status as 'active' | 'inactive' | 'maintenance',
+      address: building.address || "",
+      description: building.description || "",
+      status: building.status as "active" | "inactive" | "maintenance",
     });
     setIsEditBuildingOpen(true);
   };
 
   const resetBuildingForm = () => {
-    setBuildingForm({ name: '', address: '', description: '', status: 'active' });
+    setBuildingForm({
+      name: "",
+      address: "",
+      description: "",
+      status: "active",
+    });
   };
 
   // Appliance CRUD
   const handleAddAppliance = async () => {
     const trimmedName = applianceForm.name.trim();
     const trimmedNotes = applianceForm.notes.trim();
-    const ratedPower = applianceForm.rated_power_kw ? parseFloat(applianceForm.rated_power_kw) : null;
-    
+    const ratedPower = applianceForm.rated_power_kw
+      ? parseFloat(applianceForm.rated_power_kw)
+      : null;
+
     // Client-side validation matching database constraints
     if (!user || !selectedBuildingId || !trimmedName) {
-      toast.error('Appliance name is required');
+      toast.error("Appliance name is required");
       return;
     }
     if (trimmedName.length > 200) {
-      toast.error('Appliance name must be 200 characters or less');
+      toast.error("Appliance name must be 200 characters or less");
       return;
     }
     if (trimmedNotes.length > 1000) {
-      toast.error('Notes must be 1000 characters or less');
+      toast.error("Notes must be 1000 characters or less");
       return;
     }
     if (ratedPower !== null && (ratedPower <= 0 || ratedPower > 10000)) {
-      toast.error('Power rating must be between 0 and 10,000 kW');
+      toast.error("Power rating must be between 0 and 10,000 kW");
       return;
     }
 
     try {
       setSaving(true);
-      const { error } = await supabase.from('appliances').insert({
+      const { error } = await supabase.from("appliances").insert({
         user_id: user.id,
         building_id: selectedBuildingId,
         name: trimmedName,
@@ -320,13 +347,13 @@ export default function Buildings() {
       });
 
       if (error) throw error;
-      toast.success('Appliance added');
+      toast.success("Appliance added");
       setIsAddApplianceOpen(false);
       resetApplianceForm();
       fetchAppliances(selectedBuildingId);
     } catch (error) {
-      console.error('Error adding appliance:', error);
-      toast.error('Failed to add appliance');
+      console.error("Error adding appliance:", error);
+      toast.error("Failed to add appliance");
     } finally {
       setSaving(false);
     }
@@ -335,30 +362,32 @@ export default function Buildings() {
   const handleEditAppliance = async () => {
     const trimmedName = applianceForm.name.trim();
     const trimmedNotes = applianceForm.notes.trim();
-    const ratedPower = applianceForm.rated_power_kw ? parseFloat(applianceForm.rated_power_kw) : null;
-    
+    const ratedPower = applianceForm.rated_power_kw
+      ? parseFloat(applianceForm.rated_power_kw)
+      : null;
+
     // Client-side validation matching database constraints
     if (!editingAppliance || !trimmedName) {
-      toast.error('Appliance name is required');
+      toast.error("Appliance name is required");
       return;
     }
     if (trimmedName.length > 200) {
-      toast.error('Appliance name must be 200 characters or less');
+      toast.error("Appliance name must be 200 characters or less");
       return;
     }
     if (trimmedNotes.length > 1000) {
-      toast.error('Notes must be 1000 characters or less');
+      toast.error("Notes must be 1000 characters or less");
       return;
     }
     if (ratedPower !== null && (ratedPower <= 0 || ratedPower > 10000)) {
-      toast.error('Power rating must be between 0 and 10,000 kW');
+      toast.error("Power rating must be between 0 and 10,000 kW");
       return;
     }
 
     try {
       setSaving(true);
       const { error } = await supabase
-        .from('appliances')
+        .from("appliances")
         .update({
           name: trimmedName,
           type: applianceForm.type,
@@ -366,10 +395,10 @@ export default function Buildings() {
           status: applianceForm.status,
           notes: trimmedNotes || null,
         })
-        .eq('id', editingAppliance.id);
+        .eq("id", editingAppliance.id);
 
       if (error) throw error;
-      toast.success('Appliance updated');
+      toast.success("Appliance updated");
       setIsEditApplianceOpen(false);
       if (editingAppliance.building_id) {
         fetchAppliances(editingAppliance.building_id);
@@ -377,8 +406,8 @@ export default function Buildings() {
       setEditingAppliance(null);
       resetApplianceForm();
     } catch (error) {
-      console.error('Error updating appliance:', error);
-      toast.error('Failed to update appliance');
+      console.error("Error updating appliance:", error);
+      toast.error("Failed to update appliance");
     } finally {
       setSaving(false);
     }
@@ -386,13 +415,16 @@ export default function Buildings() {
 
   const handleDeleteAppliance = async (appliance: Appliance) => {
     try {
-      const { error } = await supabase.from('appliances').delete().eq('id', appliance.id);
+      const { error } = await supabase
+        .from("appliances")
+        .delete()
+        .eq("id", appliance.id);
       if (error) throw error;
-      toast.success('Appliance deleted');
+      toast.success("Appliance deleted");
       fetchAppliances(appliance.building_id);
     } catch (error) {
-      console.error('Error deleting appliance:', error);
-      toast.error('Failed to delete appliance');
+      console.error("Error deleting appliance:", error);
+      toast.error("Failed to delete appliance");
     }
   };
 
@@ -406,34 +438,40 @@ export default function Buildings() {
     setApplianceForm({
       name: appliance.name,
       type: appliance.type,
-      rated_power_kw: appliance.rated_power_kw?.toString() || '',
-      status: appliance.status as 'active' | 'inactive' | 'unknown',
-      notes: appliance.notes || '',
+      rated_power_kw: appliance.rated_power_kw?.toString() || "",
+      status: appliance.status as "active" | "inactive" | "unknown",
+      notes: appliance.notes || "",
     });
     setIsEditApplianceOpen(true);
   };
 
   const resetApplianceForm = () => {
-    setApplianceForm({ name: '', type: 'other', rated_power_kw: '', status: 'active', notes: '' });
+    setApplianceForm({
+      name: "",
+      type: "other",
+      rated_power_kw: "",
+      status: "active",
+      notes: "",
+    });
     setSelectedBuildingId(null);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
-      case 'inactive':
-        return 'bg-muted text-muted-foreground';
-      case 'maintenance':
-      case 'unknown':
-        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400';
+      case "active":
+        return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400";
+      case "inactive":
+        return "bg-muted text-muted-foreground";
+      case "maintenance":
+      case "unknown":
+        return "bg-amber-500/15 text-amber-600 dark:text-amber-400";
       default:
-        return 'bg-muted text-muted-foreground';
+        return "bg-muted text-muted-foreground";
     }
   };
 
   const getTypeLabel = (type: string) => {
-    return APPLIANCE_TYPES.find(t => t.value === type)?.label || type;
+    return APPLIANCE_TYPES.find((t) => t.value === type)?.label || type;
   };
 
   return (
@@ -441,9 +479,17 @@ export default function Buildings() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Buildings</h1>
-          <p className="text-muted-foreground mt-1">Manage buildings and their appliances</p>
+          <p className="text-muted-foreground mt-1">
+            Manage buildings and their appliances
+          </p>
         </div>
-        <Dialog open={isAddBuildingOpen} onOpenChange={(open) => { setIsAddBuildingOpen(open); if (!open) resetBuildingForm(); }}>
+        <Dialog
+          open={isAddBuildingOpen}
+          onOpenChange={(open) => {
+            setIsAddBuildingOpen(open);
+            if (!open) resetBuildingForm();
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -453,12 +499,14 @@ export default function Buildings() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Building</DialogTitle>
-              <DialogDescription>Add a new building to monitor energy consumption.</DialogDescription>
+              <DialogDescription>
+                Add a new building to monitor energy consumption.
+              </DialogDescription>
             </DialogHeader>
             <BuildingFormFields form={buildingForm} setForm={setBuildingForm} />
             <DialogFooter>
               <Button onClick={handleAddBuilding} disabled={saving}>
-                {saving ? 'Saving...' : 'Add Building'}
+                {saving ? "Saving..." : "Add Building"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -472,7 +520,8 @@ export default function Buildings() {
             Registered Buildings
           </CardTitle>
           <CardDescription>
-            {buildings.length} building{buildings.length !== 1 ? 's' : ''} registered. Click to expand and manage appliances.
+            {buildings.length} building{buildings.length !== 1 ? "s" : ""}{" "}
+            registered. Click to expand and manage appliances.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -486,25 +535,38 @@ export default function Buildings() {
             <div className="text-center py-12 text-muted-foreground">
               <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No buildings registered yet</p>
-              <p className="text-sm mt-1">Add your first building to start monitoring</p>
+              <p className="text-sm mt-1">
+                Add your first building to start monitoring
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
               {buildings.map((building) => {
                 const isExpanded = expandedBuildings.has(building.id);
                 const buildingAppliances = appliances[building.id] || [];
-                
+
                 return (
-                  <Collapsible key={building.id} open={isExpanded} onOpenChange={() => toggleBuilding(building.id)}>
+                  <Collapsible
+                    key={building.id}
+                    open={isExpanded}
+                    onOpenChange={() => toggleBuilding(building.id)}
+                  >
                     <div className="border rounded-lg">
                       <CollapsibleTrigger asChild>
                         <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors">
                           <div className="flex items-center gap-3">
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
                             <div>
                               <div className="font-medium flex items-center gap-2">
                                 {building.name}
-                                <Badge variant="secondary" className={getStatusColor(building.status)}>
+                                <Badge
+                                  variant="secondary"
+                                  className={getStatusColor(building.status)}
+                                >
                                   {building.status}
                                 </Badge>
                               </div>
@@ -516,21 +578,32 @@ export default function Buildings() {
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <Badge variant="outline" className="gap-1">
                               <Zap className="h-3 w-3" />
                               {buildingAppliances.length} appliances
                             </Badge>
-                            <Button variant="ghost" size="icon" onClick={() => openEditBuildingDialog(building)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditBuildingDialog(building)}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleDeleteBuilding(building.id)}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteBuilding(building.id)}
+                            >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </div>
                       </CollapsibleTrigger>
-                      
+
                       <CollapsibleContent>
                         <div className="border-t px-4 py-3 bg-muted/30">
                           <div className="flex items-center justify-between mb-3">
@@ -538,12 +611,18 @@ export default function Buildings() {
                               <Zap className="h-4 w-4" />
                               Appliances
                             </h4>
-                            <Button size="sm" variant="outline" onClick={() => openAddApplianceDialog(building.id)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                openAddApplianceDialog(building.id)
+                              }
+                            >
                               <Plus className="h-3 w-3 mr-1" />
                               Add Appliance
                             </Button>
                           </div>
-                          
+
                           {buildingAppliances.length === 0 ? (
                             <p className="text-sm text-muted-foreground text-center py-4">
                               No appliances registered for this building yet.
@@ -556,14 +635,18 @@ export default function Buildings() {
                                   <TableHead>Type</TableHead>
                                   <TableHead>Power (kW)</TableHead>
                                   <TableHead>Status</TableHead>
-                                  <TableHead className="text-right">Actions</TableHead>
+                                  <TableHead className="text-right">
+                                    Actions
+                                  </TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {buildingAppliances.map((appliance) => (
                                   <TableRow key={appliance.id}>
                                     <TableCell>
-                                      <div className="font-medium">{appliance.name}</div>
+                                      <div className="font-medium">
+                                        {appliance.name}
+                                      </div>
                                       {appliance.notes && (
                                         <div className="text-xs text-muted-foreground truncate max-w-[150px]">
                                           {appliance.notes}
@@ -571,22 +654,43 @@ export default function Buildings() {
                                       )}
                                     </TableCell>
                                     <TableCell>
-                                      <Badge variant="outline">{getTypeLabel(appliance.type)}</Badge>
+                                      <Badge variant="outline">
+                                        {getTypeLabel(appliance.type)}
+                                      </Badge>
                                     </TableCell>
                                     <TableCell>
-                                      {appliance.rated_power_kw ? `${appliance.rated_power_kw} kW` : '—'}
+                                      {appliance.rated_power_kw
+                                        ? `${appliance.rated_power_kw} kW`
+                                        : "—"}
                                     </TableCell>
                                     <TableCell>
-                                      <Badge variant="secondary" className={getStatusColor(appliance.status)}>
+                                      <Badge
+                                        variant="secondary"
+                                        className={getStatusColor(
+                                          appliance.status,
+                                        )}
+                                      >
                                         {appliance.status}
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex justify-end gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => openEditApplianceDialog(appliance)}>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            openEditApplianceDialog(appliance)
+                                          }
+                                        >
                                           <Pencil className="h-3 w-3" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteAppliance(appliance)}>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            handleDeleteAppliance(appliance)
+                                          }
+                                        >
                                           <Trash2 className="h-3 w-3 text-destructive" />
                                         </Button>
                                       </div>
@@ -608,7 +712,16 @@ export default function Buildings() {
       </Card>
 
       {/* Edit Building Dialog */}
-      <Dialog open={isEditBuildingOpen} onOpenChange={(open) => { setIsEditBuildingOpen(open); if (!open) { setEditingBuilding(null); resetBuildingForm(); } }}>
+      <Dialog
+        open={isEditBuildingOpen}
+        onOpenChange={(open) => {
+          setIsEditBuildingOpen(open);
+          if (!open) {
+            setEditingBuilding(null);
+            resetBuildingForm();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Building</DialogTitle>
@@ -617,39 +730,62 @@ export default function Buildings() {
           <BuildingFormFields form={buildingForm} setForm={setBuildingForm} />
           <DialogFooter>
             <Button onClick={handleEditBuilding} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Add Appliance Dialog */}
-      <Dialog open={isAddApplianceOpen} onOpenChange={(open) => { setIsAddApplianceOpen(open); if (!open) resetApplianceForm(); }}>
+      <Dialog
+        open={isAddApplianceOpen}
+        onOpenChange={(open) => {
+          setIsAddApplianceOpen(open);
+          if (!open) resetApplianceForm();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Appliance</DialogTitle>
-            <DialogDescription>Add a new appliance to this building.</DialogDescription>
+            <DialogDescription>
+              Add a new appliance to this building.
+            </DialogDescription>
           </DialogHeader>
-          <ApplianceFormFields form={applianceForm} setForm={setApplianceForm} />
+          <ApplianceFormFields
+            form={applianceForm}
+            setForm={setApplianceForm}
+          />
           <DialogFooter>
             <Button onClick={handleAddAppliance} disabled={saving}>
-              {saving ? 'Saving...' : 'Add Appliance'}
+              {saving ? "Saving..." : "Add Appliance"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit Appliance Dialog */}
-      <Dialog open={isEditApplianceOpen} onOpenChange={(open) => { setIsEditApplianceOpen(open); if (!open) { setEditingAppliance(null); resetApplianceForm(); } }}>
+      <Dialog
+        open={isEditApplianceOpen}
+        onOpenChange={(open) => {
+          setIsEditApplianceOpen(open);
+          if (!open) {
+            setEditingAppliance(null);
+            resetApplianceForm();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Appliance</DialogTitle>
             <DialogDescription>Update appliance information.</DialogDescription>
           </DialogHeader>
-          <ApplianceFormFields form={applianceForm} setForm={setApplianceForm} />
+          <ApplianceFormFields
+            form={applianceForm}
+            setForm={setApplianceForm}
+          />
           <DialogFooter>
             <Button onClick={handleEditAppliance} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -659,12 +795,17 @@ export default function Buildings() {
 }
 
 // Form Components
-function BuildingFormFields({ 
-  form, 
-  setForm 
-}: { 
-  form: { name: string; address: string; description: string; status: 'active' | 'inactive' | 'maintenance' }; 
-  setForm: React.Dispatch<React.SetStateAction<typeof form>>; 
+function BuildingFormFields({
+  form,
+  setForm,
+}: {
+  form: {
+    name: string;
+    address: string;
+    description: string;
+    status: "active" | "inactive" | "maintenance";
+  };
+  setForm: React.Dispatch<React.SetStateAction<typeof form>>;
 }) {
   return (
     <div className="space-y-4">
@@ -697,7 +838,12 @@ function BuildingFormFields({
       </div>
       <div className="space-y-2">
         <Label htmlFor="building-status">Status</Label>
-        <Select value={form.status} onValueChange={(value: 'active' | 'inactive' | 'maintenance') => setForm({ ...form, status: value })}>
+        <Select
+          value={form.status}
+          onValueChange={(value: "active" | "inactive" | "maintenance") =>
+            setForm({ ...form, status: value })
+          }
+        >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -712,12 +858,18 @@ function BuildingFormFields({
   );
 }
 
-function ApplianceFormFields({ 
-  form, 
-  setForm 
-}: { 
-  form: { name: string; type: string; rated_power_kw: string; status: 'active' | 'inactive' | 'unknown'; notes: string }; 
-  setForm: React.Dispatch<React.SetStateAction<typeof form>>; 
+function ApplianceFormFields({
+  form,
+  setForm,
+}: {
+  form: {
+    name: string;
+    type: string;
+    rated_power_kw: string;
+    status: "active" | "inactive" | "unknown";
+    notes: string;
+  };
+  setForm: React.Dispatch<React.SetStateAction<typeof form>>;
 }) {
   return (
     <div className="space-y-4">
@@ -733,13 +885,18 @@ function ApplianceFormFields({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="appliance-type">Type</Label>
-          <Select value={form.type} onValueChange={(value) => setForm({ ...form, type: value })}>
+          <Select
+            value={form.type}
+            onValueChange={(value) => setForm({ ...form, type: value })}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {APPLIANCE_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -751,14 +908,21 @@ function ApplianceFormFields({
             type="number"
             step="0.001"
             value={form.rated_power_kw}
-            onChange={(e) => setForm({ ...form, rated_power_kw: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, rated_power_kw: e.target.value })
+            }
             placeholder="e.g., 2.5"
           />
         </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="appliance-status">Status</Label>
-        <Select value={form.status} onValueChange={(value: 'active' | 'inactive' | 'unknown') => setForm({ ...form, status: value })}>
+        <Select
+          value={form.status}
+          onValueChange={(value: "active" | "inactive" | "unknown") =>
+            setForm({ ...form, status: value })
+          }
+        >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>

@@ -1,43 +1,56 @@
-import { useParams, Link } from 'react-router-dom';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format } from 'date-fns';
-import { ArrowLeft, AlertCircle, Info } from 'lucide-react';
-import { ON_THRESHOLD, computeConfidence, computeEnergyKwh } from '@/hooks/useNilmCsvData';
+import { useParams, Link } from "react-router-dom";
+import { useEnergy } from "@/contexts/EnergyContext";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { format } from "date-fns";
+import { ArrowLeft, AlertCircle, Info } from "lucide-react";
+import { ON_THRESHOLD, computeEnergyKwh } from "@/hooks/useNilmCsvData";
 
 // NILM Components
-import { ApplianceStateBadge, ConfidenceIndicator } from '@/components/nilm/ApplianceStateBadge';
-import { DetectionStageBadge } from '@/components/nilm/ModelTrustBadge';
-import { NILMPanel, NILMEmptyState } from '@/components/nilm/NILMPanel';
-import { WaveformDecoration } from '@/components/brand/WaveformIcon';
+import {
+  ApplianceStateBadge,
+  ConfidenceIndicator,
+} from "@/components/nilm/ApplianceStateBadge";
+import { DetectionStageBadge } from "@/components/nilm/ModelTrustBadge";
+import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
+import { WaveformDecoration } from "@/components/brand/WaveformIcon";
 
 export default function ApplianceDetails() {
   const { name } = useParams();
   const { filteredRows, currentApplianceStatus, loading } = useEnergy();
 
-  const decodedName = decodeURIComponent(name || '');
-  const displayName = decodedName.replace(/_/g, ' ');
+  const decodedName = decodeURIComponent(name || "");
+  const displayName = decodedName.replace(/_/g, " ");
 
   // Find current status for this appliance
   const applianceData = currentApplianceStatus.find(
-    (a) => a.name.toLowerCase() === decodedName.toLowerCase()
+    (a) => a.name.toLowerCase() === decodedName.toLowerCase(),
   );
 
   // Determine detection stage heuristically
-  const getDetectionStage = (confidence: number): 'Learning' | 'Stable' | 'Uncertain' => {
-    if (confidence >= 0.85) return 'Stable';
-    if (confidence >= 0.6) return 'Learning';
-    return 'Uncertain';
+  const getDetectionStage = (
+    confidence: number,
+  ): "Learning" | "Stable" | "Uncertain" => {
+    if (confidence >= 0.85) return "Stable";
+    if (confidence >= 0.6) return "Learning";
+    return "Uncertain";
   };
 
   // Build chart data for this appliance
   const chartData = filteredRows.map((row) => {
     const estKw = row.appliances[decodedName] || 0;
     return {
-      time: format(row.time, 'MM/dd HH:mm'),
+      time: format(row.time, "MM/dd HH:mm"),
       est_kW: estKw,
       on: estKw >= ON_THRESHOLD,
     };
@@ -50,7 +63,10 @@ export default function ApplianceDetails() {
     .slice(0, 5);
 
   // Total energy for this appliance
-  const totalKwh = chartData.reduce((sum, d) => sum + computeEnergyKwh(d.est_kW), 0);
+  const totalKwh = chartData.reduce(
+    (sum, d) => sum + computeEnergyKwh(d.est_kW),
+    0,
+  );
 
   if (loading) {
     return (
@@ -104,9 +120,13 @@ export default function ApplianceDetails() {
           <WaveformDecoration className="h-8 w-auto text-primary" />
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{displayName}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {displayName}
+          </h1>
           {applianceData && (
-            <DetectionStageBadge stage={getDetectionStage(applianceData.confidence)} />
+            <DetectionStageBadge
+              stage={getDetectionStage(applianceData.confidence)}
+            />
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -120,20 +140,36 @@ export default function ApplianceDetails() {
           <CardContent className="pt-5 pb-4">
             <div className="flex flex-wrap gap-6 items-center">
               <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Current State</p>
-                <ApplianceStateBadge on={applianceData.on} confidence={applianceData.confidence} showConfidence />
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Current State
+                </p>
+                <ApplianceStateBadge
+                  on={applianceData.on}
+                  confidence={applianceData.confidence}
+                  showConfidence
+                />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Confidence</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Confidence
+                </p>
                 <ConfidenceIndicator confidence={applianceData.confidence} />
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Est. Power</p>
-                <p className="metric-value text-foreground">{applianceData.est_kW.toFixed(3)} kW</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Est. Power
+                </p>
+                <p className="metric-value text-foreground">
+                  {applianceData.est_kW.toFixed(3)} kW
+                </p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total in Range</p>
-                <p className="metric-value text-foreground">{totalKwh.toFixed(2)} kWh</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Total in Range
+                </p>
+                <p className="metric-value text-foreground">
+                  {totalKwh.toFixed(2)} kWh
+                </p>
               </div>
             </div>
           </CardContent>
@@ -149,28 +185,38 @@ export default function ApplianceDetails() {
       >
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <LineChart
+              data={chartData}
+              margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
+                vertical={false}
+              />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 tickLine={false}
                 axisLine={false}
                 interval="preserveStartEnd"
               />
               <YAxis
-                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 tickLine={false}
                 axisLine={false}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 'var(--radius)',
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "var(--radius)",
                   fontSize: 12,
                 }}
-                formatter={(value: number) => [`${value.toFixed(4)} kW`, 'Est. kW']}
+                formatter={(value: number) => [
+                  `${value.toFixed(4)} kW`,
+                  "Est. kW",
+                ]}
               />
               <Line
                 type="monotone"
@@ -195,23 +241,26 @@ export default function ApplianceDetails() {
             <div
               key={i}
               className={`flex-1 transition-colors ${
-                d.on ? 'bg-state-on' : 'bg-state-off'
+                d.on ? "bg-state-on" : "bg-state-off"
               }`}
-              title={`${d.time}: ${d.on ? 'Predicted ON' : 'Predicted OFF'} (${d.est_kW.toFixed(3)} kW)`}
+              title={`${d.time}: ${d.on ? "Predicted ON" : "Predicted OFF"} (${d.est_kW.toFixed(3)} kW)`}
             />
           ))}
         </div>
         <div className="flex justify-between text-xs text-muted-foreground mt-3">
-          <span className="mono">{chartData[0]?.time || '—'}</span>
+          <span className="mono">{chartData[0]?.time || "—"}</span>
           <div className="flex gap-4">
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded bg-state-on" /> Predicted ON
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-state-off border border-border" /> Predicted OFF
+              <span className="w-3 h-3 rounded bg-state-off border border-border" />{" "}
+              Predicted OFF
             </span>
           </div>
-          <span className="mono">{chartData[chartData.length - 1]?.time || '—'}</span>
+          <span className="mono">
+            {chartData[chartData.length - 1]?.time || "—"}
+          </span>
         </div>
       </NILMPanel>
 
@@ -225,15 +274,26 @@ export default function ApplianceDetails() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 font-medium text-muted-foreground">Time</th>
-                <th className="text-left py-3 font-medium text-muted-foreground">State</th>
-                <th className="text-right py-3 font-medium text-muted-foreground">Est. kW</th>
-                <th className="text-right py-3 font-medium text-muted-foreground">Est. kWh</th>
+                <th className="text-left py-3 font-medium text-muted-foreground">
+                  Time
+                </th>
+                <th className="text-left py-3 font-medium text-muted-foreground">
+                  State
+                </th>
+                <th className="text-right py-3 font-medium text-muted-foreground">
+                  Est. kW
+                </th>
+                <th className="text-right py-3 font-medium text-muted-foreground">
+                  Est. kWh
+                </th>
               </tr>
             </thead>
             <tbody>
               {topPeriods.map((period, i) => (
-                <tr key={i} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <tr
+                  key={i}
+                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                >
                   <td className="py-3 mono text-foreground">{period.time}</td>
                   <td className="py-3">
                     <ApplianceStateBadge on={period.on} size="sm" />
@@ -255,11 +315,19 @@ export default function ApplianceDetails() {
       <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border">
         <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">Why was this predicted?</p>
+          <p className="text-sm font-medium text-foreground">
+            Why was this predicted?
+          </p>
           <p className="text-xs text-muted-foreground">
-            The NILM model detected power consumption patterns consistent with <strong>{displayName}</strong> activity.
-            Predictions are based on signal characteristics from total meter data, not direct measurement.
-            Confidence level: <strong>{applianceData ? `${(applianceData.confidence * 100).toFixed(0)}%` : '—'}</strong>
+            The NILM model detected power consumption patterns consistent with{" "}
+            <strong>{displayName}</strong> activity. Predictions are based on
+            signal characteristics from total meter data, not direct
+            measurement. Confidence level:{" "}
+            <strong>
+              {applianceData
+                ? `${(applianceData.confidence * 100).toFixed(0)}%`
+                : "—"}
+            </strong>
           </p>
         </div>
       </div>

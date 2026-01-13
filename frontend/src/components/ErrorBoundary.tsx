@@ -1,6 +1,6 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Component, ErrorInfo, ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     // Log error to console in development, could be sent to error tracking service in production
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
   handleReset = (): void => {
@@ -55,7 +55,8 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md">
-            An unexpected error occurred. You can try refreshing the page or going back.
+            An unexpected error occurred. You can try refreshing the page or
+            going back.
           </p>
           <div className="flex gap-3">
             <Button variant="outline" onClick={this.handleReset}>
@@ -66,14 +67,14 @@ export class ErrorBoundary extends Component<Props, State> {
               Refresh page
             </Button>
           </div>
-          {process.env.NODE_ENV === 'development' && this.state.error && (
+          {process.env.NODE_ENV === "development" && this.state.error && (
             <details className="mt-6 text-left w-full max-w-lg">
               <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
                 Error details (development only)
               </summary>
               <pre className="mt-2 p-4 bg-muted rounded-md text-xs overflow-auto">
                 {this.state.error.toString()}
-                {'\n\n'}
+                {"\n\n"}
                 {this.state.error.stack}
               </pre>
             </details>

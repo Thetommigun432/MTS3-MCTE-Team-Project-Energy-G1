@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 interface DeleteRequest {
@@ -22,7 +23,10 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -37,13 +41,16 @@ serve(async (req) => {
     });
 
     // Verify user is authenticated
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
     if (userError || !user) {
       console.error("Auth error:", userError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Parse request body
@@ -52,8 +59,13 @@ serve(async (req) => {
     // Require confirmation
     if (confirmation !== "DELETE") {
       return new Response(
-        JSON.stringify({ error: "Please type DELETE to confirm account deletion" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Please type DELETE to confirm account deletion",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -68,21 +80,23 @@ serve(async (req) => {
       });
 
     if (avatarFiles && avatarFiles.length > 0) {
-      const filesToDelete = avatarFiles.map(f => `avatars/${f.name}`);
+      const filesToDelete = avatarFiles.map((f) => `avatars/${f.name}`);
       await adminClient.storage.from("avatars").remove(filesToDelete);
-      console.log(`Deleted ${filesToDelete.length} avatar files for user ${user.id}`);
+      console.log(
+        `Deleted ${filesToDelete.length} avatar files for user ${user.id}`,
+      );
     }
 
     // Delete user's data from tables (cascades should handle most, but be explicit)
     // Delete buildings (will cascade to appliances due to FK)
     await adminClient.from("buildings").delete().eq("user_id", user.id);
-    
+
     // Delete appliances explicitly in case no FK cascade
     await adminClient.from("appliances").delete().eq("user_id", user.id);
-    
+
     // Delete login events
     await adminClient.from("login_events").delete().eq("user_id", user.id);
-    
+
     // Delete invitations created by this user
     await adminClient.from("invitations").delete().eq("invited_by", user.id);
 
@@ -90,32 +104,42 @@ serve(async (req) => {
     await adminClient.from("profiles").delete().eq("id", user.id);
 
     // Finally, delete the auth user
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
-    
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
+      user.id,
+    );
+
     if (deleteError) {
       console.error("Error deleting auth user:", deleteError);
       return new Response(
-        JSON.stringify({ error: "Failed to delete account. Please contact support." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Failed to delete account. Please contact support.",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     console.log(`Account deleted for user ${user.id} (${user.email})`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: "Account deleted successfully",
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
-
   } catch (error: unknown) {
     console.error("Error in delete-account function:", error);
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return new Response(
-      JSON.stringify({ error: message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

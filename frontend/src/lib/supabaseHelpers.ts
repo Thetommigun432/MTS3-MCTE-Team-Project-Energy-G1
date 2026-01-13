@@ -3,16 +3,16 @@
  * Typed wrapper for edge function calls with consistent error handling
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
 
 export class EdgeFunctionError extends Error {
   constructor(
     message: string,
     public code?: string,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
-    this.name = 'EdgeFunctionError';
+    this.name = "EdgeFunctionError";
   }
 }
 
@@ -26,32 +26,35 @@ interface EdgeFunctionResponse<T> {
  */
 export async function invokeFunction<TRequest, TResponse>(
   functionName: string,
-  payload?: TRequest
+  payload?: TRequest,
 ): Promise<EdgeFunctionResponse<TResponse>> {
   try {
-    const { data, error } = await supabase.functions.invoke<TResponse>(functionName, {
-      body: payload,
-    });
+    const { data, error } = await supabase.functions.invoke<TResponse>(
+      functionName,
+      {
+        body: payload,
+      },
+    );
 
     if (error) {
       return {
         data: null,
         error: new EdgeFunctionError(
-          error.message || 'Edge function call failed',
-          'FUNCTION_ERROR',
-          error
+          error.message || "Edge function call failed",
+          "FUNCTION_ERROR",
+          error,
         ),
       };
     }
 
     // Check if response contains an error field
-    if (data && typeof data === 'object' && 'error' in data) {
+    if (data && typeof data === "object" && "error" in data) {
       const errorData = data as { error: string; code?: string };
       return {
         data: null,
         error: new EdgeFunctionError(
           errorData.error,
-          errorData.code || 'FUNCTION_ERROR'
+          errorData.code || "FUNCTION_ERROR",
         ),
       };
     }
@@ -61,9 +64,9 @@ export async function invokeFunction<TRequest, TResponse>(
     return {
       data: null,
       error: new EdgeFunctionError(
-        err instanceof Error ? err.message : 'Unknown error',
-        'NETWORK_ERROR',
-        err
+        err instanceof Error ? err.message : "Unknown error",
+        "NETWORK_ERROR",
+        err,
       ),
     };
   }
@@ -241,7 +244,7 @@ export interface GenerateReportResponse {
 export interface InviteUserWithOrgRequest {
   org_id: string;
   email: string;
-  role: 'admin' | 'member' | 'viewer';
+  role: "admin" | "member" | "viewer";
   redirect_to?: string;
 }
 
@@ -269,10 +272,10 @@ export interface ApplianceStatus {
 }
 
 export interface DashboardInsight {
-  type: 'peak_load' | 'daily_usage' | 'top_consumer' | 'efficiency';
+  type: "peak_load" | "daily_usage" | "top_consumer" | "efficiency";
   label: string;
   value: string;
-  trend?: 'up' | 'down' | 'stable';
+  trend?: "up" | "down" | "stable";
 }
 
 export interface GetDashboardDataResponse {
@@ -282,7 +285,10 @@ export interface GetDashboardDataResponse {
     end: string;
   };
   aggregate_series: { ts: string; power_kw: number }[];
-  appliance_series: Record<string, { ts: string; power_kw: number; confidence: number }[]>;
+  appliance_series: Record<
+    string,
+    { ts: string; power_kw: number; confidence: number }[]
+  >;
   whats_on_now: ApplianceStatus[];
   insights: DashboardInsight[];
   data_points: number;
@@ -290,7 +296,7 @@ export interface GetDashboardDataResponse {
 
 // Log auth event
 export interface LogAuthEventRequest {
-  event: 'login' | 'logout' | 'signup' | 'password_reset';
+  event: "login" | "logout" | "signup" | "password_reset";
   user_agent?: string;
   success?: boolean;
 }
@@ -318,58 +324,94 @@ export interface UpsertAvatarResponse {
 
 export const edgeFunctions = {
   inviteUser: (payload: InviteUserRequest) =>
-    invokeFunction<InviteUserRequest, InviteUserResponse>('admin-invite', payload),
-  
+    invokeFunction<InviteUserRequest, InviteUserResponse>(
+      "admin-invite",
+      payload,
+    ),
+
   // Invite user to organization
   inviteUserToOrg: (payload: InviteUserWithOrgRequest) =>
-    invokeFunction<InviteUserWithOrgRequest, InviteUserWithOrgResponse>('invite-user', payload),
+    invokeFunction<InviteUserWithOrgRequest, InviteUserWithOrgResponse>(
+      "invite-user",
+      payload,
+    ),
 
   deleteAccount: (payload: DeleteAccountRequest) =>
-    invokeFunction<DeleteAccountRequest, DeleteAccountResponse>('delete-account', payload),
+    invokeFunction<DeleteAccountRequest, DeleteAccountResponse>(
+      "delete-account",
+      payload,
+    ),
 
   acceptInvite: (payload: AcceptInviteRequest) =>
-    invokeFunction<AcceptInviteRequest, AcceptInviteResponse>('accept-invite', payload),
+    invokeFunction<AcceptInviteRequest, AcceptInviteResponse>(
+      "accept-invite",
+      payload,
+    ),
 
   logLoginEvent: (payload: LogLoginEventRequest) =>
-    invokeFunction<LogLoginEventRequest, LogLoginEventResponse>('log-login-event', payload),
+    invokeFunction<LogLoginEventRequest, LogLoginEventResponse>(
+      "log-login-event",
+      payload,
+    ),
 
   registerModel: (payload: RegisterModelRequest) =>
-    invokeFunction<RegisterModelRequest, RegisterModelResponse>('register-model', payload),
+    invokeFunction<RegisterModelRequest, RegisterModelResponse>(
+      "register-model",
+      payload,
+    ),
 
   createModelVersionUpload: (payload: CreateModelVersionUploadRequest) =>
-    invokeFunction<CreateModelVersionUploadRequest, CreateModelVersionUploadResponse>(
-      'create-model-version-upload',
-      payload
-    ),
+    invokeFunction<
+      CreateModelVersionUploadRequest,
+      CreateModelVersionUploadResponse
+    >("create-model-version-upload", payload),
 
   finalizeModelVersion: (payload: FinalizeModelVersionRequest) =>
     invokeFunction<FinalizeModelVersionRequest, FinalizeModelVersionResponse>(
-      'finalize-model-version',
-      payload
+      "finalize-model-version",
+      payload,
     ),
 
   setActiveVersion: (payload: SetActiveVersionRequest) =>
     invokeFunction<SetActiveVersionRequest, SetActiveVersionResponse>(
-      'set-active-model-version',
-      payload
+      "set-active-model-version",
+      payload,
     ),
 
   runInference: (payload: RunInferenceRequest) =>
-    invokeFunction<RunInferenceRequest, RunInferenceResponse>('run-inference', payload),
+    invokeFunction<RunInferenceRequest, RunInferenceResponse>(
+      "run-inference",
+      payload,
+    ),
 
   getReadings: (payload: GetReadingsRequest) =>
-    invokeFunction<GetReadingsRequest, GetReadingsResponse>('get-readings', payload),
+    invokeFunction<GetReadingsRequest, GetReadingsResponse>(
+      "get-readings",
+      payload,
+    ),
 
   generateReport: (payload: GenerateReportRequest) =>
-    invokeFunction<GenerateReportRequest, GenerateReportResponse>('generate-report', payload),
+    invokeFunction<GenerateReportRequest, GenerateReportResponse>(
+      "generate-report",
+      payload,
+    ),
 
   // New functions
   getDashboardData: (payload: GetDashboardDataRequest) =>
-    invokeFunction<GetDashboardDataRequest, GetDashboardDataResponse>('get-dashboard-data', payload),
+    invokeFunction<GetDashboardDataRequest, GetDashboardDataResponse>(
+      "get-dashboard-data",
+      payload,
+    ),
 
   logAuthEvent: (payload: LogAuthEventRequest) =>
-    invokeFunction<LogAuthEventRequest, LogAuthEventResponse>('log-auth-event', payload),
+    invokeFunction<LogAuthEventRequest, LogAuthEventResponse>(
+      "log-auth-event",
+      payload,
+    ),
 
   upsertAvatar: (payload: UpsertAvatarRequest) =>
-    invokeFunction<UpsertAvatarRequest, UpsertAvatarResponse>('upsert-avatar', payload),
+    invokeFunction<UpsertAvatarRequest, UpsertAvatarResponse>(
+      "upsert-avatar",
+      payload,
+    ),
 };

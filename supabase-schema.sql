@@ -161,12 +161,15 @@ ALTER TABLE public.inference_runs ENABLE ROW LEVEL SECURITY;
 -- RLS POLICIES
 -- ============================================
 
--- Profiles: users can read/update their own
+-- Profiles: all authenticated users can view profiles (for team page)
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
-CREATE POLICY "Users can view own profile"
+DROP POLICY IF EXISTS "All authenticated users can view profiles" ON public.profiles;
+CREATE POLICY "All authenticated users can view profiles"
   ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
+  TO authenticated
+  USING (true);
 
+-- Profiles: users can only update their own profile
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE

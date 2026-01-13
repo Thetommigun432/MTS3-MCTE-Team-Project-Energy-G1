@@ -1,6 +1,7 @@
 # Complete Deployment Steps - NILM Energy Monitor
 
 ## Current Status ✅
+
 - ✅ Frontend built and deployed to Azure Storage Static Website
 - ✅ Security audit completed (all fixes committed)
 - ✅ TypeScript strictness enabled
@@ -20,14 +21,17 @@ You have 13 migration files that need to be applied to your Supabase database.
 3. Apply each migration file in order:
 
 #### Migration 1: `20260107134422_9e64fcba-4517-42d6-a1a1-f1e7262fe295.sql`
+
 ```bash
 # Copy the SQL content and paste into SQL Editor
 cd frontend/supabase/migrations
 cat 20260107134422_9e64fcba-4517-42d6-a1a1-f1e7262fe295.sql
 ```
+
 Click **Run** in the SQL Editor
 
 #### Migration 2-13: Repeat for all migrations in order
+
 Apply each file in chronological order (sorted by timestamp).
 
 ### Option B: Using Supabase CLI via npx
@@ -57,6 +61,7 @@ ORDER BY table_name;
 ```
 
 Expected tables:
+
 - `appliances`
 - `building_appliances`
 - `buildings`
@@ -126,37 +131,45 @@ Go to: **Storage → avatars → Policies**
 Create these 4 policies:
 
 #### Policy 1: Users can upload own avatar
+
 - **Policy name**: `Users can upload own avatar`
 - **Allowed operation**: INSERT
 - **Target roles**: `authenticated`
 - **Policy definition**:
+
 ```sql
 (bucket_id = 'avatars'::text) AND ((auth.uid())::text = (storage.foldername(name))[1])
 ```
 
 #### Policy 2: Users can update own avatar
+
 - **Policy name**: `Users can update own avatar`
 - **Allowed operation**: UPDATE
 - **Target roles**: `authenticated`
 - **Policy definition**:
+
 ```sql
 (bucket_id = 'avatars'::text) AND ((auth.uid())::text = (storage.foldername(name))[1])
 ```
 
 #### Policy 3: Users can delete own avatar
+
 - **Policy name**: `Users can delete own avatar`
 - **Allowed operation**: DELETE
 - **Target roles**: `authenticated`
 - **Policy definition**:
+
 ```sql
 (bucket_id = 'avatars'::text) AND ((auth.uid())::text = (storage.foldername(name))[1])
 ```
 
 #### Policy 4: Public can view avatars
+
 - **Policy name**: `Public avatar access`
 - **Allowed operation**: SELECT
 - **Target roles**: `public`
 - **Policy definition**:
+
 ```sql
 bucket_id = 'avatars'::text
 ```
@@ -231,6 +244,7 @@ Write-Host "All functions deployed!" -ForegroundColor Green
 ```
 
 Run it:
+
 ```powershell
 .\deploy-functions.ps1
 ```
@@ -380,6 +394,7 @@ curl -X POST \
 ### Issue: Email links go to localhost instead of production
 
 **Solution**:
+
 1. Check **Site URL** in Supabase Dashboard → Authentication → URL Configuration
 2. Must be: `https://energymonitorstorage.z1.web.core.windows.net/`
 3. Update email templates to use `{{ .SiteURL }}`
@@ -387,6 +402,7 @@ curl -X POST \
 ### Issue: 404 on refresh or direct navigation
 
 **Solution**:
+
 1. Verify Azure Storage static website error document is set to `index.html`
 2. Go to: Azure Portal → Storage Account → Static website
 3. Set **Error document path** to: `index.html`
@@ -394,6 +410,7 @@ curl -X POST \
 ### Issue: RLS blocks all database access
 
 **Solution**:
+
 1. Verify user is authenticated (check JWT token)
 2. Check RLS policies exist:
    ```sql
@@ -404,6 +421,7 @@ curl -X POST \
 ### Issue: Avatar upload fails with 403
 
 **Solution**:
+
 1. Check storage bucket is public
 2. Verify storage policies are created
 3. Check file path format: `avatars/{user_id}/{filename}`
@@ -411,6 +429,7 @@ curl -X POST \
 ### Issue: Edge function returns 500 error
 
 **Solution**:
+
 1. Check function logs: `npx supabase functions logs <function-name>`
 2. Verify secrets are set: `npx supabase secrets list`
 3. Test function locally: `npx supabase functions serve`
@@ -421,11 +440,11 @@ curl -X POST \
 
 ### Important URLs
 
-| Service | URL |
-|---------|-----|
-| **Production Site** | https://energymonitorstorage.z1.web.core.windows.net/ |
+| Service                | URL                                                         |
+| ---------------------- | ----------------------------------------------------------- |
+| **Production Site**    | https://energymonitorstorage.z1.web.core.windows.net/       |
 | **Supabase Dashboard** | https://supabase.com/dashboard/project/bhdcbvruzvhmcogxfkil |
-| **Azure Portal** | https://portal.azure.com/ |
+| **Azure Portal**       | https://portal.azure.com/                                   |
 
 ### Important Commands
 

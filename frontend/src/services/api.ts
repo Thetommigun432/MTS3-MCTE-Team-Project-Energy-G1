@@ -3,20 +3,22 @@
  * Provides a typed interface for making HTTP requests to the backend API.
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+import { getEnv } from "@/lib/env";
+
+const { apiBaseUrl: API_BASE_URL } = getEnv();
 
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public data?: unknown
+    public data?: unknown,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
-interface RequestOptions extends Omit<RequestInit, 'body'> {
+interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
   params?: Record<string, string | number | boolean | undefined>;
 }
@@ -24,9 +26,13 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 /**
  * Build URL with query parameters
  */
-function buildUrl(endpoint: string, params?: RequestOptions['params']): string {
-  const url = new URL(endpoint, API_BASE_URL || window.location.origin);
-  
+function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
+  if (!API_BASE_URL) {
+    throw new ApiError("API base URL is not configured", 0);
+  }
+
+  const url = new URL(endpoint, API_BASE_URL);
+
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
@@ -34,18 +40,21 @@ function buildUrl(endpoint: string, params?: RequestOptions['params']): string {
       }
     });
   }
-  
+
   return url.toString();
 }
 
 /**
  * Core fetch wrapper with error handling
  */
-async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const { body, params, headers: customHeaders, ...restOptions } = options;
 
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...customHeaders,
   };
 
@@ -53,12 +62,13 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   if (supabaseUrl) {
     try {
-      const projectRef = new URL(supabaseUrl).hostname.split('.')[0];
+      const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
       const token = localStorage.getItem(`sb-${projectRef}-auth-token`);
       if (token) {
         const parsed = JSON.parse(token);
         if (parsed?.access_token) {
-          (headers as Record<string, string>)['Authorization'] = `Bearer ${parsed.access_token}`;
+          (headers as Record<string, string>)["Authorization"] =
+            `Bearer ${parsed.access_token}`;
         }
       }
     } catch {
@@ -84,28 +94,28 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       } catch {
         errorData = await response.text();
       }
-      
+
       throw new ApiError(
         `Request failed with status ${response.status}`,
         response.status,
-        errorData
+        errorData,
       );
     }
 
     // Handle empty responses
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = response.headers.get("content-type");
+    if (contentType?.includes("application/json")) {
       return response.json();
     }
-    
+
     return {} as T;
   } catch (error) {
     if (error instanceof ApiError) {
       throw error;
     }
     throw new ApiError(
-      error instanceof Error ? error.message : 'Network error',
-      0
+      error instanceof Error ? error.message : "Network error",
+      0,
     );
   }
 }
@@ -114,20 +124,20 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
  * API client with typed methods
  */
 export const api = {
-  get: <T>(endpoint: string, options?: Omit<RequestOptions, 'body'>) =>
-    request<T>(endpoint, { ...options, method: 'GET' }),
+  get: <T>(endpoint: string, options?: Omit<RequestOptions, "body">) =>
+    request<T>(endpoint, { ...options, method: "GET" }),
 
   post: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(endpoint, { ...options, method: 'POST', body }),
+    request<T>(endpoint, { ...options, method: "POST", body }),
 
   put: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(endpoint, { ...options, method: 'PUT', body }),
+    request<T>(endpoint, { ...options, method: "PUT", body }),
 
   patch: <T>(endpoint: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(endpoint, { ...options, method: 'PATCH', body }),
+    request<T>(endpoint, { ...options, method: "PATCH", body }),
 
   delete: <T>(endpoint: string, options?: RequestOptions) =>
-    request<T>(endpoint, { ...options, method: 'DELETE' }),
+    request<T>(endpoint, { ...options, method: "DELETE" }),
 };
 
 /**

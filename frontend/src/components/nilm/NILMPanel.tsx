@@ -1,5 +1,5 @@
-import { cn } from '@/lib/utils';
-import { WaveformDecoration } from '@/components/brand/WaveformIcon';
+import { cn } from "@/lib/utils";
+import { WaveformDecoration } from "@/components/brand/WaveformIcon";
 
 interface NILMPanelProps {
   title: React.ReactNode;
@@ -27,7 +27,7 @@ export function NILMPanel({
   className,
 }: NILMPanelProps) {
   return (
-    <div className={cn('nilm-panel relative overflow-hidden', className)}>
+    <div className={cn("nilm-panel relative overflow-hidden", className)}>
       {/* Waveform watermark */}
       {showWaveform && (
         <div className="absolute top-0 right-0 opacity-5 pointer-events-none">
@@ -53,11 +53,7 @@ export function NILMPanel({
       <div className="nilm-panel-body">{children}</div>
 
       {/* Footer */}
-      {footer && (
-        <div className="nilm-panel-footer">
-          {footer}
-        </div>
-      )}
+      {footer && <div className="nilm-panel-footer">{footer}</div>}
     </div>
   );
 }
@@ -84,8 +80,8 @@ export function NILMEmptyState({
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center text-center p-8 rounded-lg bg-muted/30 border border-dashed border-border min-h-[200px]',
-        className
+        "flex flex-col items-center justify-center text-center p-8 rounded-lg bg-muted/30 border border-dashed border-border min-h-[200px]",
+        className,
       )}
     >
       {/* Waveform illustration */}
@@ -97,10 +93,12 @@ export function NILMEmptyState({
           </div>
         )}
       </div>
-      
+
       <h3 className="font-medium text-foreground mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-xs mb-4">{description}</p>
-      
+      <p className="text-sm text-muted-foreground max-w-xs mb-4">
+        {description}
+      </p>
+
       {action}
     </div>
   );

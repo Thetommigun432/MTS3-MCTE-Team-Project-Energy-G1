@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import type { NilmDataRow } from '@/types/energy';
+import { useState, useEffect } from "react";
+import type { NilmDataRow } from "@/types/energy";
 
 interface UseLocalInfluxPredictionsOptions {
   buildingId?: string;
@@ -15,6 +15,20 @@ interface UseLocalInfluxPredictionsResult {
   refetch: () => void;
 }
 
+interface LocalPredictionRow {
+  _time: string;
+  building_id?: string;
+  appliance_name: string;
+  predicted_kw?: number;
+  confidence?: number;
+}
+
+interface LocalPredictionsResponse {
+  success: boolean;
+  data: LocalPredictionRow[];
+  error?: string;
+}
+
 /**
  * React hook to fetch NILM predictions from local InfluxDB via the local API server
  *
@@ -22,7 +36,7 @@ interface UseLocalInfluxPredictionsResult {
  * @returns Prediction data, loading state, error state, and refetch function
  */
 export function useLocalInfluxPredictions({
-  buildingId = 'local',
+  buildingId = "local",
   startDate,
   endDate,
   enabled = true,
@@ -56,15 +70,15 @@ export function useLocalInfluxPredictions({
 
         // Add time range if specified
         if (startDate) {
-          params.append('start', startDate.toISOString());
+          params.append("start", startDate.toISOString());
         } else {
-          params.append('start', '-7d'); // Default to last 7 days
+          params.append("start", "-7d"); // Default to last 7 days
         }
 
         if (endDate) {
-          params.append('end', endDate.toISOString());
+          params.append("end", endDate.toISOString());
         } else {
-          params.append('end', 'now()');
+          params.append("end", "now()");
         }
 
         // Fetch from local API server (proxied by Vite dev server)
@@ -74,29 +88,37 @@ export function useLocalInfluxPredictions({
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const result = await response.json();
+        const result = (await response.json()) as LocalPredictionsResponse;
 
         if (!result.success) {
-          throw new Error(result.error || 'Unknown error from local API');
+          throw new Error(result.error || "Unknown error from local API");
         }
 
         if (!isMounted) return;
 
         // Transform InfluxDB rows to NilmDataRow format
-        const transformedData = transformInfluxToNilm(result.data);
+        const transformedData = transformInfluxToNilm(result.data ?? []);
         setData(transformedData);
-      } catch (err: any) {
+      } catch (err) {
         if (!isMounted) return;
 
-        const errorMessage = err.message || 'Failed to fetch predictions';
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to fetch predictions";
         setError(errorMessage);
-        console.error('Error fetching local predictions:', err);
+        console.error("Error fetching local predictions:", err);
 
         // Provide helpful error messages
-        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('ECONNREFUSED')) {
-          setError('Cannot connect to local API server. Make sure it is running with: npm run local:server');
-        } else if (errorMessage.includes('404')) {
-          setError('Local API endpoint not found. Check Vite proxy configuration.');
+        if (
+          errorMessage.includes("Failed to fetch") ||
+          errorMessage.includes("ECONNREFUSED")
+        ) {
+          setError(
+            "Cannot connect to local API server. Make sure it is running with: npm run local:server",
+          );
+        } else if (errorMessage.includes("404")) {
+          setError(
+            "Local API endpoint not found. Check Vite proxy configuration.",
+          );
         }
       } finally {
         if (isMounted) {
@@ -123,9 +145,22 @@ export function useLocalInfluxPredictions({
  * @param influxRows Raw rows from InfluxDB query
  * @returns Array of NilmDataRow objects suitable for charts and UI
  */
-function transformInfluxToNilm(influxRows: any[]): NilmDataRow[] {
+function transformInfluxToNilm(
+  influxRows: LocalPredictionRow[],
+): Array<
+  NilmDataRow & {
+    confidence: number;
+    metadata: { building_id?: string; source: string };
+  }
+> {
   // Group predictions by timestamp
-  const grouped = new Map<string, any>();
+  const grouped = new Map<
+    string,
+    NilmDataRow & {
+      confidence: number;
+      metadata: { building_id?: string; source: string };
+    }
+  >();
 
   influxRows.forEach((row) => {
     const timeKey = new Date(row._time).toISOString();
@@ -134,11 +169,11 @@ function transformInfluxToNilm(influxRows: any[]): NilmDataRow[] {
       grouped.set(timeKey, {
         time: new Date(row._time),
         aggregate: 0,
-        appliances: {} as Record<string, number>,
+        appliances: {},
         confidence: 0,
         metadata: {
           building_id: row.building_id,
-          source: 'local_influx',
+          source: "local_influx",
         },
       });
     }
@@ -159,7 +194,7 @@ function transformInfluxToNilm(influxRows: any[]): NilmDataRow[] {
 
   // Convert grouped data to array and sort by time
   const result = Array.from(grouped.values()).sort(
-    (a, b) => a.time.getTime() - b.time.getTime()
+    (a, b) => a.time.getTime() - b.time.getTime(),
   );
 
   return result;

@@ -1,8 +1,8 @@
-import { Outlet, useLocation } from 'react-router-dom';
-import { AppSidebar } from './AppSidebar';
-import { TopBar } from './TopBar';
-import { EnergyProvider } from '@/contexts/EnergyContext';
-import { useEffect } from 'react';
+import { Outlet, useLocation } from "react-router-dom";
+import { AppSidebar } from "./AppSidebar";
+import { TopBar } from "./TopBar";
+import { EnergyProvider } from "@/contexts/EnergyContext";
+import { useEffect } from "react";
 
 export function AppShell() {
   const location = useLocation();

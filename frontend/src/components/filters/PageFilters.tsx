@@ -1,21 +1,25 @@
-import { Calendar, Filter, Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Calendar, Filter, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { formatDateForInput, parseLocalDate, parseLocalDateEnd } from '@/lib/dateUtils';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/tooltip";
+import { useEnergy } from "@/contexts/EnergyContext";
+import {
+  formatDateForInput,
+  parseLocalDate,
+  parseLocalDateEnd,
+} from "@/lib/dateUtils";
+import { cn } from "@/lib/utils";
 
 interface PageFiltersProps {
   showBuilding?: boolean;
@@ -69,7 +73,12 @@ export function PageFilters({
   };
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-3 p-4 bg-card rounded-lg border border-border', className)}>
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-3 p-4 bg-card rounded-lg border border-border",
+        className,
+      )}
+    >
       <span className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
         <Filter className="h-4 w-4" />
         Filters
@@ -79,7 +88,11 @@ export function PageFilters({
         <Tooltip>
           <TooltipTrigger asChild>
             <div>
-              <Select value={selectedBuilding} onValueChange={setSelectedBuilding} disabled>
+              <Select
+                value={selectedBuilding}
+                onValueChange={setSelectedBuilding}
+                disabled
+              >
                 <SelectTrigger className="w-40 border-border bg-background text-foreground opacity-70 cursor-not-allowed">
                   <SelectValue placeholder="Building" />
                 </SelectTrigger>
@@ -103,7 +116,11 @@ export function PageFilters({
       )}
 
       {showAppliance && (
-        <Select value={selectedAppliance} onValueChange={setSelectedAppliance} disabled={loading}>
+        <Select
+          value={selectedAppliance}
+          onValueChange={setSelectedAppliance}
+          disabled={loading}
+        >
           <SelectTrigger className="w-40 border-border bg-background text-foreground">
             <SelectValue placeholder="Appliance" />
           </SelectTrigger>
@@ -111,7 +128,7 @@ export function PageFilters({
             <SelectItem value="All">All Appliances</SelectItem>
             {appliances.map((appliance) => (
               <SelectItem key={appliance} value={appliance}>
-                {appliance.replace(/_/g, ' ')}
+                {appliance.replace(/_/g, " ")}
               </SelectItem>
             ))}
           </SelectContent>

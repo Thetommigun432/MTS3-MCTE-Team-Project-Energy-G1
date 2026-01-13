@@ -1,7 +1,16 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/*.css", "/*.js", "/*.ico", "/*.png", "/*.jpg", "/*.svg", "/*.woff2"]
+    "exclude": [
+      "/assets/*",
+      "/*.css",
+      "/*.js",
+      "/*.ico",
+      "/*.png",
+      "/*.jpg",
+      "/*.svg",
+      "/*.woff2"
+    ]
   },
   "globalHeaders": {
     "X-Content-Type-Options": "nosniff",

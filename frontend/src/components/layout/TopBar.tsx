@@ -1,34 +1,45 @@
-import { Calendar, ChevronDown, LogOut, Settings, Filter, Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ThemeToggleCompact } from '@/components/theme/ThemeToggle';
+import {
+  Calendar,
+  ChevronDown,
+  LogOut,
+  Settings,
+  Filter,
+  Info,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ThemeToggleCompact } from "@/components/theme/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useEnergy } from '@/contexts/EnergyContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { MobileSidebar } from './AppSidebar';
-import { formatDateForInput, parseLocalDate, parseLocalDateEnd } from '@/lib/dateUtils';
-import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl';
+} from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEnergy } from "@/contexts/EnergyContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { MobileSidebar } from "./AppSidebar";
+import {
+  formatDateForInput,
+  parseLocalDate,
+  parseLocalDateEnd,
+} from "@/lib/dateUtils";
+import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl";
 
 export function TopBar() {
   const {
@@ -50,7 +61,7 @@ export function TopBar() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   const setPreset = (days: number) => {
@@ -79,7 +90,8 @@ export function TopBar() {
     setDateRange({ ...dateRange, end: parseLocalDateEnd(val) });
   };
 
-  const displayName = profile?.display_name || user?.email?.split('@')[0] || 'User';
+  const displayName =
+    profile?.display_name || user?.email?.split("@")[0] || "User";
   const signedAvatarUrl = useSignedAvatarUrl(profile?.avatar_url);
 
   return (
@@ -92,7 +104,11 @@ export function TopBar() {
         <Tooltip>
           <TooltipTrigger asChild>
             <div>
-              <Select value={selectedBuilding} onValueChange={setSelectedBuilding} disabled>
+              <Select
+                value={selectedBuilding}
+                onValueChange={setSelectedBuilding}
+                disabled
+              >
                 <SelectTrigger className="w-36 md:w-48 border-border bg-background text-foreground opacity-70 cursor-not-allowed">
                   <SelectValue placeholder="Building" />
                 </SelectTrigger>
@@ -115,7 +131,11 @@ export function TopBar() {
         </Tooltip>
 
         {/* Appliance Filter */}
-        <Select value={selectedAppliance} onValueChange={setSelectedAppliance} disabled={loading}>
+        <Select
+          value={selectedAppliance}
+          onValueChange={setSelectedAppliance}
+          disabled={loading}
+        >
           <SelectTrigger className="w-36 md:w-44 border-border bg-background text-foreground">
             <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Appliance" />
@@ -124,7 +144,7 @@ export function TopBar() {
             <SelectItem value="All">All Appliances</SelectItem>
             {appliances.map((appliance) => (
               <SelectItem key={appliance} value={appliance}>
-                {appliance.replace(/_/g, ' ')}
+                {appliance.replace(/_/g, " ")}
               </SelectItem>
             ))}
           </SelectContent>
@@ -190,25 +210,25 @@ export function TopBar() {
         {/* Mode Toggle */}
         <div className="inline-flex rounded-lg bg-popover border border-border p-0.5">
           <button
-            onClick={() => setMode('demo')}
+            onClick={() => setMode("demo")}
             disabled={loading}
             className={cn(
-              'rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              mode === 'demo'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              mode === "demo"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             Demo
           </button>
           <button
-            onClick={() => setMode('api')}
+            onClick={() => setMode("api")}
             disabled={loading}
             className={cn(
-              'rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-              mode === 'api'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              mode === "api"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
             API
@@ -218,7 +238,11 @@ export function TopBar() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="flex items-center gap-1 md:gap-2 text-foreground hover:bg-muted">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1 md:gap-2 text-foreground hover:bg-muted"
+            >
               <Avatar className="h-8 w-8">
                 <AvatarImage src={signedAvatarUrl || undefined} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
@@ -228,17 +252,30 @@ export function TopBar() {
               <ChevronDown className="h-4 w-4 hidden md:block text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48 bg-popover border-border">
+          <DropdownMenuContent
+            align="end"
+            className="w-48 bg-popover border-border"
+          >
             <div className="px-2 py-1.5">
-              <p className="text-sm font-medium truncate text-foreground">{displayName}</p>
-              <p className="text-xs text-muted-foreground truncate font-mono">{user?.email}</p>
+              <p className="text-sm font-medium truncate text-foreground">
+                {displayName}
+              </p>
+              <p className="text-xs text-muted-foreground truncate font-mono">
+                {user?.email}
+              </p>
             </div>
             <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem onClick={() => navigate('/app/settings/profile')} className="text-foreground focus:bg-muted">
+            <DropdownMenuItem
+              onClick={() => navigate("/app/settings/profile")}
+              className="text-foreground focus:bg-muted"
+            >
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleLogout} className="text-foreground focus:bg-muted">
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="text-foreground focus:bg-muted"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </DropdownMenuItem>

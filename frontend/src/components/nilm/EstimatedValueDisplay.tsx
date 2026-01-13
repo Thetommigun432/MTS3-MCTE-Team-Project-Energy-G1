@@ -1,18 +1,18 @@
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface EstimatedValueDisplayProps {
   value: number;
-  unit: 'kW' | 'kWh' | '%';
+  unit: "kW" | "kWh" | "%";
   precision?: number;
   showEstimatedLabel?: boolean;
-  size?: 'sm' | 'default' | 'lg';
+  size?: "sm" | "default" | "lg";
   className?: string;
 }
 
@@ -25,13 +25,13 @@ export function EstimatedValueDisplay({
   unit,
   precision = 3,
   showEstimatedLabel = false,
-  size = 'default',
+  size = "default",
   className,
 }: EstimatedValueDisplayProps) {
   const sizeClasses = {
-    sm: 'text-sm',
-    default: 'text-lg',
-    lg: 'text-2xl',
+    sm: "text-sm",
+    default: "text-lg",
+    lg: "text-2xl",
   };
 
   const formattedValue = value.toFixed(precision);
@@ -42,12 +42,14 @@ export function EstimatedValueDisplay({
         <TooltipTrigger asChild>
           <span
             className={cn(
-              'inline-flex items-center gap-1 cursor-help',
+              "inline-flex items-center gap-1 cursor-help",
               sizeClasses[size],
-              className
+              className,
             )}
           >
-            <span className="metric-value text-foreground">{formattedValue}</span>
+            <span className="metric-value text-foreground">
+              {formattedValue}
+            </span>
             <span className="text-muted-foreground font-normal">{unit}</span>
             {showEstimatedLabel && (
               <Info className="h-3 w-3 text-muted-foreground/50" />
@@ -55,9 +57,7 @@ export function EstimatedValueDisplay({
           </span>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p className="text-xs">
-            Estimated by AI (not directly measured)
-          </p>
+          <p className="text-xs">Estimated by AI (not directly measured)</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -84,7 +84,7 @@ export function MetricCardContent({
   className,
 }: MetricCardContentProps) {
   return (
-    <div className={cn('flex items-start justify-between gap-4', className)}>
+    <div className={cn("flex items-start justify-between gap-4", className)}>
       <div className="space-y-1 min-w-0">
         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {label}

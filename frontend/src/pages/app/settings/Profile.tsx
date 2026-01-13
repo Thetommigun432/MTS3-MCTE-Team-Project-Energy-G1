@@ -1,14 +1,21 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader2, User, Mail, Camera, Upload, AlertTriangle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { toast as sonnerToast } from 'sonner';
-import { NILMPanel } from '@/components/nilm/NILMPanel';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Loader2,
+  User,
+  Mail,
+  Camera,
+  Upload,
+  AlertTriangle,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
+import { NILMPanel } from "@/components/nilm/NILMPanel";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -16,18 +23,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useNavigate } from 'react-router-dom';
-import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl';
+} from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
+import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl";
 
 export default function Profile() {
   const { user, profile, refreshProfile, logout } = useAuth();
   const navigate = useNavigate();
-  const [displayName, setDisplayName] = useState('');
+  const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -48,22 +55,33 @@ export default function Profile() {
     // Client-side validation
     const trimmedName = displayName.trim();
     if (trimmedName.length > 100) {
-      toast({ title: 'Error', description: 'Display name must be 100 characters or less', variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: "Display name must be 100 characters or less",
+        variant: "destructive",
+      });
       return;
     }
 
     setSaving(true);
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update({ display_name: trimmedName || null })
-      .eq('id', user.id);
+      .eq("id", user.id);
 
     setSaving(false);
 
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     } else {
-      toast({ title: 'Profile updated', description: 'Your changes have been saved.' });
+      toast({
+        title: "Profile updated",
+        description: "Your changes have been saved.",
+      });
       await refreshProfile();
     }
   };
@@ -77,12 +95,12 @@ export default function Profile() {
     if (!file || !user) return;
 
     // Validate file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
       toast({
-        title: 'Invalid file type',
-        description: 'Please select a JPG, PNG, or WebP image',
-        variant: 'destructive',
+        title: "Invalid file type",
+        description: "Please select a JPG, PNG, or WebP image",
+        variant: "destructive",
       });
       return;
     }
@@ -90,9 +108,9 @@ export default function Profile() {
     // Validate file size (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       toast({
-        title: 'File too large',
-        description: 'Please select an image under 2MB',
-        variant: 'destructive',
+        title: "File too large",
+        description: "Please select an image under 2MB",
+        variant: "destructive",
       });
       return;
     }
@@ -101,96 +119,103 @@ export default function Profile() {
 
     try {
       // Generate unique filename with user ID prefix
-      const fileExt = file.name.split('.').pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(fileName, file, { 
+        .from("avatars")
+        .upload(fileName, file, {
           upsert: true,
-          cacheControl: '3600',
+          cacheControl: "3600",
         });
 
       if (uploadError) {
         // If bucket doesn't exist, show helpful message
-        if (uploadError.message.includes('not found') || uploadError.message.includes('Bucket')) {
+        if (
+          uploadError.message.includes("not found") ||
+          uploadError.message.includes("Bucket")
+        ) {
           toast({
-            title: 'Storage not configured',
-            description: 'Avatar storage bucket needs to be set up',
-            variant: 'destructive',
+            title: "Storage not configured",
+            description: "Avatar storage bucket needs to be set up",
+            variant: "destructive",
           });
           return;
         }
         throw uploadError;
       }
 
-      // Store the file path (not public URL) for signed URL generation
-      // The path format is: userId/timestamp.ext
-      const avatarPath = `avatars/${fileName}`;
+      // Store the file path INSIDE the bucket (no bucket prefix)
+      // Format: userId/timestamp.ext
+      const avatarPath = fileName;
 
       // Update profile with the storage path
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ avatar_url: avatarPath })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (updateError) throw updateError;
 
       toast({
-        title: 'Avatar updated',
-        description: 'Your profile picture has been changed',
+        title: "Avatar updated",
+        description: "Your profile picture has been changed",
       });
 
       await refreshProfile();
     } catch (err) {
-      console.error('Avatar upload error:', err);
+      console.error("Avatar upload error:", err);
       toast({
-        title: 'Upload failed',
-        description: 'Could not upload avatar. Try again later.',
-        variant: 'destructive',
+        title: "Upload failed",
+        description: "Could not upload avatar. Try again later.",
+        variant: "destructive",
       });
     } finally {
       setUploadingAvatar(false);
       // Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== 'DELETE') {
-      sonnerToast.error('Please type DELETE to confirm');
+    if (deleteConfirmation !== "DELETE") {
+      sonnerToast.error("Please type DELETE to confirm");
       return;
     }
 
     setIsDeleting(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('delete-account', {
-        body: { confirmation: 'DELETE' },
-      });
+      const { data, error } = await supabase.functions.invoke(
+        "delete-account",
+        {
+          body: { confirmation: "DELETE" },
+        },
+      );
 
       if (error) {
-        throw new Error(error.message || 'Failed to delete account');
+        throw new Error(error.message || "Failed to delete account");
       }
 
       if (data?.error) {
         throw new Error(data.error);
       }
 
-      sonnerToast.success('Account deleted', {
-        description: 'Your account has been permanently deleted',
+      sonnerToast.success("Account deleted", {
+        description: "Your account has been permanently deleted",
       });
 
       // Log out and redirect
       await logout();
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
-      console.error('Delete account error:', err);
-      sonnerToast.error('Failed to delete account', {
-        description: err instanceof Error ? err.message : 'Please try again later',
+      console.error("Delete account error:", err);
+      sonnerToast.error("Failed to delete account", {
+        description:
+          err instanceof Error ? err.message : "Please try again later",
       });
     } finally {
       setIsDeleting(false);
@@ -198,13 +223,21 @@ export default function Profile() {
   };
 
   const initials = displayName
-    ? displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : user?.email?.[0]?.toUpperCase() || 'U';
+    ? displayName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : user?.email?.[0]?.toUpperCase() || "U";
 
   return (
     <div className="space-y-6">
       {/* Avatar Section */}
-      <NILMPanel title="Profile Picture" footer="Click on your avatar or the button to upload a new photo">
+      <NILMPanel
+        title="Profile Picture"
+        footer="Click on your avatar or the button to upload a new photo"
+      >
         <div className="flex items-center gap-6">
           <div className="relative group">
             <Avatar className="h-20 w-20 border-2 border-primary/20">
@@ -234,7 +267,9 @@ export default function Profile() {
             />
           </div>
           <div className="space-y-1">
-            <p className="font-medium text-foreground">{displayName || 'Set your name'}</p>
+            <p className="font-medium text-foreground">
+              {displayName || "Set your name"}
+            </p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
             <Button
               variant="outline"
@@ -274,7 +309,7 @@ export default function Profile() {
             <Input
               id="email"
               type="email"
-              value={user?.email || ''}
+              value={user?.email || ""}
               disabled
               className="bg-muted/30"
             />
@@ -289,12 +324,13 @@ export default function Profile() {
               maxLength={100}
             />
             <p className="text-xs text-muted-foreground">
-              This is how you'll appear across Energy Monitor (max 100 characters)
+              This is how you'll appear across Energy Monitor (max 100
+              characters)
             </p>
           </div>
           <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? "Saving..." : "Save Changes"}
           </Button>
         </form>
       </NILMPanel>
@@ -303,8 +339,12 @@ export default function Profile() {
       <NILMPanel title="Danger Zone" footer="This action cannot be undone">
         <div className="flex items-center justify-between py-2">
           <div className="space-y-0.5">
-            <p className="text-sm font-medium text-foreground">Delete Account</p>
-            <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
+            <p className="text-sm font-medium text-foreground">
+              Delete Account
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Permanently delete your account and all data
+            </p>
           </div>
           <Button
             variant="outline"
@@ -326,7 +366,9 @@ export default function Profile() {
             </DialogTitle>
             <DialogDescription className="space-y-3 pt-2">
               <p>
-                This action <span className="font-semibold">cannot be undone</span>. This will permanently delete:
+                This action{" "}
+                <span className="font-semibold">cannot be undone</span>. This
+                will permanently delete:
               </p>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 <li>Your account and profile</li>
@@ -338,7 +380,8 @@ export default function Profile() {
           </DialogHeader>
           <div className="space-y-2 py-4">
             <Label htmlFor="delete-confirm">
-              Type <span className="font-mono font-bold">DELETE</span> to confirm
+              Type <span className="font-mono font-bold">DELETE</span> to
+              confirm
             </Label>
             <Input
               id="delete-confirm"
@@ -349,11 +392,11 @@ export default function Profile() {
             />
           </div>
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setDeleteDialogOpen(false);
-                setDeleteConfirmation('');
+                setDeleteConfirmation("");
               }}
             >
               Cancel
@@ -361,10 +404,10 @@ export default function Profile() {
             <Button
               variant="destructive"
               onClick={handleDeleteAccount}
-              disabled={deleteConfirmation !== 'DELETE' || isDeleting}
+              disabled={deleteConfirmation !== "DELETE" || isDeleting}
             >
               {isDeleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {isDeleting ? 'Deleting...' : 'Delete Account'}
+              {isDeleting ? "Deleting..." : "Delete Account"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       // Proxy local API requests to the backend server
-      '/api/local': {
-        target: 'http://localhost:3001',
+      "/api/local": {
+        target: "http://localhost:3001",
         changeOrigin: true,
       },
     },
@@ -26,6 +26,6 @@ export default defineConfig(({ mode }) => ({
   },
   esbuild: {
     // Strip console logs and debugger statements in production builds
-    drop: mode === 'production' ? ['console', 'debugger'] : [],
+    drop: mode === "production" ? ["console", "debugger"] : [],
   },
 }));

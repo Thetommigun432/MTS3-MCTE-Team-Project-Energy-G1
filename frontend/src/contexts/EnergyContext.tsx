@@ -1,19 +1,35 @@
-import { createContext, useContext, useState, useMemo, useEffect, useCallback, ReactNode } from 'react';
-import { DataMode, DateRange, InsightData, ApplianceStatus } from '@/types/energy';
+import {
+  createContext,
+  useContext,
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import {
+  DataMode,
+  DateRange,
+  InsightData,
+  ApplianceStatus,
+} from "@/types/energy";
 import {
   useNilmCsvData,
   NilmDataRow,
   ON_THRESHOLD,
   computeConfidence,
   computeEnergyKwh,
-  getTopAppliancesByEnergy
-} from '@/hooks/useNilmCsvData';
-import { useManagedAppliances, ManagedAppliance } from '@/hooks/useManagedAppliances';
-import { useLocalInfluxPredictions } from '@/hooks/useLocalInfluxPredictions';
-import { energyApi, isEnergyApiAvailable } from '@/services/energy';
-import { edgeFunctions } from '@/lib/supabaseHelpers';
-import { startOfDayLocal, endOfDayLocal } from '@/lib/dateUtils';
-import { useAuth } from '@/contexts/AuthContext';
+  getTopAppliancesByEnergy,
+} from "@/hooks/useNilmCsvData";
+import {
+  useManagedAppliances,
+  ManagedAppliance,
+} from "@/hooks/useManagedAppliances";
+import { useLocalInfluxPredictions } from "@/hooks/useLocalInfluxPredictions";
+import { energyApi, isEnergyApiAvailable } from "@/services/energy";
+import { edgeFunctions } from "@/lib/supabaseHelpers";
+import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface EnergyContextType {
   mode: DataMode;
@@ -50,8 +66,18 @@ const EnergyContext = createContext<EnergyContextType | null>(null);
 
 export function EnergyProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const { rows: demoRows, appliances: demoAppliances, loading: demoLoading, error: demoError, refetch: demoRefetch } = useNilmCsvData();
-  const { appliances: managedAppliances, loading: managedAppliancesLoading, refetch: refetchManagedAppliances } = useManagedAppliances();
+  const {
+    rows: demoRows,
+    appliances: demoAppliances,
+    loading: demoLoading,
+    error: demoError,
+    refetch: demoRefetch,
+  } = useNilmCsvData();
+  const {
+    appliances: managedAppliances,
+    loading: managedAppliancesLoading,
+    refetch: refetchManagedAppliances,
+  } = useManagedAppliances();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -60,19 +86,23 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Determine initial mode from environment variables
   const [mode, setModeInternal] = useState<DataMode>(() => {
-    if (import.meta.env.VITE_LOCAL_MODE === 'true') return 'local';
-    if (import.meta.env.VITE_DEMO_MODE === 'true') return 'demo';
-    return 'demo'; // Default to demo mode
+    if (import.meta.env.VITE_LOCAL_MODE === "true") return "local";
+    if (import.meta.env.VITE_DEMO_MODE === "true") return "demo";
+    return "demo"; // Default to demo mode
   });
-  const [selectedBuilding, setSelectedBuilding] = useState('Demo Building');
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
-  const [selectedAppliance, setSelectedAppliance] = useState('All');
+  const [selectedBuilding, setSelectedBuilding] = useState("Demo Building");
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(
+    null,
+  );
+  const [selectedAppliance, setSelectedAppliance] = useState("All");
 
   // Date range for local influx queries (initialized below)
   const [dateRange, setDateRangeInternal] = useState<DateRange>(() => {
     const now = new Date();
     const end = endOfDayLocal(now);
-    const start = startOfDayLocal(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+    const start = startOfDayLocal(
+      new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+    );
     return { start, end };
   });
 
@@ -83,22 +113,25 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     error: localError,
     refetch: localRefetch,
   } = useLocalInfluxPredictions({
-    buildingId: 'local',
+    buildingId: "local",
     startDate: dateRange.start,
     endDate: dateRange.end,
-    enabled: mode === 'local',
+    enabled: mode === "local",
   });
 
   // Check if API is available (user must be authenticated for API mode)
-  const isApiAvailable = useMemo(() => isEnergyApiAvailable() || isAuthenticated, [isAuthenticated]);
+  const isApiAvailable = useMemo(
+    () => isEnergyApiAvailable() || Boolean(isAuthenticated && selectedBuildingId),
+    [isAuthenticated, selectedBuildingId],
+  );
 
   // STRICT mode switching: Each mode shows ONLY its own data (empty if none)
   const rows = useMemo(() => {
-    if (mode === 'api') {
+    if (mode === "api") {
       // API mode: return API rows only, even if empty
       return apiRows;
     }
-    if (mode === 'local') {
+    if (mode === "local") {
       // Local mode: return local InfluxDB rows only
       return localRows;
     }
@@ -106,25 +139,36 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return demoRows;
   }, [mode, apiRows, localRows, demoRows]);
 
-  const loading = mode === 'api' ? apiLoading : mode === 'local' ? localLoading : demoLoading;
-  const error = mode === 'api' && apiError ? apiError : mode === 'local' && localError ? localError : (mode === 'demo' ? demoError : null);
+  const loading =
+    mode === "api" ? apiLoading : mode === "local" ? localLoading : demoLoading;
+  const error =
+    mode === "api" && apiError
+      ? apiError
+      : mode === "local" && localError
+        ? localError
+        : mode === "demo"
+          ? demoError
+          : null;
 
   // Mode setter that clears stale data when switching
-  const setMode = useCallback((newMode: DataMode) => {
-    if (newMode === mode) return;
+  const setMode = useCallback(
+    (newMode: DataMode) => {
+      if (newMode === mode) return;
 
-    // Clear API data when switching away from API mode
-    if (mode === 'api') {
-      setApiRows([]);
+      // Clear API data when switching away from API mode
+      if (mode === "api") {
+        setApiRows([]);
+        setApiError(null);
+      }
+
+      // Clear any errors when switching modes
       setApiError(null);
-    }
 
-    // Clear any errors when switching modes
-    setApiError(null);
-
-    setModeInternal(newMode);
-    setLastRefreshed(null);
-  }, [mode]);
+      setModeInternal(newMode);
+      setLastRefreshed(null);
+    },
+    [mode],
+  );
 
   // Fetch readings from Supabase edge function
   const fetchApiReadings = useCallback(async () => {
@@ -135,12 +179,14 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await edgeFunctions.getReadings({
         building_id: selectedBuildingId,
-        start_date: startOfDayLocal(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).toISOString(),
+        start_date: startOfDayLocal(
+          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        ).toISOString(),
         end_date: endOfDayLocal(new Date()).toISOString(),
       });
 
       if (error || !data) {
-        throw new Error(error?.message || 'Failed to fetch readings');
+        throw new Error(error?.message || "Failed to fetch readings");
       }
 
       // Transform to NilmDataRow format
@@ -153,7 +199,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
       return transformed.sort((a, b) => a.time.getTime() - b.time.getTime());
     } catch (err) {
-      console.warn('Failed to fetch API readings:', err);
+      console.warn("Failed to fetch API readings:", err);
       throw err;
     }
   }, [isAuthenticated, selectedBuildingId]);
@@ -164,27 +210,31 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     setIsRefreshing(true);
     setApiError(null);
 
-    if (mode === 'local') {
+    if (mode === "local") {
       // Local mode: refetch from local InfluxDB
       await localRefetch();
-    } else if (mode === 'api') {
+    } else if (mode === "api") {
       // API mode: fetch from API only, do NOT fall back to demo
       if (isAuthenticated && selectedBuildingId) {
         // Supabase edge function mode
         try {
           setApiLoading(true);
           const readings = await fetchApiReadings();
-          
+
           if (readings.length > 0) {
             setApiRows(readings);
             setApiError(null);
           } else {
             // No data but request succeeded - show warning, keep empty
-            setApiError('No readings available from API for selected building/date range');
+            setApiError(
+              "No readings available from API for selected building/date range",
+            );
           }
         } catch (err) {
-          console.warn('API fetch failed:', err);
-          setApiError('API unreachable — click Refresh to retry or switch to Demo mode');
+          console.warn("API fetch failed:", err);
+          setApiError(
+            "API unreachable — click Refresh to retry or switch to Demo mode",
+          );
         } finally {
           setApiLoading(false);
         }
@@ -193,10 +243,13 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         try {
           setApiLoading(true);
           const response = await energyApi.getReadings();
-          
+
           const transformed: NilmDataRow[] = [];
-          const byTimestamp: Record<string, { aggregate: number; appliances: Record<string, number> }> = {};
-          
+          const byTimestamp: Record<
+            string,
+            { aggregate: number; appliances: Record<string, number> }
+          > = {};
+
           response.readings.forEach((r) => {
             if (!byTimestamp[r.timestamp]) {
               byTimestamp[r.timestamp] = { aggregate: 0, appliances: {} };
@@ -204,7 +257,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
             byTimestamp[r.timestamp].appliances[r.appliance] = r.power_kw;
             byTimestamp[r.timestamp].aggregate += r.power_kw;
           });
-          
+
           Object.entries(byTimestamp).forEach(([ts, data]) => {
             transformed.push({
               time: new Date(ts),
@@ -212,33 +265,53 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
               appliances: data.appliances,
             });
           });
-          
+
           transformed.sort((a, b) => a.time.getTime() - b.time.getTime());
-          
+
           if (transformed.length > 0) {
             setApiRows(transformed);
             setApiError(null);
           } else {
-            setApiError('No data from API — select a building or check API configuration');
+            setApiError(
+              "No data from API — select a building or check API configuration",
+            );
           }
         } catch (err) {
-          console.warn('API fetch failed:', err);
-          setApiError('API unreachable — click Refresh to retry or switch to Demo mode');
+          console.warn("API fetch failed:", err);
+          setApiError(
+            "API unreachable — click Refresh to retry or switch to Demo mode",
+          );
         } finally {
           setApiLoading(false);
         }
       } else {
-        // API mode but not authenticated and no external API
-        setApiError('API mode requires authentication. Please log in or switch to Demo mode.');
+        // API mode but missing configuration or building selection
+        if (isAuthenticated && !selectedBuildingId) {
+          setApiError("Select a building to load data in API mode.");
+        } else {
+          setApiError(
+            "API mode requires configuration. Set VITE_API_BASE_URL or switch to Demo mode.",
+          );
+        }
       }
     } else {
       // Demo mode - just refetch CSV
       await demoRefetch();
     }
-    
+
     setLastRefreshed(new Date());
     setIsRefreshing(false);
-  }, [mode, isApiAvailable, isAuthenticated, selectedBuildingId, isRefreshing, loading, demoRefetch, localRefetch, fetchApiReadings]);
+  }, [
+    mode,
+    isApiAvailable,
+    isAuthenticated,
+    selectedBuildingId,
+    isRefreshing,
+    loading,
+    demoRefetch,
+    localRefetch,
+    fetchApiReadings,
+  ]);
 
   // Set initial lastRefreshed when data first loads
   useEffect(() => {
@@ -246,7 +319,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       setLastRefreshed(new Date());
     }
   }, [demoLoading, demoRows.length, lastRefreshed]);
-  
+
   // Compute data date range
   const dataDateRange = useMemo(() => {
     if (rows.length === 0) return null;
@@ -268,9 +341,14 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (dataDateRange) {
       const end = endOfDayLocal(dataDateRange.max);
-      const start = startOfDayLocal(new Date(dataDateRange.max.getTime() - 7 * 24 * 60 * 60 * 1000));
+      const start = startOfDayLocal(
+        new Date(dataDateRange.max.getTime() - 7 * 24 * 60 * 60 * 1000),
+      );
       if (start < dataDateRange.min) {
-        setDateRangeInternal({ start: startOfDayLocal(dataDateRange.min), end });
+        setDateRangeInternal({
+          start: startOfDayLocal(dataDateRange.min),
+          end,
+        });
       } else {
         setDateRangeInternal({ start, end });
       }
@@ -297,7 +375,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   }, [managedAppliances, demoAppliances]);
 
   // Building is fixed for demo mode (single building dataset)
-  const buildings = ['Demo Building (single building dataset)'];
+  const buildings = ["Demo Building (single building dataset)"];
 
   // Filter rows by date range (with proper timezone handling)
   const filteredRows = useMemo(() => {
@@ -306,10 +384,12 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     });
 
     // If a specific appliance is selected, filter the appliances data in each row
-    if (selectedAppliance !== 'All') {
+    if (selectedAppliance !== "All") {
       return dateFiltered.map((row) => ({
         ...row,
-        appliances: { [selectedAppliance]: row.appliances[selectedAppliance] || 0 },
+        appliances: {
+          [selectedAppliance]: row.appliances[selectedAppliance] || 0,
+        },
         // Recalculate aggregate to show only the selected appliance's consumption
         aggregate: row.appliances[selectedAppliance] || 0,
       }));
@@ -320,7 +400,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Determine which appliances to show based on filter
   const activeAppliances = useMemo(() => {
-    return selectedAppliance === 'All' ? appliances : [selectedAppliance];
+    return selectedAppliance === "All" ? appliances : [selectedAppliance];
   }, [selectedAppliance, appliances]);
 
   // Get top 5 appliances by energy in the filtered range
@@ -332,28 +412,28 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const insights = useMemo((): InsightData => {
     if (filteredRows.length === 0) {
       return {
-        peakLoad: { kW: 0, timestamp: '' },
+        peakLoad: { kW: 0, timestamp: "" },
         totalEnergy: 0,
-        topAppliance: { name: '-', confidence: 0 },
-        overallConfidence: { level: 'Low', percentage: 0 },
+        topAppliance: { name: "-", confidence: 0 },
+        overallConfidence: { level: "Low", percentage: 0 },
       };
     }
 
     // Peak load
     const peak = filteredRows.reduce(
       (max, row) => (row.aggregate > max.aggregate ? row : max),
-      filteredRows[0]
+      filteredRows[0],
     );
 
     // Total energy (aggregate)
     const totalEnergy = filteredRows.reduce(
       (sum, row) => sum + computeEnergyKwh(row.aggregate),
-      0
+      0,
     );
 
     // Top appliance by kWh
-    const topApp = topAppliances[0] || { name: '-', totalKwh: 0 };
-    
+    const topApp = topAppliances[0] || { name: "-", totalKwh: 0 };
+
     // Average confidence across all appliances at latest timestamp
     const latestRow = filteredRows[filteredRows.length - 1];
     let totalConfidence = 0;
@@ -364,8 +444,8 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       count++;
     });
     const avgConfidence = count > 0 ? totalConfidence / count : 0;
-    const level: 'Good' | 'Medium' | 'Low' =
-      avgConfidence >= 0.5 ? 'Good' : avgConfidence >= 0.3 ? 'Medium' : 'Low';
+    const level: "Good" | "Medium" | "Low" =
+      avgConfidence >= 0.5 ? "Good" : avgConfidence >= 0.3 ? "Medium" : "Low";
 
     return {
       peakLoad: { kW: peak.aggregate, timestamp: peak.time.toISOString() },
@@ -378,19 +458,20 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   // Current appliance status (from latest row in range) with managed appliance metadata
   const currentApplianceStatus = useMemo((): ApplianceStatus[] => {
     if (filteredRows.length === 0) return [];
-    
+
     const latestRow = filteredRows[filteredRows.length - 1];
-    
+
     // If we have managed appliances, use their names; otherwise use demo appliances
-    const applianceNames = managedAppliances.length > 0 
-      ? managedAppliances.map((a) => a.name)
-      : demoAppliances;
-    
+    const applianceNames =
+      managedAppliances.length > 0
+        ? managedAppliances.map((a) => a.name)
+        : demoAppliances;
+
     return applianceNames
       .map((name) => {
         const estKw = latestRow.appliances[name] || 0;
         const managed = managedApplianceMap[name];
-        
+
         return {
           name,
           on: estKw >= ON_THRESHOLD,
@@ -443,6 +524,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
 export function useEnergy() {
   const context = useContext(EnergyContext);
-  if (!context) throw new Error('useEnergy must be used within EnergyProvider');
+  if (!context) throw new Error("useEnergy must be used within EnergyProvider");
   return context;
 }

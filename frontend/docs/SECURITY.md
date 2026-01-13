@@ -6,7 +6,7 @@ This document outlines security best practices for the frontend application.
 
 ## Environment Variables
 
-### Frontend (VITE_* prefix)
+### Frontend (VITE\_\* prefix)
 
 **Important**: Only `VITE_*` prefixed variables are accessible in client-side code. These variables are **BAKED INTO THE BUILD** at compile time and become part of the JavaScript bundle that is sent to users' browsers.
 
@@ -40,17 +40,20 @@ This document outlines security best practices for the frontend application.
 ### Token Storage
 
 **Current Implementation**:
+
 - Auth tokens are stored in `localStorage` (Supabase default behavior)
 - Session tokens are automatically refreshed by Supabase client
 - "Remember me" functionality toggles between `localStorage` and `sessionStorage`
 
 **Security Considerations**:
+
 - `localStorage` is vulnerable to XSS (Cross-Site Scripting) attacks
 - Ensure no XSS vulnerabilities exist in the application
 - All user input is rendered as text (never as HTML)
 - No use of `dangerouslySetInnerHTML` or `innerHTML`
 
 **Alternative** (requires backend changes):
+
 - Use `httpOnly` cookies for token storage
 - Requires custom auth endpoints to set cookies
 - Provides protection against XSS token theft
@@ -71,6 +74,7 @@ This document outlines security best practices for the frontend application.
 ⚠️ **CRITICAL**: Frontend role checks are **UI-ONLY** and provide no security.
 
 **All authorization MUST be validated on the backend via**:
+
 1. Supabase Row Level Security (RLS) policies
 2. Edge function permission checks
 3. Database triggers
@@ -82,24 +86,27 @@ This document outlines security best practices for the frontend application.
 - **Never trust client-provided role values**
 
 Example of proper backend validation:
+
 ```typescript
 // In Supabase Edge Function
-const authHeader = req.headers.get('Authorization');
-if (!authHeader) return new Response('Unauthorized', { status: 401 });
+const authHeader = req.headers.get("Authorization");
+if (!authHeader) return new Response("Unauthorized", { status: 401 });
 
-const token = authHeader.replace('Bearer ', '');
-const { data: { user } } = await supabase.auth.getUser(token);
-if (!user) return new Response('Unauthorized', { status: 401 });
+const token = authHeader.replace("Bearer ", "");
+const {
+  data: { user },
+} = await supabase.auth.getUser(token);
+if (!user) return new Response("Unauthorized", { status: 401 });
 
 // Fetch user profile and check role
 const { data: profile } = await supabase
-  .from('profiles')
-  .select('role')
-  .eq('id', user.id)
+  .from("profiles")
+  .select("role")
+  .eq("id", user.id)
   .single();
 
-if (profile?.role !== 'admin') {
-  return new Response('Forbidden', { status: 403 });
+if (profile?.role !== "admin") {
+  return new Response("Forbidden", { status: 403 });
 }
 ```
 
@@ -191,16 +198,19 @@ All Supabase Edge Functions **MUST** follow these security practices:
 ### 1. Verify JWT Token
 
 ```typescript
-const authHeader = req.headers.get('Authorization');
+const authHeader = req.headers.get("Authorization");
 if (!authHeader) {
-  return new Response('Unauthorized', { status: 401 });
+  return new Response("Unauthorized", { status: 401 });
 }
 
-const token = authHeader.replace('Bearer ', '');
-const { data: { user }, error } = await supabase.auth.getUser(token);
+const token = authHeader.replace("Bearer ", "");
+const {
+  data: { user },
+  error,
+} = await supabase.auth.getUser(token);
 
 if (error || !user) {
-  return new Response('Unauthorized', { status: 401 });
+  return new Response("Unauthorized", { status: 401 });
 }
 ```
 
@@ -216,18 +226,18 @@ const userId = user.id;
 ```typescript
 // Check user has permission for this operation
 const { data: profile } = await supabase
-  .from('profiles')
-  .select('role, organization_id')
-  .eq('id', userId)
+  .from("profiles")
+  .select("role, organization_id")
+  .eq("id", userId)
   .single();
 
 if (!profile) {
-  return new Response('Forbidden', { status: 403 });
+  return new Response("Forbidden", { status: 403 });
 }
 
 // For admin-only operations
-if (profile.role !== 'admin') {
-  return new Response('Forbidden - Admin required', { status: 403 });
+if (profile.role !== "admin") {
+  return new Response("Forbidden - Admin required", { status: 403 });
 }
 ```
 
@@ -260,6 +270,7 @@ const authenticatedUserId = user.id;
 ### Development Logging
 
 **Never log sensitive data**:
+
 - ❌ Auth tokens
 - ❌ Passwords
 - ❌ API keys
@@ -267,9 +278,10 @@ const authenticatedUserId = user.id;
 - ❌ Complete user objects with email
 
 **Use environment checks for debug logging**:
+
 ```typescript
 if (import.meta.env.DEV) {
-  console.log('Debug info:', data);
+  console.log("Debug info:", data);
 }
 ```
 
@@ -311,14 +323,16 @@ npm audit fix --force  # Use with caution
 ### XSS (Cross-Site Scripting)
 
 **Prevention**:
+
 - ✅ All user input is rendered as text (React default)
 - ✅ No use of `dangerouslySetInnerHTML`
 - ✅ No direct DOM manipulation with `innerHTML`
 - ✅ No `eval()` or `new Function()` with user input
 
 **If HTML rendering is required**:
+
 ```typescript
-import DOMPurify from 'dompurify';
+import DOMPurify from "dompurify";
 
 const cleanHtml = DOMPurify.sanitize(userInput);
 ```
@@ -326,6 +340,7 @@ const cleanHtml = DOMPurify.sanitize(userInput);
 ### CSRF (Cross-Site Request Forgery)
 
 **Mitigation**:
+
 - Supabase JWT tokens are sent in `Authorization` header (not cookies)
 - SameSite cookie flags for any custom cookies
 - API endpoints validate JWT on every request
@@ -333,6 +348,7 @@ const cleanHtml = DOMPurify.sanitize(userInput);
 ### SQL Injection
 
 **Prevention**:
+
 - Use Supabase client library (parameterized queries by default)
 - Never construct SQL strings from user input
 - RLS policies protect against unauthorized data access
@@ -340,6 +356,7 @@ const cleanHtml = DOMPurify.sanitize(userInput);
 ### Authentication Bypass
 
 **Prevention**:
+
 - All API routes validate JWT token
 - Frontend route guards are UI-only (backend validation required)
 - RLS policies enforce database-level access control

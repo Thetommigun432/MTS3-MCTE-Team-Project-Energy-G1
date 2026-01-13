@@ -4,540 +4,543 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
-  }
+    PostgrestVersion: "14.1";
+  };
   public: {
     Tables: {
       appliances: {
         Row: {
-          building_id: string
-          created_at: string
-          id: string
-          name: string
-          notes: string | null
-          rated_power_kw: number | null
-          status: string
-          type: string
-          updated_at: string
-          user_id: string
-        }
+          building_id: string;
+          created_at: string;
+          id: string;
+          name: string;
+          notes: string | null;
+          rated_power_kw: number | null;
+          status: string;
+          type: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          building_id: string
-          created_at?: string
-          id?: string
-          name: string
-          notes?: string | null
-          rated_power_kw?: number | null
-          status?: string
-          type?: string
-          updated_at?: string
-          user_id: string
-        }
+          building_id: string;
+          created_at?: string;
+          id?: string;
+          name: string;
+          notes?: string | null;
+          rated_power_kw?: number | null;
+          status?: string;
+          type?: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          building_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-          notes?: string | null
-          rated_power_kw?: number | null
-          status?: string
-          type?: string
-          updated_at?: string
-          user_id?: string
-        }
+          building_id?: string;
+          created_at?: string;
+          id?: string;
+          name?: string;
+          notes?: string | null;
+          rated_power_kw?: number | null;
+          status?: string;
+          type?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "appliances_building_id_fkey"
-            columns: ["building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
+            foreignKeyName: "appliances_building_id_fkey";
+            columns: ["building_id"];
+            isOneToOne: false;
+            referencedRelation: "buildings";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       building_appliances: {
         Row: {
-          alias: string | null
-          building_id: string
-          created_at: string
-          id: string
-          is_enabled: boolean
-          org_appliance_id: string
-          updated_at: string
-          user_id: string
-        }
+          alias: string | null;
+          building_id: string;
+          created_at: string;
+          id: string;
+          is_enabled: boolean;
+          org_appliance_id: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          alias?: string | null
-          building_id: string
-          created_at?: string
-          id?: string
-          is_enabled?: boolean
-          org_appliance_id: string
-          updated_at?: string
-          user_id: string
-        }
+          alias?: string | null;
+          building_id: string;
+          created_at?: string;
+          id?: string;
+          is_enabled?: boolean;
+          org_appliance_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          alias?: string | null
-          building_id?: string
-          created_at?: string
-          id?: string
-          is_enabled?: boolean
-          org_appliance_id?: string
-          updated_at?: string
-          user_id?: string
-        }
+          alias?: string | null;
+          building_id?: string;
+          created_at?: string;
+          id?: string;
+          is_enabled?: boolean;
+          org_appliance_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "building_appliances_building_id_fkey"
-            columns: ["building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
+            foreignKeyName: "building_appliances_building_id_fkey";
+            columns: ["building_id"];
+            isOneToOne: false;
+            referencedRelation: "buildings";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "building_appliances_org_appliance_id_fkey"
-            columns: ["org_appliance_id"]
-            isOneToOne: false
-            referencedRelation: "org_appliances"
-            referencedColumns: ["id"]
+            foreignKeyName: "building_appliances_org_appliance_id_fkey";
+            columns: ["org_appliance_id"];
+            isOneToOne: false;
+            referencedRelation: "org_appliances";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       buildings: {
         Row: {
-          address: string | null
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          status: string
-          total_appliances: number | null
-          updated_at: string
-          user_id: string
-        }
+          address: string | null;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          status: string;
+          total_appliances: number | null;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          address?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          status?: string
-          total_appliances?: number | null
-          updated_at?: string
-          user_id: string
-        }
+          address?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          status?: string;
+          total_appliances?: number | null;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          address?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          status?: string
-          total_appliances?: number | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          address?: string | null;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          status?: string;
+          total_appliances?: number | null;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       invitations: {
         Row: {
-          accepted_at: string | null
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          invited_by: string | null
-          role: string
-          status: string
-        }
+          accepted_at: string | null;
+          created_at: string;
+          email: string;
+          expires_at: string;
+          id: string;
+          invited_by: string | null;
+          role: string;
+          status: string;
+        };
         Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          email: string
-          expires_at?: string
-          id?: string
-          invited_by?: string | null
-          role?: string
-          status?: string
-        }
+          accepted_at?: string | null;
+          created_at?: string;
+          email: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string | null;
+          role?: string;
+          status?: string;
+        };
         Update: {
-          accepted_at?: string | null
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invited_by?: string | null
-          role?: string
-          status?: string
-        }
-        Relationships: []
-      }
+          accepted_at?: string | null;
+          created_at?: string;
+          email?: string;
+          expires_at?: string;
+          id?: string;
+          invited_by?: string | null;
+          role?: string;
+          status?: string;
+        };
+        Relationships: [];
+      };
       login_events: {
         Row: {
-          created_at: string
-          device_label: string | null
-          id: string
-          ip_address: string | null
-          success: boolean
-          user_agent: string | null
-          user_id: string
-        }
+          created_at: string;
+          device_label: string | null;
+          id: string;
+          ip_address: string | null;
+          success: boolean;
+          user_agent: string | null;
+          user_id: string;
+        };
         Insert: {
-          created_at?: string
-          device_label?: string | null
-          id?: string
-          ip_address?: string | null
-          success?: boolean
-          user_agent?: string | null
-          user_id: string
-        }
+          created_at?: string;
+          device_label?: string | null;
+          id?: string;
+          ip_address?: string | null;
+          success?: boolean;
+          user_agent?: string | null;
+          user_id: string;
+        };
         Update: {
-          created_at?: string
-          device_label?: string | null
-          id?: string
-          ip_address?: string | null
-          success?: boolean
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
+          created_at?: string;
+          device_label?: string | null;
+          id?: string;
+          ip_address?: string | null;
+          success?: boolean;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       model_versions: {
         Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          metrics: Json | null
-          model_artifact_path: string | null
-          model_id: string
-          scaler_artifact_path: string | null
-          status: string
-          trained_at: string | null
-          training_config: Json | null
-          updated_at: string
-          user_id: string
-          version: string
-        }
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          metrics: Json | null;
+          model_artifact_path: string | null;
+          model_id: string;
+          scaler_artifact_path: string | null;
+          status: string;
+          trained_at: string | null;
+          training_config: Json | null;
+          updated_at: string;
+          user_id: string;
+          version: string;
+        };
         Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metrics?: Json | null
-          model_artifact_path?: string | null
-          model_id: string
-          scaler_artifact_path?: string | null
-          status?: string
-          trained_at?: string | null
-          training_config?: Json | null
-          updated_at?: string
-          user_id: string
-          version: string
-        }
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          metrics?: Json | null;
+          model_artifact_path?: string | null;
+          model_id: string;
+          scaler_artifact_path?: string | null;
+          status?: string;
+          trained_at?: string | null;
+          training_config?: Json | null;
+          updated_at?: string;
+          user_id: string;
+          version: string;
+        };
         Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          metrics?: Json | null
-          model_artifact_path?: string | null
-          model_id?: string
-          scaler_artifact_path?: string | null
-          status?: string
-          trained_at?: string | null
-          training_config?: Json | null
-          updated_at?: string
-          user_id?: string
-          version?: string
-        }
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          metrics?: Json | null;
+          model_artifact_path?: string | null;
+          model_id?: string;
+          scaler_artifact_path?: string | null;
+          status?: string;
+          trained_at?: string | null;
+          training_config?: Json | null;
+          updated_at?: string;
+          user_id?: string;
+          version?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "model_versions_model_id_fkey"
-            columns: ["model_id"]
-            isOneToOne: false
-            referencedRelation: "models"
-            referencedColumns: ["id"]
+            foreignKeyName: "model_versions_model_id_fkey";
+            columns: ["model_id"];
+            isOneToOne: false;
+            referencedRelation: "models";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       models: {
         Row: {
-          architecture: string | null
-          created_at: string
-          id: string
-          is_active: boolean
-          name: string
-          org_appliance_id: string
-          updated_at: string
-          user_id: string
-        }
+          architecture: string | null;
+          created_at: string;
+          id: string;
+          is_active: boolean;
+          name: string;
+          org_appliance_id: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          architecture?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name: string
-          org_appliance_id: string
-          updated_at?: string
-          user_id: string
-        }
+          architecture?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name: string;
+          org_appliance_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          architecture?: string | null
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          name?: string
-          org_appliance_id?: string
-          updated_at?: string
-          user_id?: string
-        }
+          architecture?: string | null;
+          created_at?: string;
+          id?: string;
+          is_active?: boolean;
+          name?: string;
+          org_appliance_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "models_org_appliance_id_fkey"
-            columns: ["org_appliance_id"]
-            isOneToOne: false
-            referencedRelation: "org_appliances"
-            referencedColumns: ["id"]
+            foreignKeyName: "models_org_appliance_id_fkey";
+            columns: ["org_appliance_id"];
+            isOneToOne: false;
+            referencedRelation: "org_appliances";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       org_appliances: {
         Row: {
-          category: string
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          slug: string
-          updated_at: string
-          user_id: string
-        }
+          category: string;
+          created_at: string;
+          description: string | null;
+          id: string;
+          name: string;
+          slug: string;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          category?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          slug: string
-          updated_at?: string
-          user_id: string
-        }
+          category?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name: string;
+          slug: string;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          category?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          slug?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+          category?: string;
+          created_at?: string;
+          description?: string | null;
+          id?: string;
+          name?: string;
+          slug?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       predictions: {
         Row: {
-          building_id: string
-          confidence: number | null
-          created_at: string
-          id: string
-          is_on: boolean | null
-          model_version_id: string | null
-          org_appliance_id: string
-          power_kw: number
-          timestamp: string
-          user_id: string
-        }
+          building_id: string;
+          confidence: number | null;
+          created_at: string;
+          id: string;
+          is_on: boolean | null;
+          model_version_id: string | null;
+          org_appliance_id: string;
+          power_kw: number;
+          timestamp: string;
+          user_id: string;
+        };
         Insert: {
-          building_id: string
-          confidence?: number | null
-          created_at?: string
-          id?: string
-          is_on?: boolean | null
-          model_version_id?: string | null
-          org_appliance_id: string
-          power_kw: number
-          timestamp: string
-          user_id: string
-        }
+          building_id: string;
+          confidence?: number | null;
+          created_at?: string;
+          id?: string;
+          is_on?: boolean | null;
+          model_version_id?: string | null;
+          org_appliance_id: string;
+          power_kw: number;
+          timestamp: string;
+          user_id: string;
+        };
         Update: {
-          building_id?: string
-          confidence?: number | null
-          created_at?: string
-          id?: string
-          is_on?: boolean | null
-          model_version_id?: string | null
-          org_appliance_id?: string
-          power_kw?: number
-          timestamp?: string
-          user_id?: string
-        }
+          building_id?: string;
+          confidence?: number | null;
+          created_at?: string;
+          id?: string;
+          is_on?: boolean | null;
+          model_version_id?: string | null;
+          org_appliance_id?: string;
+          power_kw?: number;
+          timestamp?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "predictions_building_id_fkey"
-            columns: ["building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
+            foreignKeyName: "predictions_building_id_fkey";
+            columns: ["building_id"];
+            isOneToOne: false;
+            referencedRelation: "buildings";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "predictions_model_version_id_fkey"
-            columns: ["model_version_id"]
-            isOneToOne: false
-            referencedRelation: "model_versions"
-            referencedColumns: ["id"]
+            foreignKeyName: "predictions_model_version_id_fkey";
+            columns: ["model_version_id"];
+            isOneToOne: false;
+            referencedRelation: "model_versions";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "predictions_org_appliance_id_fkey"
-            columns: ["org_appliance_id"]
-            isOneToOne: false
-            referencedRelation: "org_appliances"
-            referencedColumns: ["id"]
+            foreignKeyName: "predictions_org_appliance_id_fkey";
+            columns: ["org_appliance_id"];
+            isOneToOne: false;
+            referencedRelation: "org_appliances";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       profiles: {
         Row: {
-          avatar_url: string | null
-          created_at: string
-          display_name: string | null
-          email: string | null
-          id: string
-          updated_at: string
-        }
+          avatar_url: string | null;
+          created_at: string;
+          display_name: string | null;
+          email: string | null;
+          id: string;
+          updated_at: string;
+        };
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          id: string
-          updated_at?: string
-        }
+          avatar_url?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          email?: string | null;
+          id: string;
+          updated_at?: string;
+        };
         Update: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_url?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          email?: string | null;
+          id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       readings: {
         Row: {
-          aggregate_kw: number
-          building_id: string
-          created_at: string
-          id: string
-          timestamp: string
-          user_id: string
-        }
+          aggregate_kw: number;
+          building_id: string;
+          created_at: string;
+          id: string;
+          timestamp: string;
+          user_id: string;
+        };
         Insert: {
-          aggregate_kw: number
-          building_id: string
-          created_at?: string
-          id?: string
-          timestamp: string
-          user_id: string
-        }
+          aggregate_kw: number;
+          building_id: string;
+          created_at?: string;
+          id?: string;
+          timestamp: string;
+          user_id: string;
+        };
         Update: {
-          aggregate_kw?: number
-          building_id?: string
-          created_at?: string
-          id?: string
-          timestamp?: string
-          user_id?: string
-        }
+          aggregate_kw?: number;
+          building_id?: string;
+          created_at?: string;
+          id?: string;
+          timestamp?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "readings_building_id_fkey"
-            columns: ["building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
+            foreignKeyName: "readings_building_id_fkey";
+            columns: ["building_id"];
+            isOneToOne: false;
+            referencedRelation: "buildings";
+            referencedColumns: ["id"];
           },
-        ]
-      }
+        ];
+      };
       user_settings: {
         Row: {
-          compact_mode: boolean
-          created_at: string
-          high_contrast: boolean
-          id: string
-          reduce_motion: boolean
-          selected_building_id: string | null
-          updated_at: string
-          user_id: string
-        }
+          compact_mode: boolean;
+          created_at: string;
+          high_contrast: boolean;
+          id: string;
+          reduce_motion: boolean;
+          selected_building_id: string | null;
+          updated_at: string;
+          user_id: string;
+        };
         Insert: {
-          compact_mode?: boolean
-          created_at?: string
-          high_contrast?: boolean
-          id?: string
-          reduce_motion?: boolean
-          selected_building_id?: string | null
-          updated_at?: string
-          user_id: string
-        }
+          compact_mode?: boolean;
+          created_at?: string;
+          high_contrast?: boolean;
+          id?: string;
+          reduce_motion?: boolean;
+          selected_building_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+        };
         Update: {
-          compact_mode?: boolean
-          created_at?: string
-          high_contrast?: boolean
-          id?: string
-          reduce_motion?: boolean
-          selected_building_id?: string | null
-          updated_at?: string
-          user_id?: string
-        }
+          compact_mode?: boolean;
+          created_at?: string;
+          high_contrast?: boolean;
+          id?: string;
+          reduce_motion?: boolean;
+          selected_building_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "user_settings_selected_building_id_fkey"
-            columns: ["selected_building_id"]
-            isOneToOne: false
-            referencedRelation: "buildings"
-            referencedColumns: ["id"]
+            foreignKeyName: "user_settings_selected_building_id_fkey";
+            columns: ["selected_building_id"];
+            isOneToOne: false;
+            referencedRelation: "buildings";
+            referencedColumns: ["id"];
           },
-        ]
-      }
-    }
+        ];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Enums: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
@@ -545,98 +548,98 @@ export type Tables<
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
         DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+        Row: infer R;
       }
       ? R
       : never
-    : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+        Insert: infer I;
       }
       ? I
       : never
-    : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+        Update: infer U;
       }
       ? U
       : never
-    : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+    : never;
 
 export const Constants = {
   public: {
     Enums: {},
   },
-} as const
+} as const;

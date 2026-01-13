@@ -3,12 +3,12 @@
  * "Remember me" functionality by switching between localStorage and sessionStorage
  */
 
-const REMEMBER_ME_KEY = 'nilm-remember-me';
+const REMEMBER_ME_KEY = "nilm-remember-me";
 
 // Check if user opted for "remember me"
 export function getRememberMe(): boolean {
   try {
-    return localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+    return localStorage.getItem(REMEMBER_ME_KEY) === "true";
   } catch {
     return true; // Default to remember
   }
@@ -16,7 +16,7 @@ export function getRememberMe(): boolean {
 
 export function setRememberMe(value: boolean): void {
   try {
-    localStorage.setItem(REMEMBER_ME_KEY, value ? 'true' : 'false');
+    localStorage.setItem(REMEMBER_ME_KEY, value ? "true" : "false");
   } catch {
     // Ignore storage errors
   }
@@ -29,14 +29,14 @@ export const customAuthStorage = {
       // Always try localStorage first (for remembered sessions)
       const localValue = localStorage.getItem(key);
       if (localValue) return localValue;
-      
+
       // Fall back to sessionStorage
       return sessionStorage.getItem(key);
     } catch {
       return null;
     }
   },
-  
+
   setItem: (key: string, value: string): void => {
     try {
       const rememberMe = getRememberMe();
@@ -53,7 +53,7 @@ export const customAuthStorage = {
       // Ignore storage errors
     }
   },
-  
+
   removeItem: (key: string): void => {
     try {
       localStorage.removeItem(key);

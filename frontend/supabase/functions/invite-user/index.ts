@@ -3,16 +3,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 /**
  * Invite User Edge Function
- * 
+ *
  * Uses service_role key to:
  * 1. Send admin invite email via Supabase Auth
  * 2. Create org_members row for the invited user
- * 
+ *
  * Request body:
  * {
  *   org_id: string;        // Organization to add user to
@@ -41,7 +42,10 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -56,40 +60,52 @@ serve(async (req) => {
     });
 
     // Verify user is authenticated
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
     if (userError || !user) {
       console.error("Auth error:", userError);
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Parse request body
-    const { org_id, email, role, redirect_to }: InviteRequest = await req.json();
+    const { org_id, email, role, redirect_to }: InviteRequest =
+      await req.json();
 
     // Validate required fields
     if (!org_id || !email || !role) {
       return new Response(
         JSON.stringify({ error: "org_id, email, and role are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid email address" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid email address" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Validate role
     if (!["admin", "member", "viewer"].includes(role)) {
       return new Response(
-        JSON.stringify({ error: "Invalid role. Must be admin, member, or viewer" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Invalid role. Must be admin, member, or viewer",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -107,14 +123,17 @@ serve(async (req) => {
     if (memberError || !membership || membership.role !== "admin") {
       return new Response(
         JSON.stringify({ error: "Only organization admins can invite users" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // Check if user already exists
     const { data: existingUsers } = await adminClient.auth.admin.listUsers();
-    const existingUser = existingUsers?.users.find(u => u.email === email);
-    
+    const existingUser = existingUsers?.users.find((u) => u.email === email);
+
     if (existingUser) {
       // User exists - check if already a member
       const { data: existingMember } = await adminClient
@@ -126,8 +145,13 @@ serve(async (req) => {
 
       if (existingMember) {
         return new Response(
-          JSON.stringify({ error: "User is already a member of this organization" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({
+            error: "User is already a member of this organization",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
 
@@ -144,40 +168,51 @@ serve(async (req) => {
         console.error("Error adding member:", insertError);
         return new Response(
           JSON.stringify({ error: "Failed to add user to organization" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
         );
       }
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: "User added to organization",
-          user_id: existingUser.id 
+          user_id: existingUser.id,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
     // User doesn't exist - send invite email
-    const siteUrl = Deno.env.get("SITE_URL") || req.headers.get("origin") || supabaseUrl;
+    const siteUrl =
+      Deno.env.get("SITE_URL") || req.headers.get("origin") || supabaseUrl;
     const redirectUrl = redirect_to || `${siteUrl}/app/dashboard`;
 
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-      email,
-      {
+    const { data: inviteData, error: inviteError } =
+      await adminClient.auth.admin.inviteUserByEmail(email, {
         redirectTo: redirectUrl,
         data: {
           invited_to_org: org_id,
           invited_role: role,
         },
-      }
-    );
+      });
 
     if (inviteError) {
       console.error("Invite error:", inviteError);
       return new Response(
-        JSON.stringify({ error: "Failed to send invitation email", details: inviteError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Failed to send invitation email",
+          details: inviteError.message,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -189,29 +224,35 @@ serve(async (req) => {
         role,
         invited_by: user.id,
         status: "pending",
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        expires_at: new Date(
+          Date.now() + 7 * 24 * 60 * 60 * 1000,
+        ).toISOString(), // 7 days
       });
 
     if (invitationError) {
       console.warn("Failed to record invitation:", invitationError);
     }
 
-    console.log(`Invitation sent to ${email} for org ${org_id} with role ${role}`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: "Invitation sent successfully",
-        invited_user_id: inviteData?.user?.id 
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    console.log(
+      `Invitation sent to ${email} for org ${org_id} with role ${role}`,
     );
 
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Invitation sent successfully",
+        invited_user_id: inviteData?.user?.id,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (err) {
     console.error("Unexpected error:", err);
-    return new Response(
-      JSON.stringify({ error: "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

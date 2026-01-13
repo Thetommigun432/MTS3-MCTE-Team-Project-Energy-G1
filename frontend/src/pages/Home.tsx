@@ -1,20 +1,23 @@
-import { Link } from 'react-router-dom';
-import { BarChart3, Cpu, LineChart, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { PublicNavbar } from '@/components/layout/PublicNavbar';
-import { PublicFooter } from '@/components/layout/PublicFooter';
-import { WaveformIcon, WaveformDecoration } from '@/components/brand/WaveformIcon';
-import { 
-  MeterToAppliancesIllustration, 
-  WaveformSignalIllustration, 
-  ConfidenceGaugeIllustration 
-} from '@/components/brand/NILMIllustrations';
+import { Link } from "react-router-dom";
+import { BarChart3, Cpu, LineChart, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PublicNavbar } from "@/components/layout/PublicNavbar";
+import { PublicFooter } from "@/components/layout/PublicFooter";
+import {
+  WaveformIcon,
+  WaveformDecoration,
+} from "@/components/brand/WaveformIcon";
+import {
+  MeterToAppliancesIllustration,
+  WaveformSignalIllustration,
+  ConfidenceGaugeIllustration,
+} from "@/components/brand/NILMIllustrations";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <PublicNavbar />
-      
+
       <main className="flex-1">
         {/* Hero with waveform motif */}
         <section className="py-20 px-6 relative overflow-hidden">
@@ -45,13 +48,19 @@ export default function Home() {
                   Non-Intrusive Load Monitoring (NILM)
                 </p>
                 <p className="text-lg text-muted-foreground mb-8 max-w-xl">
-                  Identify which appliances are ON using AI — from total building consumption alone
+                  Identify which appliances are ON using AI — from total
+                  building consumption alone
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                   <Button asChild size="lg" className="font-medium">
                     <Link to="/login">Open Dashboard</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="font-medium">
+                  <Button
+                    asChild
+                    size="lg"
+                    variant="outline"
+                    className="font-medium"
+                  >
                     <Link to="/docs">Learn How It Works</Link>
                   </Button>
                 </div>
@@ -60,12 +69,14 @@ export default function Home() {
               {/* Right: Hero illustration */}
               <div className="flex justify-center lg:justify-end">
                 <div className="bg-card rounded-2xl border border-border p-8 shadow-lg max-w-sm w-full">
-                  <MeterToAppliancesIllustration 
-                    className="w-full h-auto" 
-                    accentColor="hsl(var(--primary))" 
+                  <MeterToAppliancesIllustration
+                    className="w-full h-auto"
+                    accentColor="hsl(var(--primary))"
                   />
                   <div className="mt-6 text-center">
-                    <p className="text-sm font-medium text-foreground">Single Meter → AI → Appliances</p>
+                    <p className="text-sm font-medium text-foreground">
+                      Single Meter → AI → Appliances
+                    </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       No sub-meters required
                     </p>
@@ -95,9 +106,13 @@ export default function Home() {
                   <WaveformDecoration className="h-12 w-auto text-primary" />
                 </div>
                 <BarChart3 className="h-10 w-10 text-primary mb-4" />
-                <h3 className="font-semibold text-lg mb-2 text-foreground">The Problem</h3>
+                <h3 className="font-semibold text-lg mb-2 text-foreground">
+                  The Problem
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Buildings only measure total electricity. Understanding appliance-level usage typically requires expensive sub-meters on each device.
+                  Buildings only measure total electricity. Understanding
+                  appliance-level usage typically requires expensive sub-meters
+                  on each device.
                 </p>
               </div>
 
@@ -107,9 +122,13 @@ export default function Home() {
                   <WaveformDecoration className="h-12 w-auto text-primary" />
                 </div>
                 <Cpu className="h-10 w-10 text-primary mb-4" />
-                <h3 className="font-semibold text-lg mb-2 text-foreground">AI Disaggregation</h3>
+                <h3 className="font-semibold text-lg mb-2 text-foreground">
+                  AI Disaggregation
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Our NILM model analyzes total consumption patterns to predict which appliances are running and estimate their individual usage.
+                  Our NILM model analyzes total consumption patterns to predict
+                  which appliances are running and estimate their individual
+                  usage.
                 </p>
               </div>
 
@@ -119,9 +138,13 @@ export default function Home() {
                   <WaveformDecoration className="h-12 w-auto text-primary" />
                 </div>
                 <LineChart className="h-10 w-10 text-primary mb-4" />
-                <h3 className="font-semibold text-lg mb-2 text-foreground">What You Get</h3>
+                <h3 className="font-semibold text-lg mb-2 text-foreground">
+                  What You Get
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  Real-time visibility into <strong>Predicted ON/OFF</strong> states, estimated consumption, and confidence scores for each appliance.
+                  Real-time visibility into <strong>Predicted ON/OFF</strong>{" "}
+                  states, estimated consumption, and confidence scores for each
+                  appliance.
                 </p>
               </div>
             </div>
@@ -134,14 +157,18 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-12 items-center">
               {/* Waveform illustration */}
               <div className="bg-card rounded-xl border border-border p-8">
-                <WaveformSignalIllustration 
-                  className="w-full h-auto" 
-                  accentColor="hsl(var(--primary))" 
+                <WaveformSignalIllustration
+                  className="w-full h-auto"
+                  accentColor="hsl(var(--primary))"
                 />
                 <div className="mt-6">
-                  <h3 className="font-semibold text-foreground mb-2">Signal Detection</h3>
+                  <h3 className="font-semibold text-foreground mb-2">
+                    Signal Detection
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    AI identifies unique power signatures when appliances turn on or off, detecting patterns in the total consumption waveform.
+                    AI identifies unique power signatures when appliances turn
+                    on or off, detecting patterns in the total consumption
+                    waveform.
                   </p>
                 </div>
               </div>
@@ -149,15 +176,18 @@ export default function Home() {
               {/* Confidence gauge */}
               <div className="bg-card rounded-xl border border-border p-8">
                 <div className="flex justify-center">
-                  <ConfidenceGaugeIllustration 
-                    className="w-48 h-auto" 
-                    accentColor="hsl(var(--primary))" 
+                  <ConfidenceGaugeIllustration
+                    className="w-48 h-auto"
+                    accentColor="hsl(var(--primary))"
                   />
                 </div>
                 <div className="mt-6 text-center">
-                  <h3 className="font-semibold text-foreground mb-2">Confidence Scoring</h3>
+                  <h3 className="font-semibold text-foreground mb-2">
+                    Confidence Scoring
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Every prediction comes with a confidence level so you know how certain the model is about each appliance state.
+                    Every prediction comes with a confidence level so you know
+                    how certain the model is about each appliance state.
                   </p>
                 </div>
               </div>
@@ -176,9 +206,11 @@ export default function Home() {
                 Transparency by Design
               </h3>
               <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto mb-6">
-                All predictions show <strong>confidence levels</strong> and are clearly labeled as 
-                <em> "Estimated by AI (not directly measured)"</em>. 
-                Our model displays version info and last training date so you always know what's powering the predictions.
+                All predictions show <strong>confidence levels</strong> and are
+                clearly labeled as
+                <em> "Estimated by AI (not directly measured)"</em>. Our model
+                displays version info and last training date so you always know
+                what's powering the predictions.
               </p>
               <Button asChild variant="outline" size="sm">
                 <Link to="/docs" className="inline-flex items-center gap-2">

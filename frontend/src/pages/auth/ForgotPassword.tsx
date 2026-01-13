@@ -1,26 +1,26 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Mail, CheckCircle2, Clock } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { NILMPanel } from '@/components/nilm/NILMPanel';
-import { WaveformIcon } from '@/components/brand/WaveformIcon';
-import { useRateLimit } from '@/hooks/useRateLimit';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Mail, CheckCircle2, Clock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { NILMPanel } from "@/components/nilm/NILMPanel";
+import { WaveformIcon } from "@/components/brand/WaveformIcon";
+import { useRateLimit } from "@/hooks/useRateLimit";
 
 export default function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  
+
   // Rate limit: 3 attempts per minute, 60 second cooldown
   const { isLimited, remainingTime, attempt } = useRateLimit(3, 60000, 60000);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check rate limit before proceeding
     if (!attempt()) {
       toast.error(`Too many requests. Please wait ${remainingTime} seconds.`);
@@ -37,10 +37,10 @@ export default function ForgotPassword() {
 
     if (error) {
       // Don't expose internal error details - provide generic message
-      toast.error('Unable to send reset email. Please try again later.');
+      toast.error("Unable to send reset email. Please try again later.");
     } else {
       setSubmitted(true);
-      toast.success('Check your email for the reset link');
+      toast.success("Check your email for the reset link");
     }
   };
 
@@ -52,11 +52,16 @@ export default function ForgotPassword() {
           <div className="flex flex-col items-center mb-8">
             <Link to="/" className="flex items-center gap-2 mb-2">
               <WaveformIcon className="h-10 w-10 text-primary" />
-              <span className="text-2xl font-bold text-foreground">Energy Monitor</span>
+              <span className="text-2xl font-bold text-foreground">
+                Energy Monitor
+              </span>
             </Link>
           </div>
 
-          <NILMPanel title="Check Your Email" icon={<Mail className="h-5 w-5" />}>
+          <NILMPanel
+            title="Check Your Email"
+            icon={<Mail className="h-5 w-5" />}
+          >
             <div className="text-center py-4">
               <CheckCircle2 className="h-12 w-12 text-energy-success mx-auto mb-4" />
               <p className="text-foreground mb-2">
@@ -74,7 +79,10 @@ export default function ForgotPassword() {
                 >
                   Try again
                 </Button>
-                <Link to="/login" className="block text-center text-sm text-primary hover:underline">
+                <Link
+                  to="/login"
+                  className="block text-center text-sm text-primary hover:underline"
+                >
                   Back to login
                 </Link>
               </div>
@@ -92,7 +100,9 @@ export default function ForgotPassword() {
         <div className="flex flex-col items-center mb-8">
           <Link to="/" className="flex items-center gap-2 mb-2">
             <WaveformIcon className="h-10 w-10 text-primary" />
-            <span className="text-2xl font-bold text-foreground">Energy Monitor</span>
+            <span className="text-2xl font-bold text-foreground">
+              Energy Monitor
+            </span>
           </Link>
           <p className="text-muted-foreground text-sm">Reset your password</p>
         </div>
@@ -105,11 +115,11 @@ export default function ForgotPassword() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to login
           </Link>
-          
+
           <p className="text-muted-foreground text-sm mb-4">
             Enter your email and we'll send you a reset link.
           </p>
-          
+
           {isLimited && (
             <div className="flex items-center gap-2 p-3 mb-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
               <Clock className="h-4 w-4 shrink-0" />
@@ -118,7 +128,7 @@ export default function ForgotPassword() {
               </span>
             </div>
           )}
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -132,8 +142,12 @@ export default function ForgotPassword() {
                 disabled={isLimited}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading || isLimited}>
-              {loading ? 'Sending...' : 'Send reset link'}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || isLimited}
+            >
+              {loading ? "Sending..." : "Send reset link"}
             </Button>
           </form>
         </NILMPanel>

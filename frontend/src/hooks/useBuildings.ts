@@ -2,10 +2,10 @@
  * Hook for managing buildings
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export interface Building {
   id: string;
@@ -22,8 +22,17 @@ export interface UseBuildingsResult {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
-  createBuilding: (name: string, address?: string, description?: string) => Promise<string | null>;
-  updateBuilding: (id: string, updates: Partial<Pick<Building, 'name' | 'address' | 'description' | 'status'>>) => Promise<boolean>;
+  createBuilding: (
+    name: string,
+    address?: string,
+    description?: string,
+  ) => Promise<string | null>;
+  updateBuilding: (
+    id: string,
+    updates: Partial<
+      Pick<Building, "name" | "address" | "description" | "status">
+    >,
+  ) => Promise<boolean>;
   deleteBuilding: (id: string) => Promise<boolean>;
 }
 
@@ -45,9 +54,9 @@ export function useBuildings(): UseBuildingsResult {
       setError(null);
 
       const { data, error: fetchError } = await supabase
-        .from('buildings')
-        .select('*')
-        .order('name');
+        .from("buildings")
+        .select("*")
+        .order("name");
 
       if (fetchError) throw fetchError;
 
@@ -55,22 +64,22 @@ export function useBuildings(): UseBuildingsResult {
       const buildingsWithCounts = await Promise.all(
         (data || []).map(async (building) => {
           const { count } = await supabase
-            .from('building_appliances')
-            .select('*', { count: 'exact', head: true })
-            .eq('building_id', building.id)
-            .eq('is_enabled', true);
+            .from("building_appliances")
+            .select("*", { count: "exact", head: true })
+            .eq("building_id", building.id)
+            .eq("is_enabled", true);
 
           return {
             ...building,
             total_appliances: count || 0,
           };
-        })
+        }),
       );
 
       setBuildings(buildingsWithCounts);
     } catch (err) {
-      console.error('Error fetching buildings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load buildings');
+      console.error("Error fetching buildings:", err);
+      setError(err instanceof Error ? err.message : "Failed to load buildings");
     } finally {
       setLoading(false);
     }
@@ -80,77 +89,88 @@ export function useBuildings(): UseBuildingsResult {
     fetchBuildings();
   }, [fetchBuildings]);
 
-  const createBuilding = useCallback(async (
-    name: string,
-    address?: string,
-    description?: string
-  ): Promise<string | null> => {
-    if (!user) return null;
+  const createBuilding = useCallback(
+    async (
+      name: string,
+      address?: string,
+      description?: string,
+    ): Promise<string | null> => {
+      if (!user) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from('buildings')
-        .insert({
-          user_id: user.id,
-          name,
-          address: address || null,
-          description: description || null,
-        })
-        .select('id')
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from("buildings")
+          .insert({
+            user_id: user.id,
+            name,
+            address: address || null,
+            description: description || null,
+          })
+          .select("id")
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success('Building created');
-      await fetchBuildings();
-      return data.id;
-    } catch (err) {
-      console.error('Error creating building:', err);
-      toast.error('Failed to create building');
-      return null;
-    }
-  }, [user, fetchBuildings]);
+        toast.success("Building created");
+        await fetchBuildings();
+        return data.id;
+      } catch (err) {
+        console.error("Error creating building:", err);
+        toast.error("Failed to create building");
+        return null;
+      }
+    },
+    [user, fetchBuildings],
+  );
 
-  const updateBuilding = useCallback(async (
-    id: string,
-    updates: Partial<Pick<Building, 'name' | 'address' | 'description' | 'status'>>
-  ): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('buildings')
-        .update(updates)
-        .eq('id', id);
+  const updateBuilding = useCallback(
+    async (
+      id: string,
+      updates: Partial<
+        Pick<Building, "name" | "address" | "description" | "status">
+      >,
+    ): Promise<boolean> => {
+      try {
+        const { error } = await supabase
+          .from("buildings")
+          .update(updates)
+          .eq("id", id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success('Building updated');
-      await fetchBuildings();
-      return true;
-    } catch (err) {
-      console.error('Error updating building:', err);
-      toast.error('Failed to update building');
-      return false;
-    }
-  }, [fetchBuildings]);
+        toast.success("Building updated");
+        await fetchBuildings();
+        return true;
+      } catch (err) {
+        console.error("Error updating building:", err);
+        toast.error("Failed to update building");
+        return false;
+      }
+    },
+    [fetchBuildings],
+  );
 
-  const deleteBuilding = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase
-        .from('buildings')
-        .delete()
-        .eq('id', id);
+  const deleteBuilding = useCallback(
+    async (id: string): Promise<boolean> => {
+      try {
+        const { error } = await supabase
+          .from("buildings")
+          .delete()
+          .eq("id", id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast.success('Building deleted');
-      await fetchBuildings();
-      return true;
-    } catch (err) {
-      console.error('Error deleting building:', err);
-      toast.error('Failed to delete building');
-      return false;
-    }
-  }, [fetchBuildings]);
+        toast.success("Building deleted");
+        await fetchBuildings();
+        return true;
+      } catch (err) {
+        console.error("Error deleting building:", err);
+        toast.error("Failed to delete building");
+        return false;
+      }
+    },
+    [fetchBuildings],
+  );
 
   return {
     buildings,

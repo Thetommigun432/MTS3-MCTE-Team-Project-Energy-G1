@@ -1,19 +1,29 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
-import { WaveformIcon, WaveformDecoration } from '@/components/brand/WaveformIcon';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from "@/components/ui/card";
+import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import {
+  WaveformIcon,
+  WaveformDecoration,
+} from "@/components/brand/WaveformIcon";
+import { cn } from "@/lib/utils";
 
 export default function Signup() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { signup, isAuthenticated, loading } = useAuth();
@@ -25,35 +35,39 @@ export default function Signup() {
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate('/app/dashboard', { replace: true });
+      navigate("/app/dashboard", { replace: true });
     }
   }, [isAuthenticated, loading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    
+    setError("");
+
     // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email || !emailRegex.test(email)) {
-      setError('Please enter a valid email address.');
+      setError("Please enter a valid email address.");
       return;
     }
-    
+
     if (!password) {
-      setError('Please enter a password.');
+      setError("Please enter a password.");
       return;
     }
-    
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError("Password must be at least 6 characters.");
       return;
     }
-    
+
     setSubmitting(true);
-    const { error: signupError } = await signup(email, password, displayName || undefined);
+    const { error: signupError } = await signup(
+      email,
+      password,
+      displayName || undefined,
+    );
     setSubmitting(false);
-    
+
     if (signupError) {
       setError(signupError);
     }
@@ -92,8 +106,12 @@ export default function Signup() {
           <Link to="/" className="flex justify-center mb-2">
             <WaveformIcon size="lg" />
           </Link>
-          <CardTitle className="text-2xl text-foreground">Create an account</CardTitle>
-          <CardDescription>Start monitoring your energy consumption today</CardDescription>
+          <CardTitle className="text-2xl text-foreground">
+            Create an account
+          </CardTitle>
+          <CardDescription>
+            Start monitoring your energy consumption today
+          </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -105,12 +123,15 @@ export default function Signup() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name <span className="text-muted-foreground">(optional)</span></Label>
-              <Input 
-                id="displayName" 
-                type="text" 
-                value={displayName} 
-                onChange={(e) => setDisplayName(e.target.value)} 
+              <Label htmlFor="displayName">
+                Display Name{" "}
+                <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="John Doe"
                 autoComplete="name"
               />
@@ -118,53 +139,70 @@ export default function Signup() {
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                required 
+                required
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <Input 
-                  id="password" 
-                  type={showPassword ? 'text' : 'password'} 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="new-password"
                   className="pr-10"
-                  required 
+                  required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
               {/* Password requirements */}
               <div className="space-y-1 pt-1">
-                <div className={cn(
-                  'flex items-center gap-2 text-xs',
-                  passwordHasContent ? (passwordLength ? 'text-energy-success' : 'text-muted-foreground') : 'text-muted-foreground'
-                )}>
-                  <CheckCircle2 className={cn('h-3.5 w-3.5', passwordLength ? 'opacity-100' : 'opacity-40')} />
+                <div
+                  className={cn(
+                    "flex items-center gap-2 text-xs",
+                    passwordHasContent
+                      ? passwordLength
+                        ? "text-energy-success"
+                        : "text-muted-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  <CheckCircle2
+                    className={cn(
+                      "h-3.5 w-3.5",
+                      passwordLength ? "opacity-100" : "opacity-40",
+                    )}
+                  />
                   At least 6 characters
                 </div>
               </div>
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {submitting ? 'Creating account...' : 'Create account'}
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              {submitting ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </CardContent>

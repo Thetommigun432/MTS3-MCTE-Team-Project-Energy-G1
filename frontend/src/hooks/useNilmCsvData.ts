@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import Papa from 'papaparse';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect, useCallback } from "react";
+import Papa from "papaparse";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface NilmDataRow {
   time: Date;
@@ -17,18 +17,18 @@ export interface NilmData {
 }
 
 const APPLIANCE_COLUMNS = [
-  'RangeHood',
-  'Dryer',
-  'Stove',
-  'GarageCabinet',
-  'ChargingStation_Socket',
-  'Oven',
-  'RainwaterPump',
-  'SmappeeCharger',
-  'Dishwasher',
-  'HeatPump',
-  'HeatPump_Controller',
-  'WashingMachine',
+  "RangeHood",
+  "Dryer",
+  "Stove",
+  "GarageCabinet",
+  "ChargingStation_Socket",
+  "Oven",
+  "RainwaterPump",
+  "SmappeeCharger",
+  "Dishwasher",
+  "HeatPump",
+  "HeatPump_Controller",
+  "WashingMachine",
 ];
 
 // ON/OFF threshold
@@ -53,21 +53,21 @@ export function computeTotalEnergy(kwReadings: number[]): number {
 export function getTopAppliancesByEnergy(
   rows: NilmDataRow[],
   appliances: string[],
-  topN: number = 5
+  topN: number = 5,
 ): { name: string; totalKwh: number }[] {
   const energyByAppliance: Record<string, number> = {};
-  
+
   appliances.forEach((name) => {
     energyByAppliance[name] = 0;
   });
-  
+
   rows.forEach((row) => {
     appliances.forEach((name) => {
       const kw = row.appliances[name] || 0;
       energyByAppliance[name] += computeEnergyKwh(kw);
     });
   });
-  
+
   return Object.entries(energyByAppliance)
     .map(([name, totalKwh]) => ({ name, totalKwh }))
     .sort((a, b) => b.totalKwh - a.totalKwh)
@@ -80,40 +80,40 @@ export function getTopAppliancesByEnergy(
  */
 function parseCSVClientSide(csvText: string): NilmDataRow[] {
   const parsed: NilmDataRow[] = [];
-  
+
   Papa.parse<Record<string, string>>(csvText, {
     header: true,
     skipEmptyLines: true,
     complete: (results) => {
       results.data.forEach((row) => {
         // Parse time
-        const timeStr = row['Time'];
+        const timeStr = row["Time"];
         if (!timeStr) return;
-        
+
         const time = new Date(timeStr);
         if (isNaN(time.getTime())) return;
-        
+
         // Parse aggregate - clamp negatives to 0
-        let aggregate = parseFloat(row['Aggregate'] || '0');
+        let aggregate = parseFloat(row["Aggregate"] || "0");
         if (!isFinite(aggregate)) aggregate = 0;
         aggregate = Math.max(0, aggregate);
-        
+
         // Parse appliance values - clamp negatives to 0
         const appliances: Record<string, number> = {};
         APPLIANCE_COLUMNS.forEach((colName) => {
-          let value = parseFloat(row[colName] || '0');
+          let value = parseFloat(row[colName] || "0");
           if (!isFinite(value)) value = 0;
           appliances[colName] = Math.max(0, value);
         });
-        
+
         parsed.push({ time, aggregate, appliances });
       });
     },
   });
-  
+
   // Sort by timestamp ascending
   parsed.sort((a, b) => a.time.getTime() - b.time.getTime());
-  
+
   return parsed;
 }
 
@@ -135,58 +135,72 @@ export function useNilmCsvData(): NilmData {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch the raw CSV file
-      const response = await fetch('/data/nilm_ready_dataset.csv', {
-        cache: 'no-cache',
+      const response = await fetch("/data/nilm_ready_dataset.csv", {
+        cache: "no-cache",
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to load CSV data');
+        throw new Error("Failed to load CSV data");
       }
-      
+
       const csvText = await response.text();
-      
+
       // Try Supabase edge function first if available
       if (isSupabaseAvailable()) {
         try {
-          const { data, error: fnError } = await supabase.functions.invoke('parse-nilm-csv', {
-            body: { csvContent: csvText },
-          });
-          
+          const { data, error: fnError } = await supabase.functions.invoke(
+            "parse-nilm-csv",
+            {
+              body: { csvContent: csvText },
+            },
+          );
+
           if (!fnError && data?.rows && !data?.error) {
             // Successfully parsed via edge function
-            const parsed: NilmDataRow[] = data.rows.map((row: { time: string; aggregate: number; appliances: Record<string, number> }) => ({
-              time: new Date(row.time),
-              aggregate: row.aggregate,
-              appliances: row.appliances,
-            }));
-            
+            const parsed: NilmDataRow[] = data.rows.map(
+              (row: {
+                time: string;
+                aggregate: number;
+                appliances: Record<string, number>;
+              }) => ({
+                time: new Date(row.time),
+                aggregate: row.aggregate,
+                appliances: row.appliances,
+              }),
+            );
+
             setRows(parsed);
             setLoading(false);
             return;
           }
-          
+
           // Edge function failed, fall through to client-side parsing
-          console.warn('Edge function failed, using client-side parsing:', fnError?.message || data?.error);
+          console.warn(
+            "Edge function failed, using client-side parsing:",
+            fnError?.message || data?.error,
+          );
         } catch (edgeErr) {
-          console.warn('Edge function unavailable, using client-side parsing:', edgeErr);
+          console.warn(
+            "Edge function unavailable, using client-side parsing:",
+            edgeErr,
+          );
         }
       }
-      
+
       // Client-side parsing fallback (always works without Supabase)
       const parsed = parseCSVClientSide(csvText);
-      
+
       if (parsed.length === 0) {
-        throw new Error('No valid data rows found in CSV');
+        throw new Error("No valid data rows found in CSV");
       }
-      
+
       setRows(parsed);
       setLoading(false);
-      
     } catch (err) {
-      console.error('Error loading NILM data:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error("Error loading NILM data:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
       setLoading(false);
     }
   }, []);

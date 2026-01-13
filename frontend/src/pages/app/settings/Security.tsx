@@ -1,15 +1,24 @@
-import { useState, useEffect } from 'react';
-import { NILMPanel } from '@/components/nilm/NILMPanel';
-import { Shield, Key, Smartphone, History, Loader2, Eye, EyeOff, Monitor, Globe } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { formatDistanceToNow, format } from 'date-fns';
+import { useState, useEffect } from "react";
+import { NILMPanel } from "@/components/nilm/NILMPanel";
+import {
+  Key,
+  Smartphone,
+  History,
+  Loader2,
+  Eye,
+  EyeOff,
+  Monitor,
+  Globe,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow, format } from "date-fns";
 
 interface LoginEvent {
   id: string;
@@ -20,23 +29,23 @@ interface LoginEvent {
 }
 
 function parseUserAgent(ua: string | null): string {
-  if (!ua) return 'Unknown device';
-  
+  if (!ua) return "Unknown device";
+
   // Simple browser detection
-  if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
-  if (ua.includes('Firefox')) return 'Firefox';
-  if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
-  if (ua.includes('Edg')) return 'Microsoft Edge';
-  if (ua.includes('Opera') || ua.includes('OPR')) return 'Opera';
-  
-  return 'Web Browser';
+  if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
+  if (ua.includes("Firefox")) return "Firefox";
+  if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+  if (ua.includes("Edg")) return "Microsoft Edge";
+  if (ua.includes("Opera") || ua.includes("OPR")) return "Opera";
+
+  return "Web Browser";
 }
 
 export default function Security() {
   const { user } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -44,33 +53,29 @@ export default function Security() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loginHistory, setLoginHistory] = useState<LoginEvent[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
 
   // Fetch login history
   useEffect(() => {
     async function fetchLoginHistory() {
       if (!user) return;
-      
+
       setLoadingHistory(true);
       try {
         const { data, error } = await supabase
-          .from('login_events')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .from("login_events")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
           .limit(10);
 
         if (error) throw error;
         setLoginHistory(data || []);
+        setHistoryUnavailable(false);
       } catch (err) {
-        console.error('Error fetching login history:', err);
-        // Fallback to current session
-        setLoginHistory([{
-          id: 'current',
-          created_at: user.last_sign_in_at || new Date().toISOString(),
-          device_label: 'Current Session',
-          user_agent: navigator.userAgent,
-          ip_address: null,
-        }]);
+        console.error("Error fetching login history:", err);
+        setHistoryUnavailable(true);
+        setLoginHistory([]);
       } finally {
         setLoadingHistory(false);
       }
@@ -84,22 +89,22 @@ export default function Security() {
 
     // Validate inputs
     if (!currentPassword || !newPassword || !confirmPassword) {
-      toast.error('Please fill in all password fields');
+      toast.error("Please fill in all password fields");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match');
+      toast.error("New passwords do not match");
       return;
     }
 
     if (newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters');
+      toast.error("New password must be at least 6 characters");
       return;
     }
 
     if (!user?.email) {
-      toast.error('Unable to verify user email');
+      toast.error("Unable to verify user email");
       return;
     }
 
@@ -113,8 +118,8 @@ export default function Security() {
       });
 
       if (authError) {
-        toast.error('Current password is incorrect', {
-          description: 'Please enter your correct current password',
+        toast.error("Current password is incorrect", {
+          description: "Please enter your correct current password",
         });
         setIsChangingPassword(false);
         return;
@@ -126,20 +131,21 @@ export default function Security() {
       });
 
       if (updateError) {
-        toast.error('Failed to change password', {
+        toast.error("Failed to change password", {
           description: updateError.message,
         });
       } else {
-        toast.success('Password changed successfully', {
-          description: 'Your password has been updated',
+        toast.success("Password changed successfully", {
+          description: "Your password has been updated",
         });
         // Clear the form
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
       }
     } catch (err) {
-      toast.error('An unexpected error occurred');
+      console.error("Password change error:", err);
+      toast.error("An unexpected error occurred");
     } finally {
       setIsChangingPassword(false);
     }
@@ -148,11 +154,12 @@ export default function Security() {
   const handleTwoFactorToggle = (enabled: boolean) => {
     setTwoFactorEnabled(enabled);
     if (enabled) {
-      toast.info('Two-factor authentication', {
-        description: 'This feature requires additional setup. Contact your administrator.',
+      toast.info("Two-factor authentication", {
+        description:
+          "This feature requires additional setup. Contact your administrator.",
       });
     } else {
-      toast.info('Two-factor authentication disabled');
+      toast.info("Two-factor authentication disabled");
     }
   };
 
@@ -169,7 +176,7 @@ export default function Security() {
             <div className="relative">
               <Input
                 id="current-password"
-                type={showCurrentPassword ? 'text' : 'password'}
+                type={showCurrentPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -181,7 +188,11 @@ export default function Security() {
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showCurrentPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
@@ -190,7 +201,7 @@ export default function Security() {
             <div className="relative">
               <Input
                 id="new-password"
-                type={showNewPassword ? 'text' : 'password'}
+                type={showNewPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -202,17 +213,23 @@ export default function Security() {
                 onClick={() => setShowNewPassword(!showNewPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showNewPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
-            <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+            <p className="text-xs text-muted-foreground">
+              Must be at least 6 characters
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm-password">Confirm New Password</Label>
             <div className="relative">
               <Input
                 id="confirm-password"
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -224,13 +241,19 @@ export default function Security() {
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showConfirmPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
           <Button type="submit" disabled={isChangingPassword}>
-            {isChangingPassword && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            {isChangingPassword ? 'Updating...' : 'Update Password'}
+            {isChangingPassword && (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            )}
+            {isChangingPassword ? "Updating..." : "Update Password"}
           </Button>
         </form>
       </NILMPanel>
@@ -242,8 +265,12 @@ export default function Security() {
       >
         <div className="flex items-center justify-between py-2">
           <div className="space-y-0.5">
-            <Label className="text-sm font-medium text-foreground">Enable 2FA</Label>
-            <p className="text-sm text-muted-foreground">Use an authenticator app for additional security</p>
+            <Label className="text-sm font-medium text-foreground">
+              Enable 2FA
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Use an authenticator app for additional security
+            </p>
           </div>
           <Switch
             checked={twoFactorEnabled}
@@ -261,8 +288,10 @@ export default function Security() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : loginHistory.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No login history available</p>
+        ) : historyUnavailable || loginHistory.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            Login history not available
+          </p>
         ) : (
           <div className="space-y-3">
             {loginHistory.map((session, index) => (
@@ -275,10 +304,14 @@ export default function Security() {
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">
-                        {session.device_label || parseUserAgent(session.user_agent)}
+                        {session.device_label ||
+                          parseUserAgent(session.user_agent)}
                       </span>
                       {index === 0 && (
-                        <Badge variant="outline" className="bg-energy-success/10 text-energy-success border-energy-success/20 text-xs">
+                        <Badge
+                          variant="outline"
+                          className="bg-energy-success/10 text-energy-success border-energy-success/20 text-xs"
+                        >
                           Current
                         </Badge>
                       )}
@@ -291,9 +324,18 @@ export default function Security() {
                           <span className="mx-1">•</span>
                         </>
                       )}
-                      <span>{format(new Date(session.created_at), 'MMM d, yyyy h:mm a')}</span>
+                      <span>
+                        {format(
+                          new Date(session.created_at),
+                          "MMM d, yyyy h:mm a",
+                        )}
+                      </span>
                       <span className="mx-1">•</span>
-                      <span>{formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}</span>
+                      <span>
+                        {formatDistanceToNow(new Date(session.created_at), {
+                          addSuffix: true,
+                        })}
+                      </span>
                     </p>
                   </div>
                 </div>
