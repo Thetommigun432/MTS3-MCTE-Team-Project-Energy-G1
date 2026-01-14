@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppShell } from "@/components/layout/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { scheduleIdle } from "@/lib/scheduler";
 
 // Lazy load route components for code splitting
 const Home = lazy(() => import("./pages/Home"));
@@ -67,12 +68,8 @@ function PageLoader() {
 // Hook to trigger preloading after app mounts
 function usePreloadRoutes() {
   useEffect(() => {
-    // Use requestIdleCallback if available, otherwise setTimeout
-    if ("requestIdleCallback" in window) {
-      window.requestIdleCallback(preloadCriticalRoutes);
-    } else {
-      setTimeout(preloadCriticalRoutes, 1000);
-    }
+    const handle = scheduleIdle(preloadCriticalRoutes, 1000);
+    return () => scheduleIdle.cancel(handle);
   }, []);
 }
 

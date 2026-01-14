@@ -61,9 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Log login event to Supabase
   const logLoginEvent = async (userId: string) => {
     try {
+      const uaBrands = (navigator as Navigator & { userAgentData?: NavigatorUAData })
+        .userAgentData?.brands
+        ?.map((entry) => `${entry.brand}/${entry.version}`)
+        .join(" ");
+
       await invokeFunction("log-login-event", {
         user_id: userId,
-        user_agent: navigator.userAgent,
+        user_agent: uaBrands || navigator.userAgent,
       });
     } catch (err) {
       console.warn("Failed to log login event:", err);
