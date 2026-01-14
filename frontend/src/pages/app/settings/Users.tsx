@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   UserPlus,
   Shield,
@@ -35,6 +36,8 @@ import {
   Loader2,
   Trash2,
   Clock,
+  AlertCircle,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NILMPanel } from "@/components/nilm/NILMPanel";
@@ -108,6 +111,8 @@ export default function UsersSettings() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [pendingInvites, setPendingInvites] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -115,27 +120,86 @@ export default function UsersSettings() {
   const [inviteRole, setInviteRole] = useState<Role>("viewer");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch team members and pending invites
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      console.log("Fetching team members...");
-      try {
-        // Fetch team members from profiles table
+  // Fetch user's active organization
+  const fetchActiveOrg = useCallback(async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      // Get user's first org membership (could be extended to support org switching)
+      const { data: membership, error: membershipError } = await supabase
+        .from("org_members")
+        .select("org_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (membershipError) {
+        console.warn("Could not fetch org membership:", membershipError.message);
+        return null;
+      }
+
+      return membership?.org_id ?? null;
+    } catch (err) {
+      console.warn("Error fetching active org:", err);
+      return null;
+    }
+  }, [user]);
+
+  // Fetch team members via org_members with profile join
+  const fetchTeamMembers = useCallback(async (orgId: string | null) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (orgId) {
+        // Query org_members with explicit org_id filter and profile join
+        const { data: orgMembersData, error: orgMembersError } = await supabase
+          .from("org_members")
+          .select(`
+            org_id,
+            user_id,
+            role,
+            created_at,
+            profiles:user_id (
+              id,
+              full_name,
+              display_name,
+              avatar_url,
+              username
+            )
+          `)
+          .eq("org_id", orgId)
+          .order("created_at", { ascending: false });
+
+        if (orgMembersError) {
+          throw new Error(orgMembersError.message);
+        }
+
+        // Transform org_members data to TeamMember format
+        const members: TeamMember[] = (orgMembersData || []).map((m) => {
+          const profileData = m.profiles as { id: string; full_name: string | null; display_name: string | null; avatar_url: string | null; username: string | null } | null;
+          return {
+            id: m.user_id,
+            email: profileData?.username || "Unknown",
+            display_name: profileData?.display_name || profileData?.full_name || profileData?.username,
+            role: (m.role || "member") as Role,
+            status: "active" as Status,
+            avatar_url: profileData?.avatar_url || null,
+          };
+        });
+
+        setTeamMembers(members);
+      } else {
+        // Fallback: No org, query profiles directly (backward compatibility)
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("*")
           .order("created_at", { ascending: false });
 
-        console.log("Profiles query result:", { profilesData, profilesError });
-
         if (profilesError) {
-          console.error("Profiles error:", profilesError);
-          // Don't throw - just use fallback
+          throw new Error(profilesError.message);
         }
 
-        // Transform data to TeamMember format
-        // The role comes from the database profiles table
         const members: TeamMember[] = (profilesData || []).map((p) => ({
           id: p.id,
           email: p.email || p.username || "Unknown",
@@ -145,55 +209,72 @@ export default function UsersSettings() {
           avatar_url: p.avatar_url,
         }));
 
-        if (members.length > 0) {
-          setTeamMembers(members);
-        } else if (user && profile) {
-          // Fallback to current user if no profiles returned
-          setTeamMembers([
-            {
-              id: user.id,
-              email: user.email || "Unknown",
-              display_name: profile.display_name,
-              role: (profile.role as Role) || "member",
-              status: "active",
-              avatar_url: profile.avatar_url,
-            },
-          ]);
-        }
-
-        // Fetch pending invites (optional - table may not exist)
-        try {
-          const { data: invitesData, error: invitesError } = await supabase
-            .from("invitations")
-            .select("*")
-            .order("created_at", { ascending: false });
-
-          if (!invitesError && invitesData) {
-            setPendingInvites(
-              invitesData.map((inv) => ({
-                id: inv.id,
-                email: inv.email,
-                role: inv.role as Role,
-                status: inv.status as Status,
-                created_at: inv.created_at,
-                expires_at: inv.expires_at,
-              })),
-            );
-          }
-        } catch (inviteErr) {
-          // Invitations table may not exist - that's OK
-          console.log("Invitations table not available:", inviteErr);
-        }
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        // Errors are handled above with fallbacks
-      } finally {
-        setLoading(false);
+        setTeamMembers(members);
       }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to load team members";
+      console.error("Error fetching team members:", errorMessage);
+      setError(errorMessage);
+      
+      // Fallback to current user if fetch fails
+      if (user && profile) {
+        setTeamMembers([
+          {
+            id: user.id,
+            email: user.email || "Unknown",
+            display_name: profile.display_name,
+            role: (profile.role as Role) || "member",
+            status: "active",
+            avatar_url: profile.avatar_url,
+          },
+        ]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, profile]);
+
+  // Fetch pending invites
+  const fetchPendingInvites = useCallback(async () => {
+    try {
+      const { data: invitesData, error: invitesError } = await supabase
+        .from("invitations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!invitesError && invitesData) {
+        setPendingInvites(
+          invitesData.map((inv) => ({
+            id: inv.id,
+            email: inv.email,
+            role: inv.role as Role,
+            status: inv.status as Status,
+            created_at: inv.created_at,
+            expires_at: inv.expires_at,
+          })),
+        );
+      }
+    } catch (inviteErr) {
+      // Invitations table may not exist - that's OK
+      console.log("Invitations table not available:", inviteErr);
+    }
+  }, []);
+
+  // Main data fetch effect
+  useEffect(() => {
+    async function fetchData() {
+      const orgId = await fetchActiveOrg();
+      setActiveOrgId(orgId);
+      await Promise.all([
+        fetchTeamMembers(orgId),
+        fetchPendingInvites(),
+      ]);
     }
 
-    fetchData();
-  }, [user, profile]);
+    if (user) {
+      fetchData();
+    }
+  }, [user, fetchActiveOrg, fetchTeamMembers, fetchPendingInvites]);
 
   const handleInvite = async () => {
     if (!inviteEmail) {
@@ -434,15 +515,56 @@ export default function UsersSettings() {
         </NILMPanel>
       )}
 
+      {/* Error State */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error loading team members</AlertTitle>
+          <AlertDescription>
+            {error}
+            <Button
+              variant="link"
+              className="ml-2 p-0 h-auto text-destructive underline"
+              onClick={() => fetchTeamMembers(activeOrgId)}
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Team Members Table */}
       <NILMPanel
         title="Team Members"
         icon={<Users className="h-5 w-5" />}
-        footer={`${teamMembers.length} team member${teamMembers.length !== 1 ? "s" : ""} with access to NILM monitoring`}
+        footer={
+          loading
+            ? "Loading team members..."
+            : `${teamMembers.length} team member${teamMembers.length !== 1 ? "s" : ""} with access to NILM monitoring`
+        }
       >
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading team members...</p>
+          </div>
+        ) : teamMembers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <UserX className="h-12 w-12 text-muted-foreground/50" />
+            <div className="text-center space-y-1">
+              <p className="text-lg font-medium text-foreground">No team members found</p>
+              <p className="text-sm text-muted-foreground">
+                {activeOrgId
+                  ? "Invite users to join your organization."
+                  : "You're not part of any organization yet."}
+              </p>
+            </div>
+            {isAdmin && (
+              <Button onClick={() => setInviteDialogOpen(true)} className="mt-2">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite First Member
+              </Button>
+            )}
           </div>
         ) : (
           <Table>
