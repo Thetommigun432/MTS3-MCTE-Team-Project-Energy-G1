@@ -1,6 +1,7 @@
 {
-  "name": "nilm-local-backend",
+  "name": "@nilm/local-server",
   "version": "1.0.0",
+  "private": true,
   "description": "Local API server for NILM Energy Monitor - InfluxDB proxy",
   "type": "module",
   "main": "local-server.ts",

@@ -8,6 +8,7 @@
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
   username TEXT UNIQUE,
   full_name TEXT,
   display_name TEXT,
@@ -21,13 +22,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, full_name, display_name)
+  INSERT INTO public.profiles (id, email, display_name)
   VALUES (
     NEW.id,
-    NEW.raw_user_meta_data->>'username',
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'display_name'
-  );
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1))
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    display_name = COALESCE(profiles.display_name, EXCLUDED.display_name);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

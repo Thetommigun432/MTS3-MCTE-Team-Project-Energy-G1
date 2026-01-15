@@ -21,11 +21,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getRememberMe, setRememberMe } from "@/lib/authStorage";
 
-// Demo mode configuration - Credentials from environment variables
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
-const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || "demo@example.com";
-const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || "";
-const DEMO_USERNAME = import.meta.env.VITE_DEMO_USERNAME || "demo";
+// Demo credentials - always available for teacher presentations
+const DEMO_EMAIL = "demo@energy-monitor.app";
+const DEMO_PASSWORD = "DemoPass2026!";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -51,13 +49,9 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    // In demo mode, allow username shortcut (admin -> admin@demo.local)
+    // Allow "demo" shortcut to log in as demo user
     let loginEmail = email;
-    if (
-      DEMO_MODE &&
-      email.toLowerCase() === DEMO_USERNAME &&
-      !email.includes("@")
-    ) {
+    if (email.toLowerCase() === "demo" && !email.includes("@")) {
       loginEmail = DEMO_EMAIL;
     }
 
@@ -292,53 +286,36 @@ export default function Login() {
             </Button>
           </form>
 
-          {/* Demo credentials section - only shown in demo mode */}
-          {DEMO_MODE && (
-            <div className="mt-6 pt-4 border-t border-border">
-              <div className="text-center mb-3">
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                  Demo Access
-                </span>
-              </div>
-              <div className="bg-muted/50 rounded-lg p-3 mb-3 text-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <UserCircle className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-foreground">
-                    Demo Credentials
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  <div>
-                    <span className="font-medium">Username:</span>{" "}
-                    {DEMO_USERNAME}
-                  </div>
-                  <div>
-                    <span className="font-medium">Password:</span>{" "}
-                    {DEMO_PASSWORD}
-                  </div>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                onClick={handleDemoLogin}
-                disabled={demoLoading || submitting}
-              >
-                {demoLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Setting up demo...
-                  </>
-                ) : (
-                  <>
-                    <UserCircle className="h-4 w-4 mr-2" />
-                    Log in as demo admin
-                  </>
-                )}
-              </Button>
+          {/* Demo login button - always visible for teacher presentations */}
+          <div className="mt-6 pt-4 border-t border-border">
+            <div className="text-center mb-3">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                Quick Access
+              </span>
             </div>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full bg-primary/5 hover:bg-primary/10 border-primary/20"
+              onClick={handleDemoLogin}
+              disabled={demoLoading || submitting}
+            >
+              {demoLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Logging in...
+                </>
+              ) : (
+                <>
+                  <UserCircle className="h-4 w-4 mr-2" />
+                  Login as Demo
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              No account needed - explore the dashboard instantly
+            </p>
+          </div>
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4">

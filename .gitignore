@@ -1,78 +1,100 @@
+# ============================================
+# NILM Energy Monitor - Monorepo .gitignore
+# ============================================
+
+# ============================================
+# Node.js / JavaScript / TypeScript
+# ============================================
+**/node_modules/
+**/dist/
+**/build/
+**/.cache/
+**/.vite/
+**/.wrangler/
+**/.temp/
+*.tsbuildinfo
+
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-
-# Virtual Environment
 venv/
 env/
 ENV/
+*.egg-info/
 
-# IDE
+# ============================================
+# Environment Variables (NEVER COMMIT SECRETS)
+# ============================================
+.env
+.env.local
+.env.*.local
+.env.production
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ============================================
+# IDE / Editor
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# ============================================
 # Data files (large datasets - keep local only)
+# ============================================
 data/**/*.csv
 data/**/*.xlsx
 data/**/*.json
 
+# ============================================
 # Model files
+# ============================================
 models/*.h5
 models/*.pt
 models/*.pth
 models/*.pkl
 
+# ============================================
 # Logs
+# ============================================
 *.log
 logs/
 
+# ============================================
 # OS
+# ============================================
 .DS_Store
 Thumbs.db
 
+# ============================================
 # Temporary files
+# ============================================
 *.tmp
 *.temp
 *.bak
 temp/
+*.stackdump
 
-# Unrelated projects
-go-cursor-help/
-
-
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-
+# ============================================
 # Local InfluxDB data and config (Docker volumes)
+# ============================================
 influxdb-data/
 influxdb-config/
 
-# Local environment files (contain secrets)
-.env.local
-.env.*.local
+# ============================================
+# Supabase local
+# ============================================
+supabase/.temp/
 
-# Backend node_modules
-backend/node_modules/
-backend/package-lock.json
-
-# Frontend environment files (NEVER COMMIT - contain secrets)
-frontend/.env
-frontend/.env.production
-frontend/.env.local
-frontend/.env*.local
-
-# Frontend build output
-frontend/dist/
-frontend/build/
-
-# Frontend dependencies
-frontend/node_modules/
+# ============================================
+# Unrelated projects / misc
+# ============================================
+go-cursor-help/

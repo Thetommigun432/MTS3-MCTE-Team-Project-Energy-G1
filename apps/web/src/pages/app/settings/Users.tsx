@@ -38,6 +38,7 @@ import {
   Clock,
   AlertCircle,
   UserX,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { NILMPanel } from "@/components/nilm/NILMPanel";
@@ -260,6 +261,61 @@ export default function UsersSettings() {
     }
   }, []);
 
+  // Create a new organization for the user
+  const handleCreateOrganization = async () => {
+    if (!user) return;
+    
+    setIsSubmitting(true);
+    try {
+      // Create organization
+      const orgName = profile?.display_name 
+        ? `${profile.display_name}'s Organization` 
+        : `${user.email?.split('@')[0]}'s Organization`;
+      
+      const { data: newOrg, error: orgError } = await supabase
+        .from("organizations")
+        .insert({
+          name: orgName,
+          slug: `org-${Date.now()}`,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (orgError) {
+        throw new Error(orgError.message);
+      }
+
+      // Add user as admin of the new org
+      const { error: memberError } = await supabase
+        .from("org_members")
+        .insert({
+          org_id: newOrg.id,
+          user_id: user.id,
+          role: "admin",
+        });
+
+      if (memberError) {
+        throw new Error(memberError.message);
+      }
+
+      toast.success("Organization created!", {
+        description: "You can now invite team members.",
+      });
+
+      // Refresh data
+      setActiveOrgId(newOrg.id);
+      await fetchTeamMembers(newOrg.id);
+    } catch (err) {
+      console.error("Failed to create organization:", err);
+      toast.error("Failed to create organization", {
+        description: err instanceof Error ? err.message : "Please try again",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Main data fetch effect
   useEffect(() => {
     async function fetchData() {
@@ -289,12 +345,20 @@ export default function UsersSettings() {
       return;
     }
 
+    if (!activeOrgId) {
+      toast.error("No organization selected", {
+        description: "You must be part of an organization to invite users",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Call the edge function to send the invite
-      const { data, error } = await supabase.functions.invoke("admin-invite", {
+      // Call the edge function to send the invite with org_id
+      const { data, error } = await supabase.functions.invoke("invite-user-to-org", {
         body: {
+          org_id: activeOrgId,
           email: inviteEmail,
           role: inviteRole,
         },
@@ -311,24 +375,33 @@ export default function UsersSettings() {
         return;
       }
 
-      toast.success("Invitation sent", {
-        description: `An invitation has been sent to ${inviteEmail}`,
-      });
+      // If user was added directly (existing user)
+      if (data?.user_added) {
+        toast.success("Member added", {
+          description: data.message,
+        });
+        // Refresh member list to show new member
+        await fetchTeamMembers(activeOrgId);
+      } else {
+        toast.success("Invitation sent", {
+          description: `An invitation has been sent to ${inviteEmail}`,
+        });
 
-      // Add to pending invites list
-      setPendingInvites((prev) => [
-        {
-          id: `pending-${Date.now()}`,
-          email: inviteEmail,
-          role: inviteRole,
-          status: "pending",
-          created_at: new Date().toISOString(),
-          expires_at: new Date(
-            Date.now() + 7 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-        },
-        ...prev,
-      ]);
+        // Add to pending invites list
+        setPendingInvites((prev) => [
+          {
+            id: `pending-${Date.now()}`,
+            email: inviteEmail,
+            role: inviteRole,
+            status: "pending",
+            created_at: new Date().toISOString(),
+            expires_at: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+          },
+          ...prev,
+        ]);
+      }
 
       setInviteDialogOpen(false);
       setInviteEmail("");
@@ -345,12 +418,26 @@ export default function UsersSettings() {
   };
 
   const handleRoleChange = async (memberId: string, newRole: Role) => {
+    if (!activeOrgId) {
+      toast.error("No organization selected");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // WARNING: This updates UI state only
-      // Backend MUST validate role changes via RLS policies or edge functions
-      // TODO: Call backend API to persist role change with proper authorization
+      // Update role in database via RLS-protected update
+      const { error: updateError } = await supabase
+        .from("org_members")
+        .update({ role: newRole })
+        .eq("org_id", activeOrgId)
+        .eq("user_id", memberId);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      // Update local state
       setTeamMembers((prev) =>
         prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)),
       );
@@ -363,7 +450,9 @@ export default function UsersSettings() {
       setSelectedMember(null);
     } catch (err) {
       console.error("Failed to update role:", err);
-      toast.error("Failed to update role");
+      toast.error("Failed to update role", {
+        description: err instanceof Error ? err.message : "Please try again",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -375,9 +464,26 @@ export default function UsersSettings() {
       return;
     }
 
+    if (!activeOrgId) {
+      toast.error("No organization selected");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
+      // Delete membership from database via RLS-protected delete
+      const { error: deleteError } = await supabase
+        .from("org_members")
+        .delete()
+        .eq("org_id", activeOrgId)
+        .eq("user_id", memberId);
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+
+      // Update local state
       setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
 
       toast.success("Member removed", {
@@ -388,7 +494,9 @@ export default function UsersSettings() {
       setSelectedMember(null);
     } catch (err) {
       console.error("Failed to remove member:", err);
-      toast.error("Failed to remove member");
+      toast.error("Failed to remove member", {
+        description: err instanceof Error ? err.message : "Please try again",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -556,13 +664,28 @@ export default function UsersSettings() {
               <p className="text-sm text-muted-foreground">
                 {activeOrgId
                   ? "Invite users to join your organization."
-                  : "You're not part of any organization yet."}
+                  : "You're not part of any organization yet. Create one to start managing your team."}
               </p>
             </div>
-            {isAdmin && (
-              <Button onClick={() => setInviteDialogOpen(true)} className="mt-2">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite First Member
+            {activeOrgId ? (
+              isAdmin && (
+                <Button onClick={() => setInviteDialogOpen(true)} className="mt-2">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite First Member
+                </Button>
+              )
+            ) : (
+              <Button 
+                onClick={handleCreateOrganization} 
+                className="mt-2"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Building2 className="mr-2 h-4 w-4" />
+                )}
+                Create Organization
               </Button>
             )}
           </div>

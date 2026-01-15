@@ -30,19 +30,19 @@ ORDER BY tablename, policyname;
 
 -- org_members: Composite indexes for common access patterns
 -- Pattern 1: Filter by org_id first, then user_id (for listing org members)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_org_user 
+CREATE INDEX IF NOT EXISTS idx_org_members_org_user 
   ON public.org_members(org_id, user_id);
 
 -- Pattern 2: Filter by user_id first, then org_id (for user's orgs lookup)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_user_org 
+CREATE INDEX IF NOT EXISTS idx_org_members_user_org 
   ON public.org_members(user_id, org_id);
 
 -- Pattern 3: Role-based queries (admin lookups)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_user_role 
+CREATE INDEX IF NOT EXISTS idx_org_members_user_role 
   ON public.org_members(user_id, role);
 
 -- login_history: User lookup optimization
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_history_user_created 
+CREATE INDEX IF NOT EXISTS idx_login_history_user_created 
   ON public.login_history(user_id, created_at DESC);
 
 -- ============================================

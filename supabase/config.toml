@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.admin-invite]
 verify_jwt = false
 
+[functions.invite-user-to-org]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = false
 

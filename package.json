@@ -1,7 +1,29 @@
 {
+  "name": "nilm-energy-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NILM Energy Monitor - Monorepo for web app and local development tools",
+  "workspaces": [
+    "apps/web",
+    "apps/local-server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web",
+    "preview": "npm run preview --workspace=apps/web",
+    "lint": "npm run lint --workspace=apps/web",
+    "typecheck": "npm run typecheck --workspace=apps/web",
+    "format": "npm run format --workspace=apps/web",
+    "format:check": "npm run format:check --workspace=apps/web",
+    "local:server": "npm run dev --workspace=apps/local-server",
+    "local:dev": "concurrently \"npm run local:server\" \"npm run dev\" --names \"api,vite\" --prefix-colors \"blue,green\"",
+    "predictions:seed": "tsx scripts/write-to-influx.ts",
+    "predictions:verify": "tsx scripts/verify-influx.ts"
+  },
   "devDependencies": {
     "@influxdata/influxdb-client": "^1.35.0",
     "@types/papaparse": "^5.5.2",
+    "concurrently": "^8.2.2",
     "dotenv": "^17.2.3",
     "papaparse": "^5.5.3",
     "tsx": "^4.21.0"

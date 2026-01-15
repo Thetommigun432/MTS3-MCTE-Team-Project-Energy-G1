@@ -1,83 +1,146 @@
-# Team Project - NILM (Non-Intrusive Load Monitoring)
+# NILM Energy Monitor
 
-Project for energy consumption recognition and disaggregation using Deep Learning techniques (LSTM).
+Real-time Non-Intrusive Load Monitoring (NILM) web application with deep learning-based energy disaggregation.
 
-## Project Structure
+## 🏗️ Project Structure (Monorepo)
 
-- `clean_excel.py`: Cleaning and preparing raw data from InfluxDB
-- `explore_data.py`: Exploratory data analysis (EDA)
-- `prepare_data.py`: Data preparation for training (temporal alignment, sequence creation)
-- `nilm_model.py`: LSTM model definition for NILM
-- `train_nilm.py`: Script to train models
-- `predict_nilm.py`: Script to make predictions and evaluate models
-
-## Installation
-
-1. Create and activate a virtual environment:
-```bash
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-# or
-source venv/bin/activate  # Linux/Mac
+```
+/
+├── apps/
+│   ├── web/              # React + Vite + TypeScript frontend
+│   └── local-server/     # Node.js InfluxDB proxy (optional)
+├── supabase/             # Supabase migrations + Edge Functions
+├── infra/
+│   └── influxdb/         # Docker Compose for local InfluxDB
+├── data/                 # Training data (gitignored)
+├── docs/                 # Documentation
+├── preprocessing/        # Python data preparation scripts
+├── pretraining/          # ML model notebooks
+└── scripts/              # Build/utility scripts
 ```
 
-2. Install dependencies:
+## 🚀 Quick Start (Web App)
+
+### Prerequisites
+- Node.js 18+
+- npm 9+
+- Supabase project (for auth/database)
+
+### 1. Install dependencies
 ```bash
+npm install
+```
+
+### 2. Configure environment
+```bash
+# Copy example env file
+cp apps/web/.env.example apps/web/.env.local
+
+# Edit with your Supabase credentials
+# VITE_SUPABASE_URL=https://your-project.supabase.co
+# VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 3. Run development server
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:8080`
+
+### 4. Build for production
+```bash
+npm run build
+```
+
+## 📜 Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start Vite dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
+| `npm run typecheck` | TypeScript type checking |
+| `npm run format` | Format code with Prettier |
+| `npm run local:server` | Start InfluxDB proxy |
+| `npm run local:dev` | Run frontend + local server |
+
+## 🗃️ Supabase Setup
+
+### Deploy Migrations
+```bash
+cd supabase
+supabase link --project-ref <your-project-ref>
+supabase db push
+```
+
+### Deploy Edge Functions
+```bash
+supabase functions deploy invite-user-to-org
+supabase functions deploy admin-invite
+supabase functions deploy log-login-event
+# ... deploy other functions as needed
+```
+
+### Required Tables
+- `profiles` - User profiles
+- `organizations` - Multi-tenant orgs
+- `org_members` - Org membership + roles
+- `pending_org_invites` - Invites for non-registered users
+- `invitations` - Invitation history
+
+### Key Edge Functions
+- `invite-user-to-org` - Invite users to organizations (admin only)
+- `admin-invite` - Legacy global invites
+- `log-login-event` - Audit login history
+
+## 🔐 Security Checklist
+
+### Supabase Dashboard Settings
+1. **Enable leaked password protection**: Go to Authentication → Settings → Enable "Leaked Password Protection"
+2. **Configure email templates**: Authentication → Email Templates
+3. **Set up redirect URLs**: Authentication → URL Configuration
+
+### RLS Policies
+All tables have Row Level Security enabled with proper policies:
+- Users can only view/edit their own data
+- Org admins can manage org members
+- Service role used only in Edge Functions
+
+### Environment Variables
+- **NEVER** commit `.env`, `.env.local`, or `.env.production`
+- Use `.env.example` as template
+- For CI/CD, use secrets managers
+
+## 🧪 ML Pipeline (NILM Model Training)
+
+### Setup Python Environment
+```bash
+python -m venv venv
+source venv/bin/activate  # or .\venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-## Workflow
+### Training Workflow
+1. **Data Cleaning**: `python clean_excel.py`
+2. **Data Exploration**: `python explore_data.py`
+3. **Data Preparation**: `python prepare_data.py`
+4. **Model Training**: `python train_nilm.py`
+5. **Evaluation**: `python predict_nilm.py`
 
-### 1. Data Cleaning
-```bash
-python clean_excel.py
-```
+### Model Architecture
+- **Approach**: Sequence-to-Point LSTM
+- **Input**: 60-timestep consumption sequences
+- **Output**: Per-appliance power predictions
+- **Strategy**: One model per appliance
 
-### 2. Data Exploration
-```bash
-python explore_data.py
-```
+## 📖 Additional Documentation
 
-### 3. Data Preparation for Training
-This script:
-- Temporally aligns total consumption with individual appliance consumption
-- Creates sequences using sliding window (default: 60 timesteps)
-- Normalizes data
-- Splits into train/test sets
-
-```bash
-python prepare_data.py
-```
-
-### 4. Model Training
-Trains a separate LSTM model for each appliance:
-
-```bash
-python train_nilm.py
-```
-
-Trained models are saved in `models/`.
-
-### 5. Evaluation and Predictions
-Evaluates models on test set and displays metrics:
-
-```bash
-python predict_nilm.py
-```
-
-## Model Architecture
-
-The project uses a **Sequence-to-Point** approach with LSTM:
-
-- **Input**: Total consumption sequence (60 timesteps)
-- **Output**: Predicted consumption of a single appliance
-- **Strategy**: One separate model for each main appliance
-
-### LSTM Model
-
-The model includes:
-- LSTM layers to capture temporal patterns
-- Dense layers for final regression
+- [Local Development Guide](docs/LOCAL_DEVELOPMENT.md)
+- [Supabase Setup Details](docs/SUPABASE_SETUP.md)
+- [InfluxDB Schema](docs/INFLUX_SCHEMA.md)
+- [Deployment Guide](apps/web/docs/DEPLOYMENT_STEPS.md)
 - Dropout for regularization
 - Linear output (regression)
 

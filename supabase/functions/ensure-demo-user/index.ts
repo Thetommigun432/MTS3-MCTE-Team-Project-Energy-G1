@@ -6,9 +6,10 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const DEMO_EMAIL = "admin@demo.local";
-const DEMO_PASSWORD = "admin123";
-const DEMO_DISPLAY_NAME = "Demo Admin";
+// Demo credentials - match production .env.production
+const DEMO_EMAIL = "demo@energy-monitor.app";
+const DEMO_PASSWORD = "DemoPass2026!";
+const DEMO_DISPLAY_NAME = "Demo User";
 
 // Rate limiting: simple in-memory store (resets on function cold start)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -59,7 +60,8 @@ Deno.serve(async (req) => {
     }
 
     // Check if demo mode is enabled via environment variable
-    const demoModeEnabled = Deno.env.get("DEMO_MODE_ENABLED") === "true";
+    // For presentations, we skip this check to always allow demo user creation
+    const demoModeEnabled = Deno.env.get("DEMO_MODE_ENABLED") !== "false";
     if (!demoModeEnabled) {
       return new Response(
         JSON.stringify({ error: "Demo mode is not enabled" }),
@@ -112,20 +114,31 @@ Deno.serve(async (req) => {
     );
 
     if (existingDemoUser) {
-      // User exists, ensure profile is set up correctly
-      const { error: profileError } = await adminClient.from("profiles").upsert(
-        {
-          id: existingDemoUser.id,
-          email: DEMO_EMAIL,
-          display_name: DEMO_DISPLAY_NAME,
-        },
-        {
-          onConflict: "id",
-        },
-      );
+      // User exists, ensure profile and demo data is set up correctly
+      const { error: setupError } = await adminClient.rpc("setup_demo_user", {
+        demo_user_id: existingDemoUser.id,
+        demo_email: DEMO_EMAIL,
+      });
 
-      if (profileError) {
-        console.warn("Profile upsert warning:", profileError);
+      if (setupError) {
+        console.warn("Demo setup warning:", setupError);
+        // Fall back to just profile upsert
+        const { error: profileError } = await adminClient
+          .from("profiles")
+          .upsert(
+            {
+              id: existingDemoUser.id,
+              email: DEMO_EMAIL,
+              display_name: DEMO_DISPLAY_NAME,
+            },
+            {
+              onConflict: "id",
+            },
+          );
+
+        if (profileError) {
+          console.warn("Profile upsert warning:", profileError);
+        }
       }
 
       return new Response(
@@ -133,6 +146,7 @@ Deno.serve(async (req) => {
           ok: true,
           message: "Demo user already exists",
           email: DEMO_EMAIL,
+          password: DEMO_PASSWORD,
         }),
         {
           status: 200,
@@ -165,21 +179,32 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create/update profile for the new user
+    // Create/update profile and demo data for the new user
     if (newUser?.user) {
-      const { error: profileError } = await adminClient.from("profiles").upsert(
-        {
-          id: newUser.user.id,
-          email: DEMO_EMAIL,
-          display_name: DEMO_DISPLAY_NAME,
-        },
-        {
-          onConflict: "id",
-        },
-      );
+      const { error: setupError } = await adminClient.rpc("setup_demo_user", {
+        demo_user_id: newUser.user.id,
+        demo_email: DEMO_EMAIL,
+      });
 
-      if (profileError) {
-        console.warn("Profile creation warning:", profileError);
+      if (setupError) {
+        console.warn("Demo setup warning:", setupError);
+        // Fall back to just profile upsert
+        const { error: profileError } = await adminClient
+          .from("profiles")
+          .upsert(
+            {
+              id: newUser.user.id,
+              email: DEMO_EMAIL,
+              display_name: DEMO_DISPLAY_NAME,
+            },
+            {
+              onConflict: "id",
+            },
+          );
+
+        if (profileError) {
+          console.warn("Profile creation warning:", profileError);
+        }
       }
     }
 
@@ -188,6 +213,7 @@ Deno.serve(async (req) => {
         ok: true,
         message: "Demo user created successfully",
         email: DEMO_EMAIL,
+        password: DEMO_PASSWORD,
       }),
       {
         status: 201,
