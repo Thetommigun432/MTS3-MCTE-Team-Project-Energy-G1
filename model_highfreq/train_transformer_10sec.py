@@ -16,8 +16,19 @@ import math
 # CONFIGURATION
 # ==============================================================================
 class Config:
-    DATA_PATH = Path(r'c:\Users\gamek\School\TeamProject\MTS3-MCTE-Team-Project-Energy-G1\data\processed\10sec\nilm_10sec_mar_may.parquet')
-    SAVE_PATH = Path(r'c:\Users\gamek\School\TeamProject\MTS3-MCTE-Team-Project-Energy-G1\model_highfreq')
+    # Look for the data file in common locations
+    _possible_paths = [
+        Path(r'.tmp/10sec/10sec/nilm_10sec_mar_may.parquet'),
+        Path(r'data/processed/10sec/nilm_10sec_mar_may.parquet'),
+        Path(r'c:\Users\gamek\School\TeamProject\MTS3-MCTE-Team-Project-Energy-G1\data\processed\10sec\nilm_10sec_mar_may.parquet')
+    ]
+    DATA_PATH = next((p for p in _possible_paths if p.exists()), _possible_paths[0])
+    
+    # Path where this script is located
+    try:
+        SAVE_PATH = Path(__file__).parent
+    except NameError:
+        SAVE_PATH = Path.cwd() / "model_highfreq"
     
     WINDOW_SIZE = 512  # ~85 minutes context (10s resolution)
     BATCH_SIZE = 128   # Increased for GPU speed
