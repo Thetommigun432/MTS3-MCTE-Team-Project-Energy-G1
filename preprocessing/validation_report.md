@@ -300,11 +300,11 @@ Referenced approaches for 15-min resolution:
 
 | Parameter | Value |
 |-----------|-------|
-| Window size | 99 samples (~25 hours) |
+| Window size | 96 samples (24 hours) |
 | Stride | 1 |
 | Architecture | Seq2Seq |
-| Input shape | (n_samples, 99, 7) |
-| Output shape | (n_samples, 99, 1) |
+| Input shape | (n_samples, 96, 7) |
+| Output shape | (n_samples, 96, 1) |
 
 ### 11.3 Input Features
 
