@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. Flask API + AI Model
+  backend-api:
+    build: .
+    container_name: ai_transformer_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - INFLUXDB_URL=http://influxdb:8086
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - influxdb
+      - redis
+
+  # 2. Time Series Database
+  influxdb:
+    image: influxdb:2.7
+    container_name: influx_db
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+
+  # 3. Fast Cache
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis_cache
+
+  # 4. Data Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana_viz
+    ports:
+      - "3000:3000"
+    depends_on:
+      - influxdb
+
+volumes:
+  influxdb_data:
