@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, request
+from flask.cli import load_dotenv
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
@@ -6,10 +7,12 @@ import json
 import os
 from datetime import datetime
 import traceback
+import redis
 
 # Import logic from AI and Visualisation folders
 from ai.preprocessing.preprocessing_engine import PreprocessingEngine
 from ai.model.model_predictor import ModelPredictor
+from cache_24h.cache_manager import CacheManager, get_cache_manager
 from Visualisation.format_for_charts import (
     format_for_charts, 
     format_24h_summary,
@@ -20,10 +23,10 @@ from Visualisation.format_for_charts import (
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_DATA_PATH = os.path.join(BASE_DIR, 'Client-data', 'nilm_ready_dataset.parquet')
 MODEL_PATH = os.path.join(BASE_DIR, 'ai', 'model', 'transformer_heatpump_best.pth')
-CACHE_DIR = os.path.join(BASE_DIR, '24h-cache')
 
-# Ensure cache folder exists
-os.makedirs(CACHE_DIR, exist_ok=True)
+# Redis configuration
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -32,7 +35,7 @@ CORS(app)  # Enable CORS for frontend requests
 # Global variables for caching (lazy loading)
 _preprocessor = None
 _model_predictor = None
-
+_cache_manager = None
 
 def get_preprocessor():
     """Lazy loading of preprocessor."""
@@ -61,18 +64,24 @@ def home():
             "/run-pipeline",
             "/predict",
             "/cached-predictions",
+            "/stream",
+            "/stream/latest",
+            "/cache-status",
             "/health"
         ]
     })
 
-
 @app.route('/health')
 def health():
     """Endpoint to check service status."""
+    cache_manager = get_cache_manager()
+    
     checks = {
         "api": True,
         "model_loaded": _model_predictor is not None,
-        "data_available": os.path.exists(CLIENT_DATA_PATH)
+        "data_available": os.path.exists(CLIENT_DATA_PATH),
+        "redis_connected": cache_manager.is_connected(),
+        "cache_worker_active": cache_manager.is_worker_active()
     }
     
     status = "healthy" if all(checks.values()) else "degraded"
@@ -80,6 +89,7 @@ def health():
     return jsonify({
         "status": status,
         "checks": checks,
+        "cache_stream_length": cache_manager.get_stream_length(),
         "timestamp": datetime.now().isoformat()
     })
 
@@ -89,11 +99,14 @@ def run_pipeline():
     """
     Execute the complete NILM prediction pipeline.
     
+    NOTA: In produzione, il Cache Worker processa i dati automaticamente.
+    Questo endpoint è per debug/testing manuale.
+    
     Pipeline:
         1. Read raw data from Client-data
         2. Preprocess the data
         3. Run model inference
-        4. Save to cache
+        4. Save to Redis cache
         5. Return formatted results
     """
     try:
@@ -109,23 +122,28 @@ def run_pipeline():
         # 2. Preprocessing
         preprocessor = get_preprocessor()
         cleaned = preprocessor.clean_data(raw_df)
-        sequences = preprocessor.prepare_sequences(cleaned)
-        
-        # 3. Model inference
+        sequence = preprocessor.prepare_sequences(cleaned)[0]
+
+        # 3. Salva i dati puliti in Redis
+        cache_manager = get_cache_manager()
+        if isinstance(cleaned, pd.DataFrame):
+            cache_manager.set_cache('energy:cleaned', cleaned.to_json(orient='records'))
+        else:
+            cache_manager.set_cache('energy:cleaned', json.dumps(cleaned))
+
+        # 4. Model inference
         model_predictor = get_model_predictor()
-        predictions = model_predictor.predict_batch(sequences)
-        
-        # 4. Save to cache
-        cache_path = os.path.join(CACHE_DIR, 'predictions.json')
+        predictions = model_predictor.predict_batch(sequence)
+
+        # 5. Salva predizioni in Redis
         predictions_dict = predictions.to_dict(orient='records')
-        with open(cache_path, 'w') as f:
-            json.dump({
-                "predictions": predictions_dict,
-                "generated_at": datetime.now().isoformat(),
-                "model": "transformer_heatpump"
-            }, f, indent=2)
+        cache_manager.set_cache('energy:predictions', json.dumps({
+            "predictions": predictions_dict,
+            "generated_at": datetime.now().isoformat(),
+            "model": "transformer_heatpump"
+        }))
         
-        # 5. Format for frontend
+        # 6. Format for frontend
         output = format_for_charts(predictions)
         
         return jsonify(output)
@@ -174,20 +192,70 @@ def predict():
 @app.route('/cached-predictions')
 def get_cached_predictions():
     """
-    Return predictions saved in cache.
-    Useful for frontend to quickly retrieve latest results.
+    Return predictions saved in Redis cache.
+    The Cache Worker keeps these updated automatically.
     """
-    cache_path = os.path.join(CACHE_DIR, 'predictions.json')
+    cache_manager = get_cache_manager()
+    cached_data = cache_manager.get_predictions()
     
-    if not os.path.exists(cache_path):
+    if not cached_data:
         return jsonify({
-            "error": "No predictions in cache. Run /run-pipeline first."
+            "error": "No predictions in cache. Cache Worker may not be running.",
+            "worker_active": cache_manager.is_worker_active()
         }), 404
     
-    with open(cache_path, 'r') as f:
-        cached_data = json.load(f)
-    
     return jsonify(cached_data)
+
+
+@app.route('/stream')
+def get_stream():
+    """
+    Return the real-time data stream from Redis.
+    Contains the last 24 hours of processed data.
+    
+    Query params:
+        limit: Number of elements to return (default: all)
+    """
+    cache_manager = get_cache_manager()
+    limit = request.args.get('limit', type=int)
+    
+    stream_data = cache_manager.get_stream(limit=limit)
+    
+    return jsonify({
+        "stream": stream_data,
+        "count": len(stream_data),
+        "total_in_cache": cache_manager.get_stream_length(),
+        "timestamp": datetime.now().isoformat()
+    })
+
+
+@app.route('/stream/latest')
+def get_stream_latest():
+    """
+    Return the latest data points from the stream.
+    
+    Query params:
+        count: Number of elements to return (default: 10)
+    """
+    cache_manager = get_cache_manager()
+    count = request.args.get('count', default=10, type=int)
+    
+    latest_data = cache_manager.get_latest(count=count)
+    
+    return jsonify({
+        "data": latest_data,
+        "count": len(latest_data),
+        "timestamp": datetime.now().isoformat()
+    })
+
+
+@app.route('/cache-status')
+def get_cache_status():
+    """
+    Return the complete status of the cache system.
+    """
+    cache_manager = get_cache_manager()
+    return jsonify(cache_manager.get_status())
 
 
 @app.route('/statistics')
@@ -195,15 +263,13 @@ def get_statistics():
     """
     Return aggregated statistics from latest predictions.
     """
-    cache_path = os.path.join(CACHE_DIR, 'predictions.json')
+    cache_manager = get_cache_manager()
+    cached_data = cache_manager.get_predictions()
     
-    if not os.path.exists(cache_path):
+    if not cached_data:
         return jsonify({
             "error": "No predictions in cache"
         }), 404
-    
-    with open(cache_path, 'r') as f:
-        cached_data = json.load(f)
     
     predictions_df = pd.DataFrame(cached_data['predictions'])
     stats = calculate_statistics(predictions_df)
@@ -231,7 +297,7 @@ if __name__ == '__main__':
     print("=" * 60)
     print(f"Model path: {MODEL_PATH}")
     print(f"Data path: {CLIENT_DATA_PATH}")
-    print(f"Cache dir: {CACHE_DIR}")
+    print(f"Redis: {REDIS_HOST}:{REDIS_PORT}")
     print("=" * 60)
     
     app.run(host='0.0.0.0', port=5000, debug=True)

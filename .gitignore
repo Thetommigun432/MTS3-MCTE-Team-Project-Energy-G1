@@ -52,7 +52,10 @@ tempo/
 # Unrelated projects
 go-cursor-help/
 
-
+.env
+config.json
+__pycache__/
+.pth
 
 # Distribution / ok ckaging
 dist/
