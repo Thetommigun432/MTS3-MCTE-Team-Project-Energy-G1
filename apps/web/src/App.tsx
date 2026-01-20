@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -50,8 +49,6 @@ const preloadCriticalRoutes = () => {
   import("./pages/Home");
 };
 
-const queryClient = new QueryClient();
-
 // Loading fallback for lazy-loaded routes
 function PageLoader() {
   return (
@@ -78,16 +75,15 @@ const App = () => {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <AppearanceProvider>
-            <AuthProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <Suspense fallback={<PageLoader />}>
-                    <Routes>
+      <ThemeProvider>
+        <AppearanceProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
                       {/* Public */}
                       <Route path="/" element={<Home />} />
                       <Route path="/about" element={<About />} />
@@ -147,14 +143,13 @@ const App = () => {
                       </Route>
 
                       <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </BrowserRouter>
-              </TooltipProvider>
-            </AuthProvider>
-          </AppearanceProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AuthProvider>
+        </AppearanceProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 };

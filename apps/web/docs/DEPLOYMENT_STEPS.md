@@ -6,7 +6,9 @@
 
 This document describes the **legacy Azure Storage deployment** method for frontend hosting.
 
-For new deployments, see: **[docs/DEPLOY_CLOUDFLARE_PAGES.md](./docs/DEPLOY_CLOUDFLARE_PAGES.md)**
+For new deployments, see: **[DEPLOY_CLOUDFLARE_PAGES.md](./DEPLOY_CLOUDFLARE_PAGES.md)**
+
+> **Note:** The Supabase migrations and edge functions referenced in this document are not included in the public repository. Contact the project maintainers if you need access to the backend configuration.
 
 ## ⚠️ SECURITY WARNING
 

@@ -7,11 +7,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import torch
+import torch.nn as nn
 import numpy as np
 from typing import List, Dict, Any
 import json
 from pathlib import Path
 import logging
+
+from models import get_model_class, MODEL_CLASSES
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -130,24 +133,78 @@ def load_model(appliance_id: str) -> tuple:
 
         # Extract model from checkpoint
         # PyTorch checkpoints can have different structures:
-        # 1. Direct state_dict
-        # 2. Dictionary with 'model' key
-        # 3. Dictionary with 'model_state_dict' key
-        if isinstance(checkpoint, dict):
-            if 'model' in checkpoint:
-                model = checkpoint['model']
-            elif 'model_state_dict' in checkpoint:
-                # Need to instantiate architecture first
-                # For now, just use the state_dict
-                model = checkpoint['model_state_dict']
-            else:
-                model = checkpoint
-        else:
-            model = checkpoint
+        # 1. Direct nn.Module (full model)
+        # 2. Dictionary with 'model' key (full model)
+        # 3. Dictionary with 'model_state_dict' key (need to instantiate architecture)
+        # 4. Direct state_dict
+        model = None
 
-        # Ensure model is in eval mode
-        if hasattr(model, 'eval'):
-            model.eval()
+        if isinstance(checkpoint, dict):
+            if 'model' in checkpoint and isinstance(checkpoint['model'], nn.Module):
+                # Full model saved
+                model = checkpoint['model']
+                logger.info(f"Loaded full model from checkpoint for {appliance_id}")
+
+            elif 'model_state_dict' in checkpoint:
+                # State dict - need to instantiate architecture first
+                state_dict = checkpoint['model_state_dict']
+                hyperparams = checkpoint.get('hyperparameters', {})
+
+                # Get model type from checkpoint or registry config
+                model_type = hyperparams.get('model', config.get('model_type', 'cnn'))
+                input_features = hyperparams.get('num_input_features', config.get('input_features', 7))
+
+                logger.info(f"Instantiating {model_type} model with {input_features} input features")
+
+                try:
+                    model_class = get_model_class(model_type)
+                    model = model_class(input_channels=input_features)
+                    model.load_state_dict(state_dict)
+                    logger.info(f"Successfully loaded state_dict into {model_type} model")
+                except ValueError as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Unknown model type '{model_type}': {str(e)}"
+                    )
+                except RuntimeError as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to load state_dict (architecture mismatch?): {str(e)}"
+                    )
+
+            elif all(isinstance(v, torch.Tensor) for v in checkpoint.values()):
+                # Direct state_dict without wrapper
+                raise HTTPException(
+                    status_code=500,
+                    detail="Checkpoint contains only state_dict without architecture info. "
+                           "Please ensure model_type is specified in model_registry.json"
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Unrecognized checkpoint format"
+                )
+
+        elif isinstance(checkpoint, nn.Module):
+            # Direct model object
+            model = checkpoint
+            logger.info(f"Loaded direct model object for {appliance_id}")
+
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unexpected checkpoint type: {type(checkpoint).__name__}"
+            )
+
+        # Validate model is callable
+        if not isinstance(model, nn.Module):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Loaded object is not a valid PyTorch model: {type(model).__name__}"
+            )
+
+        # Set model to evaluation mode
+        model.eval()
 
         # Cache the loaded model
         MODEL_CACHE[appliance_id] = (model, config)
@@ -155,6 +212,8 @@ def load_model(appliance_id: str) -> tuple:
 
         return model, config
 
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"Failed to load model for {appliance_id}: {e}")
         raise HTTPException(
@@ -256,8 +315,17 @@ async def infer(request: InferenceRequest):
 
     # Run inference
     try:
+        # Validate model is callable (should always be true after load_model fix)
+        if not isinstance(model, nn.Module):
+            raise HTTPException(
+                status_code=500,
+                detail=f"Model is not a valid PyTorch module: {type(model).__name__}"
+            )
+
         with torch.no_grad():
-            output = model(input_tensor) if hasattr(model, '__call__') else torch.tensor([[0.0]])
+            output = model(input_tensor)
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
     except Exception as e:
         logger.error(f"Inference failed for {request.appliance_id}: {e}")
         raise HTTPException(

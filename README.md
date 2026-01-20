@@ -2,58 +2,86 @@
 
 Real-time Non-Intrusive Load Monitoring (NILM) web application with deep learning-based energy disaggregation.
 
-## 🏗️ Project Structure (Monorepo)
+## Project Structure (Monorepo)
 
 ```
-/
+MTS3-MCTE-Team-Project-Energy-G1/
 ├── apps/
-│   ├── web/              # React + Vite + TypeScript frontend
-│   └── local-server/     # Node.js InfluxDB proxy (optional)
-├── supabase/             # Supabase migrations + Edge Functions
+│   ├── web/                    # React frontend (Vite + TypeScript)
+│   ├── local-server/           # Express API server (InfluxDB proxy)
+│   └── inference-service/      # FastAPI model inference (PyTorch)
 ├── infra/
-│   └── influxdb/         # Docker Compose for local InfluxDB
-├── data/                 # Training data (gitignored)
-├── docs/                 # Documentation
-├── preprocessing/        # Python data preparation scripts
-├── pretraining/          # ML model notebooks
-└── scripts/              # Build/utility scripts
+│   └── influxdb/               # Docker Compose for InfluxDB
+├── scripts/                    # Data seeding and utilities
+├── docs/                       # Documentation
+├── preprocessing/              # Python data preparation scripts
+├── data/                       # Datasets (gitignored, download separately)
+└── models/                     # Trained PyTorch models (gitignored)
 ```
 
-## 🚀 Quick Start (Web App)
+## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
-- npm 9+
-- Supabase project (for auth/database)
+- Docker and Docker Compose
+- Python 3.10+ (for inference service)
 
-### 1. Install dependencies
+### 1. Clone and Configure
+
 ```bash
-npm install
+git clone <repository-url>
+cd MTS3-MCTE-Team-Project-Energy-G1
+
+# Copy environment files
+cp .env.local.example .env.local
+cp apps/web/.env.example apps/web/.env
 ```
 
-### 2. Configure environment
-```bash
-# Copy example env file
-cp apps/web/.env.example apps/web/.env.local
+Edit `.env.local` with your InfluxDB token (generate with `openssl rand -hex 32`).
 
-# Edit with your Supabase credentials
-# VITE_SUPABASE_URL=https://your-project.supabase.co
-# VITE_SUPABASE_ANON_KEY=your-anon-key
+### 2. Start Services
+
+```bash
+# Start InfluxDB and inference service
+docker compose up -d
+
+# Install frontend dependencies
+cd apps/web && npm install
+
+# Seed prediction data (from apps/web directory)
+npm run predictions:seed
+
+# Start development servers
+npm run local:dev
 ```
 
-### 3. Run development server
-```bash
-npm run dev
+### 3. Access the Application
+
+| Service | URL |
+|---------|-----|
+| Dashboard | http://localhost:8080 |
+| InfluxDB UI | http://localhost:8086 |
+| API Health | http://localhost:3001/health |
+| Inference Health | http://localhost:8000/health |
+
+## Operating Modes
+
+The frontend supports three data modes:
+
+| Mode | Description | Backend Required |
+|------|-------------|------------------|
+| **Demo** | Sample CSV data bundled with app | None |
+| **Local** | InfluxDB + inference service | Docker Compose |
+| **API** | Supabase cloud backend | Supabase project |
+
+Configure mode in `apps/web/.env`:
+```env
+VITE_DEMO_MODE=true      # Demo mode
+VITE_LOCAL_MODE=true     # Local InfluxDB mode
 ```
 
-The app will be available at `http://localhost:8080`
-
-### 4. Build for production
-```bash
-npm run build
-```
-
-## 📜 Available Scripts
+## Available Scripts
 
 | Script | Description |
 |--------|-------------|
@@ -62,90 +90,84 @@ npm run build
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | TypeScript type checking |
-| `npm run format` | Format code with Prettier |
 | `npm run local:server` | Start InfluxDB proxy |
 | `npm run local:dev` | Run frontend + local server |
+| `npm run predictions:seed` | Seed InfluxDB with sample data |
 
-## 🗃️ Supabase Setup
+## Development
 
-### Deploy Migrations
+### Frontend (apps/web)
+
 ```bash
-cd supabase
-supabase link --project-ref <your-project-ref>
-supabase db push
+cd apps/web
+npm install
+npm run dev           # Start Vite dev server
+npm run build         # Production build
+npm run lint          # ESLint
+npm run typecheck     # TypeScript check
 ```
 
-### Deploy Edge Functions
+### Local Server (apps/local-server)
+
 ```bash
-supabase functions deploy invite-user-to-org
-supabase functions deploy admin-invite
-supabase functions deploy log-login-event
-# ... deploy other functions as needed
+cd apps/local-server
+npm install
+npm run dev           # Start with ts-node
 ```
 
-### Required Tables
-- `profiles` - User profiles
-- `organizations` - Multi-tenant orgs
-- `org_members` - Org membership + roles
-- `pending_org_invites` - Invites for non-registered users
-- `invitations` - Invitation history
+### Inference Service (apps/inference-service)
 
-### Key Edge Functions
-- `invite-user-to-org` - Invite users to organizations (admin only)
-- `admin-invite` - Legacy global invites
-- `log-login-event` - Audit login history
+```bash
+cd apps/inference-service
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
-## 🔐 Security Checklist
+## Tech Stack
 
-### Supabase Dashboard Settings
-1. **Enable leaked password protection**: Go to Authentication → Settings → Enable "Leaked Password Protection"
-2. **Configure email templates**: Authentication → Email Templates
-3. **Set up redirect URLs**: Authentication → URL Configuration
+### Frontend
+- React 19 + TypeScript
+- Vite 7
+- Tailwind CSS + shadcn/ui
+- Recharts for visualizations
+- React Router 6
 
-### RLS Policies
-All tables have Row Level Security enabled with proper policies:
-- Users can only view/edit their own data
-- Org admins can manage org members
-- Service role used only in Edge Functions
+### Backend
+- Express.js (API proxy)
+- FastAPI + PyTorch (inference)
+- InfluxDB 2.7 (time series)
+- Supabase (auth + cloud storage)
 
-### Environment Variables
-- **NEVER** commit `.env`, `.env.local`, or `.env.production`
-- Use `.env.example` as template
-- For CI/CD, use secrets managers
+## ML Pipeline (NILM Model Training)
 
-## 🧪 ML Pipeline (NILM Model Training)
+### Model Architecture
+- **CNN Seq2Seq**: Encoder-decoder for sequence-to-sequence prediction
+- **U-Net 1D**: Skip connections for preserving temporal features
+- **Input**: Multi-timestep aggregate power sequences
+- **Output**: Per-appliance power predictions
 
-### Setup Python Environment
+### Training
 ```bash
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate on Windows
 pip install -r requirements.txt
+python train_model.py --appliance heatpump --model cnn
 ```
 
-### Training Workflow
-1. **Data Cleaning**: `python clean_excel.py`
-2. **Data Exploration**: `python explore_data.py`
-3. **Data Preparation**: `python prepare_data.py`
-4. **Model Training**: `python train_nilm.py`
-5. **Evaluation**: `python predict_nilm.py`
+## Documentation
 
-### Model Architecture
-- **Approach**: Sequence-to-Point LSTM
-- **Input**: 60-timestep consumption sequences
-- **Output**: Per-appliance power predictions
-- **Strategy**: One model per appliance
+- [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) - Full local setup
+- [InfluxDB Schema](docs/INFLUX_SCHEMA.md) - Data model
+- [Supabase Setup](docs/SUPABASE_SETUP.md) - Cloud backend
+- [Cloudflare Deployment](apps/web/docs/DEPLOY_CLOUDFLARE_PAGES.md) - Production
 
-## 📖 Additional Documentation
+## Security Notes
 
-- [Local Development Guide](docs/LOCAL_DEVELOPMENT.md)
-- [Supabase Setup Details](docs/SUPABASE_SETUP.md)
-- [InfluxDB Schema](docs/INFLUX_SCHEMA.md)
-- [Deployment Guide](apps/web/docs/DEPLOYMENT_STEPS.md)
-- Dropout for regularization
-- Linear output (regression)
+- **Never commit** `.env`, `.env.local`, or `.env.production` files
+- Use `.env.example` as a template
+- InfluxDB tokens should be at least 32 characters
+- For production, use secrets managers (GitHub Secrets, etc.)
 
-## Notes
+## License
 
-- Data must be in `data/influxdb_query_20251020_074134_cleaned.xlsx`
-- The model requires at least 1000 samples per appliance
-- Sequence length can be modified in `prepare_data.py` (default: 60)
+MIT

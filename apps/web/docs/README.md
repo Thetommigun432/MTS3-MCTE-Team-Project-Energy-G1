@@ -13,9 +13,9 @@ React/TypeScript dashboard for Non-Intrusive Load Monitoring (NILM) energy disag
 
 ## Tech Stack
 
-- **Vite** - Build tool and dev server
-- **React 18** - UI framework
-- **TypeScript** - Type safety
+- **Vite 7** - Build tool and dev server
+- **React 19** - UI framework
+- **TypeScript 5.9** - Type safety
 - **shadcn/ui** - Component library (Radix + Tailwind)
 - **Recharts** - Data visualization
 - **Supabase** - Auth and database (production)
@@ -33,7 +33,7 @@ React/TypeScript dashboard for Non-Intrusive Load Monitoring (NILM) energy disag
 ### Installation
 
 ```bash
-cd frontend
+cd apps/web
 npm install
 ```
 
