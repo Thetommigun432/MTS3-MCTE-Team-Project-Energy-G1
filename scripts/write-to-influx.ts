@@ -1,6 +1,6 @@
 import { InfluxDB, Point } from '@influxdata/influxdb-client';
 import dotenv from 'dotenv';
-import { generatePredictions } from './generate-predictions.js';
+import { generatePredictions, generatePredictionsML } from './generate-predictions.js';
 import path from 'path';
 
 // Load environment variables from .env.local
@@ -30,6 +30,9 @@ const writeApi = influxDB.getWriteApi(
 // Configure batching for better performance
 writeApi.useDefaultTags({ source: 'csv_generator' });
 
+// Determine inference mode
+const USE_ML_INFERENCE = process.env.USE_ML_INFERENCE !== 'false';
+
 async function writePredictions() {
   try {
     console.log('========================================');
@@ -40,12 +43,31 @@ async function writePredictions() {
     console.log(`  InfluxDB URL: http://localhost:8086`);
     console.log(`  Organization: ${process.env.INFLUX_ORG}`);
     console.log(`  Bucket: ${process.env.INFLUX_BUCKET}`);
+    console.log(`  Inference Mode: ${USE_ML_INFERENCE ? '🤖 ML (via inference service)' : '🎲 Mock (deterministic)'}`);
     console.log('');
 
     // Generate predictions from CSV
-    console.log('📊 Step 1: Generating predictions from CSV...');
-    const csvPath = path.join(process.cwd(), 'frontend/public/data/nilm_ready_dataset.csv');
-    const predictions = generatePredictions(csvPath);
+    const csvPath = path.join(process.cwd(), 'apps/web/public/data/nilm_ready_dataset.csv');
+    let predictions;
+
+    if (USE_ML_INFERENCE) {
+      console.log('📊 Step 1: Generating predictions using ML inference...');
+      try {
+        predictions = await generatePredictionsML(csvPath);
+      } catch (error: any) {
+        console.error('');
+        console.error('❌ ML inference failed:', error.message);
+        console.error('');
+        console.error('💡 Falling back to mock (deterministic) mode...');
+        console.error('   To avoid this fallback, ensure inference service is running:');
+        console.error('   docker compose up -d inference-service');
+        console.error('');
+        predictions = generatePredictions(csvPath);
+      }
+    } else {
+      console.log('📊 Step 1: Generating predictions using mock (deterministic) mode...');
+      predictions = generatePredictions(csvPath);
+    }
 
     console.log(`✅ Generated ${predictions.length} predictions`);
     console.log('');
@@ -60,13 +82,19 @@ async function writePredictions() {
     const totalPredictions = predictions.length;
 
     for (const pred of predictions) {
-      // Create InfluxDB point
+      // Create InfluxDB point with model metadata
       const point = new Point('appliance_prediction')
         .tag('building_id', pred.building_id)
         .tag('appliance_name', pred.appliance)
+        .tag('inference_type', pred.inference_type || 'mock') // NEW: Track inference type
         .floatField('predicted_kw', pred.predicted_kw)
         .floatField('confidence', pred.confidence)
         .timestamp(pred.timestamp);
+
+      // Add model version as field if available (from ML inference)
+      if (pred.model_version) {
+        point.stringField('model_version', pred.model_version);
+      }
 
       writeApi.writePoint(point);
       written++;

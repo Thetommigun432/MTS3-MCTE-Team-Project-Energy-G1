@@ -21,6 +21,8 @@ interface LocalPredictionRow {
   appliance_name: string;
   predicted_kw?: number;
   confidence?: number;
+  inference_type?: string;
+  model_version?: string;
 }
 
 interface LocalPredictionsResponse {
@@ -171,6 +173,8 @@ function transformInfluxToNilm(
         aggregate: 0,
         appliances: {},
         confidence: 0,
+        inferenceType: (row.inference_type as 'ml' | 'mock' | 'demo') || 'demo',
+        modelVersion: row.model_version,
         metadata: {
           building_id: row.building_id,
           source: "local_influx",
@@ -190,6 +194,14 @@ function transformInfluxToNilm(
 
     // Track maximum confidence score across all appliances
     entry.confidence = Math.max(entry.confidence, confidenceScore);
+
+    // Update inference type and model version if present
+    if (row.inference_type) {
+      entry.inferenceType = row.inference_type as 'ml' | 'mock' | 'demo';
+    }
+    if (row.model_version) {
+      entry.modelVersion = row.model_version;
+    }
   });
 
   // Convert grouped data to array and sort by time

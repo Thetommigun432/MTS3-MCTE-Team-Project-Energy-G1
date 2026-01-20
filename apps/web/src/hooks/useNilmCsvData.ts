@@ -6,6 +6,9 @@ export interface NilmDataRow {
   time: Date;
   aggregate: number;
   appliances: Record<string, number>;
+  confidence?: number;
+  inferenceType?: 'ml' | 'mock' | 'demo';
+  modelVersion?: string;
 }
 
 export interface NilmData {

@@ -12,6 +12,7 @@ import {
   DateRange,
   InsightData,
   ApplianceStatus,
+  Building,
 } from "@/types/energy";
 import {
   useNilmCsvData,
@@ -25,6 +26,7 @@ import {
   useManagedAppliances,
   ManagedAppliance,
 } from "@/hooks/useManagedAppliances";
+import { useBuildings } from "@/hooks/useBuildings";
 import { useLocalInfluxPredictions } from "@/hooks/useLocalInfluxPredictions";
 import { energyApi, isEnergyApiAvailable } from "@/services/energy";
 import { edgeFunctions } from "@/lib/supabaseHelpers";
@@ -45,7 +47,7 @@ interface EnergyContextType {
   loading: boolean;
   error: string | null;
   filteredRows: NilmDataRow[];
-  buildings: string[];
+  buildings: Building[];
   appliances: string[];
   insights: InsightData;
   currentApplianceStatus: ApplianceStatus[];
@@ -78,6 +80,10 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     loading: managedAppliancesLoading,
     refetch: refetchManagedAppliances,
   } = useManagedAppliances();
+  const {
+    buildings: supabaseBuildings,
+    loading: buildingsLoading,
+  } = useBuildings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -355,6 +361,16 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     }
   }, [dataDateRange]);
 
+  // Auto-select first building when entering API mode or demo mode
+  useEffect(() => {
+    if (mode === "api" && !selectedBuildingId && supabaseBuildings.length > 0) {
+      setSelectedBuildingId(supabaseBuildings[0].id);
+    } else if ((mode === "demo" || mode === "local") && !selectedBuildingId) {
+      // Auto-select demo building
+      setSelectedBuildingId("demo-residential-001");
+    }
+  }, [mode, selectedBuildingId, supabaseBuildings]);
+
   // Build a lookup map for managed appliance metadata
   const managedApplianceMap = useMemo(() => {
     const map: Record<string, ManagedAppliance> = {};
@@ -374,8 +390,25 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return demoAppliances;
   }, [managedAppliances, demoAppliances]);
 
-  // Building is fixed for demo mode (single building dataset)
-  const buildings = ["Demo Building (single building dataset)"];
+  // Buildings from Supabase for API mode, demo building for demo/local modes
+  const buildings = useMemo((): Building[] => {
+    if (mode === "api" && supabaseBuildings.length > 0) {
+      return supabaseBuildings.map(b => ({
+        id: b.id,
+        name: b.name,
+        address: b.address,
+        status: b.status as 'active' | 'inactive' | 'maintenance' | undefined
+      }));
+    }
+    // For demo/local modes, return demo building with realistic details
+    // Based on the NILM dataset which contains appliances from a residential building
+    return [{
+      id: "demo-residential-001",
+      name: "Residential Demo Building",
+      address: "Demo Location - Training Dataset",
+      status: 'active'
+    }];
+  }, [mode, supabaseBuildings]);
 
   // Filter rows by date range (with proper timezone handling)
   const filteredRows = useMemo(() => {

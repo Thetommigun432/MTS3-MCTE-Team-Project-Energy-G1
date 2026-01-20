@@ -1,0 +1,14 @@
+{
+  "heatpump": {
+    "model_path": "/app/models/transformer_heatpump_best.pth",
+    "model_version": "v1.0.0",
+    "model_type": "CNNSeq2Seq",
+    "input_features": 7,
+    "sequence_length": 60,
+    "description": "Transformer-based model for heat pump power disaggregation",
+    "normalization_params": {
+      "mean": [2.5],
+      "std": [1.5]
+    }
+  }
+}

@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEnergy } from "@/contexts/EnergyContext";
 import { toast } from "sonner";
 
 interface Building {
@@ -91,6 +92,7 @@ const APPLIANCE_TYPES = [
 
 export default function Buildings() {
   const { user } = useAuth();
+  const { mode, buildings: contextBuildings, appliances: contextAppliances } = useEnergy();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [appliances, setAppliances] = useState<Record<string, Appliance[]>>({});
   const [loading, setLoading] = useState(true);
@@ -129,10 +131,33 @@ export default function Buildings() {
   const [saving, setSaving] = useState(false);
 
   const fetchBuildings = useCallback(async () => {
-    if (!user) return;
-
     try {
       setLoading(true);
+
+      // In demo mode, show demo building from context
+      if (mode === "demo" || mode === "local") {
+        const demoBuildings = contextBuildings.map(b => ({
+          id: b.id,
+          name: b.name,
+          address: b.address || null,
+          description: "Training dataset from residential building with 13 appliances",
+          status: b.status || "active",
+          total_appliances: contextAppliances.length,
+          created_at: "2024-10-20T00:00:00Z",
+          updated_at: "2025-10-20T00:00:00Z"
+        }));
+        setBuildings(demoBuildings);
+        setLoading(false);
+        return;
+      }
+
+      // In API mode, fetch from Supabase
+      if (!user) {
+        setBuildings([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("buildings")
         .select("*")
@@ -146,10 +171,28 @@ export default function Buildings() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, mode, contextBuildings, contextAppliances]);
 
   const fetchAppliances = async (buildingId: string) => {
     try {
+      // In demo mode, show demo appliances from context
+      if (mode === "demo" || mode === "local") {
+        const demoAppliances = contextAppliances.map((name, index) => ({
+          id: `demo-appliance-${index}`,
+          building_id: buildingId,
+          name: name,
+          type: "other",
+          rated_power_kw: null,
+          status: "active",
+          notes: "From training dataset",
+          created_at: "2024-10-20T00:00:00Z",
+          updated_at: "2025-10-20T00:00:00Z"
+        }));
+        setAppliances((prev) => ({ ...prev, [buildingId]: demoAppliances }));
+        return;
+      }
+
+      // In API mode, fetch from Supabase
       const { data, error } = await supabase
         .from("appliances")
         .select("*")
@@ -474,6 +517,11 @@ export default function Buildings() {
     return APPLIANCE_TYPES.find((t) => t.value === type)?.label || type;
   };
 
+  // Check if a building is a demo building
+  const isDemoBuilding = (buildingId: string) => {
+    return buildingId.startsWith("demo-");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -481,21 +529,27 @@ export default function Buildings() {
           <h1 className="text-2xl font-bold text-foreground">Buildings</h1>
           <p className="text-muted-foreground mt-1">
             Manage buildings and their appliances
+            {(mode === "demo" || mode === "local") && (
+              <span className="text-blue-600 dark:text-blue-400">
+                {" "}• Viewing demo building
+              </span>
+            )}
           </p>
         </div>
-        <Dialog
-          open={isAddBuildingOpen}
-          onOpenChange={(open) => {
-            setIsAddBuildingOpen(open);
-            if (!open) resetBuildingForm();
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Building
-            </Button>
-          </DialogTrigger>
+        {mode === "api" && (
+          <Dialog
+            open={isAddBuildingOpen}
+            onOpenChange={(open) => {
+              setIsAddBuildingOpen(open);
+              if (!open) resetBuildingForm();
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Building
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Building</DialogTitle>
@@ -511,6 +565,7 @@ export default function Buildings() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -563,6 +618,14 @@ export default function Buildings() {
                             <div>
                               <div className="font-medium flex items-center gap-2">
                                 {building.name}
+                                {isDemoBuilding(building.id) && (
+                                  <Badge
+                                    variant="secondary"
+                                    className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                  >
+                                    Demo
+                                  </Badge>
+                                )}
                                 <Badge
                                   variant="secondary"
                                   className={getStatusColor(building.status)}
@@ -586,20 +649,24 @@ export default function Buildings() {
                               <Zap className="h-3 w-3" />
                               {buildingAppliances.length} appliances
                             </Badge>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditBuildingDialog(building)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteBuilding(building.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {!isDemoBuilding(building.id) && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openEditBuildingDialog(building)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteBuilding(building.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </CollapsibleTrigger>
@@ -611,16 +678,18 @@ export default function Buildings() {
                               <Zap className="h-4 w-4" />
                               Appliances
                             </h4>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                openAddApplianceDialog(building.id)
-                              }
-                            >
-                              <Plus className="h-3 w-3 mr-1" />
-                              Add Appliance
-                            </Button>
+                            {!isDemoBuilding(building.id) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  openAddApplianceDialog(building.id)
+                                }
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Appliance
+                              </Button>
+                            )}
                           </div>
 
                           {buildingAppliances.length === 0 ? (
@@ -674,26 +743,28 @@ export default function Buildings() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      <div className="flex justify-end gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() =>
-                                            openEditApplianceDialog(appliance)
-                                          }
-                                        >
-                                          <Pencil className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() =>
-                                            handleDeleteAppliance(appliance)
-                                          }
-                                        >
-                                          <Trash2 className="h-3 w-3 text-destructive" />
-                                        </Button>
-                                      </div>
+                                      {!isDemoBuilding(building.id) && (
+                                        <div className="flex justify-end gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                              openEditApplianceDialog(appliance)
+                                            }
+                                          >
+                                            <Pencil className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                              handleDeleteAppliance(appliance)
+                                            }
+                                          >
+                                            <Trash2 className="h-3 w-3 text-destructive" />
+                                          </Button>
+                                        </div>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 ))}

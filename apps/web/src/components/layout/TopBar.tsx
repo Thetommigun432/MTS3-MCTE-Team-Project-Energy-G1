@@ -5,6 +5,8 @@ import {
   Settings,
   Filter,
   Info,
+  Plus,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggleCompact } from "@/components/theme/ThemeToggle";
@@ -31,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEnergy } from "@/contexts/EnergyContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { MobileSidebar } from "./AppSidebar";
 import {
@@ -47,6 +49,8 @@ export function TopBar() {
     setMode,
     selectedBuilding,
     setSelectedBuilding,
+    selectedBuildingId,
+    setSelectedBuildingId,
     selectedAppliance,
     setSelectedAppliance,
     buildings,
@@ -58,6 +62,10 @@ export function TopBar() {
   } = useEnergy();
   const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Only show filters on the dashboard page
+  const showFilters = location.pathname === "/app" || location.pathname === "/app/dashboard";
 
   const handleLogout = async () => {
     await logout();
@@ -96,110 +104,155 @@ export function TopBar() {
 
   return (
     <header className="flex items-center justify-between gap-4 px-4 md:px-6 py-3 bg-background border-b border-border">
-      {/* Left: Mobile menu + Building + Appliance + Date Range */}
+      {/* Left: Mobile menu + Building + Appliance + Date Range (Dashboard only) */}
       <div className="flex items-center gap-3 flex-wrap">
         <MobileSidebar />
 
-        {/* Building Selector - Disabled for single building demo */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
-              <Select
-                value={selectedBuilding}
-                onValueChange={setSelectedBuilding}
-                disabled
+        {/* Filters - Only shown on Dashboard */}
+        {showFilters && (
+          <>
+            {/* Building Selector */}
+            {mode === "api" && buildings.length === 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate("/app/buildings")}
+                className="gap-2"
               >
-                <SelectTrigger className="w-36 md:w-48 border-border bg-background text-foreground opacity-70 cursor-not-allowed">
-                  <SelectValue placeholder="Building" />
+                <Plus className="h-4 w-4" />
+                Create Building
+              </Button>
+            ) : (
+              <Select
+                value={selectedBuildingId || ""}
+                onValueChange={(value) => {
+                  setSelectedBuildingId(value);
+                  // Automatically switch to API mode when building selected (if not already)
+                  if (value && value !== "demo" && mode !== "api") {
+                    setMode("api");
+                  }
+                }}
+                disabled={mode === "demo" || mode === "local"}
+              >
+                <SelectTrigger className={cn(
+                  "w-36 md:w-48 border-border bg-background text-foreground",
+                  (mode === "demo" || mode === "local") && "opacity-70 cursor-not-allowed"
+                )}>
+                  <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Select Building" />
                 </SelectTrigger>
                 <SelectContent>
                   {buildings.map((building) => (
-                    <SelectItem key={building} value={building}>
-                      {building}
+                    <SelectItem key={building.id} value={building.id}>
+                      <div className="flex flex-col">
+                        <span>{building.name}</span>
+                        {building.address && (
+                          <span className="text-xs text-muted-foreground">{building.address}</span>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            )}
+
+            {/* Appliance Filter */}
+            <Select
+              value={selectedAppliance}
+              onValueChange={setSelectedAppliance}
+              disabled={loading}
+            >
+              <SelectTrigger className="w-36 md:w-44 border-border bg-background text-foreground">
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Appliance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Appliances</SelectItem>
+                {appliances.map((appliance) => (
+                  <SelectItem key={appliance} value={appliance}>
+                    {appliance.replace(/_/g, " ")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Date Range - Hidden on small screens */}
+            <div className="hidden lg:flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Input
+                type="date"
+                value={formatDateForInput(dateRange.start)}
+                onChange={handleStartDateChange}
+                className="w-36 border-border bg-background text-foreground"
+                disabled={loading}
+              />
+              <span className="text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={formatDateForInput(dateRange.end)}
+                onChange={handleEndDateChange}
+                className="w-36 border-border bg-background text-foreground"
+                disabled={loading}
+              />
             </div>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="flex items-center gap-1">
-              <Info className="h-3 w-3" />
-              Demo uses single building dataset
-            </p>
-          </TooltipContent>
-        </Tooltip>
 
-        {/* Appliance Filter */}
-        <Select
-          value={selectedAppliance}
-          onValueChange={setSelectedAppliance}
-          disabled={loading}
-        >
-          <SelectTrigger className="w-36 md:w-44 border-border bg-background text-foreground">
-            <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-            <SelectValue placeholder="Appliance" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All">All Appliances</SelectItem>
-            {appliances.map((appliance) => (
-              <SelectItem key={appliance} value={appliance}>
-                {appliance.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            {/* Preset Buttons */}
+            <div className="hidden md:flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreset(1)}
+                disabled={loading}
+                className="border-border text-foreground hover:bg-muted"
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreset(7)}
+                disabled={loading}
+                className="border-border text-foreground hover:bg-muted"
+              >
+                7 days
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPreset(30)}
+                disabled={loading}
+                className="border-border text-foreground hover:bg-muted"
+              >
+                30 days
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
 
-        {/* Date Range - Hidden on small screens */}
-        <div className="hidden lg:flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <Input
-            type="date"
-            value={formatDateForInput(dateRange.start)}
-            onChange={handleStartDateChange}
-            className="w-36 border-border bg-background text-foreground"
-            disabled={loading}
-          />
-          <span className="text-muted-foreground">to</span>
-          <Input
-            type="date"
-            value={formatDateForInput(dateRange.end)}
-            onChange={handleEndDateChange}
-            className="w-36 border-border bg-background text-foreground"
-            disabled={loading}
-          />
-        </div>
-
-        {/* Preset Buttons */}
-        <div className="hidden md:flex gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreset(1)}
-            disabled={loading}
-            className="border-border text-foreground hover:bg-muted"
-          >
-            Today
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreset(7)}
-            disabled={loading}
-            className="border-border text-foreground hover:bg-muted"
-          >
-            7 days
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPreset(30)}
-            disabled={loading}
-            className="border-border text-foreground hover:bg-muted"
-          >
-            30 days
-          </Button>
-        </div>
+      {/* Mode-specific help text */}
+      <div className="hidden xl:flex items-center text-xs text-muted-foreground">
+        {mode === "demo" && (
+          <span>
+            Viewing sample data •{" "}
+            <button
+              onClick={() => setMode("api")}
+              className="text-primary hover:underline"
+            >
+              Switch to live data
+            </button>
+          </span>
+        )}
+        {mode === "api" && !selectedBuildingId && (
+          <span className="text-amber-600 dark:text-amber-400">
+            Select a building to view live data
+          </span>
+        )}
+        {mode === "local" && (
+          <span>
+            Local InfluxDB mode • Showing ML predictions
+          </span>
+        )}
       </div>
 
       {/* Right: Theme + Mode Toggle + User Menu */}

@@ -18,6 +18,13 @@ export interface DateRange {
 
 export type DataMode = "demo" | "api" | "local";
 
+export interface Building {
+  id: string;
+  name: string;
+  address?: string;
+  status?: 'active' | 'inactive' | 'maintenance';
+}
+
 export interface ApplianceStatus {
   name: string;
   on: boolean;

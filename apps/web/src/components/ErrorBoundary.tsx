@@ -1,6 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -40,6 +40,20 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
+  handleGoBack = (): void => {
+    // Go back and refresh by using location.href with the referrer or previous page
+    if (window.history.length > 1) {
+      window.history.back();
+      // Force reload after going back
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    } else {
+      // If no history, go to home and reload
+      window.location.href = "/";
+    }
+  };
+
   render(): ReactNode {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -59,8 +73,9 @@ export class ErrorBoundary extends Component<Props, State> {
             going back.
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={this.handleReset}>
-              Try again
+            <Button variant="outline" onClick={this.handleGoBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go back
             </Button>
             <Button onClick={this.handleReload}>
               <RefreshCw className="h-4 w-4 mr-2" />

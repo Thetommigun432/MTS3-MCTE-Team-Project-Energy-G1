@@ -121,144 +121,93 @@ export default function UsersSettings() {
   const [inviteRole, setInviteRole] = useState<Role>("viewer");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch user's active organization
+  // Fetch user's active organization - simplified to skip org system
   const fetchActiveOrg = useCallback(async (): Promise<string | null> => {
-    if (!user) return null;
-    
-    try {
-      // Get user's first org membership (could be extended to support org switching)
-      const { data: membership, error: membershipError } = await supabase
-        .from("org_members")
-        .select("org_id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
+    // Skip organization system - use profiles directly
+    return null;
+  }, []);
 
-      if (membershipError) {
-        console.warn("Could not fetch org membership:", membershipError.message);
-        return null;
-      }
-
-      return membership?.org_id ?? null;
-    } catch (err) {
-      console.warn("Error fetching active org:", err);
-      return null;
-    }
-  }, [user]);
-
-  // Fetch team members via org_members with profile join
-  const fetchTeamMembers = useCallback(async (orgId: string | null) => {
+  // Fetch team members from profiles table directly
+  const fetchTeamMembers = useCallback(async (_orgId: string | null) => {
+    console.log("[Users] fetchTeamMembers called, user:", user?.id);
     setLoading(true);
     setError(null);
 
     try {
-      if (orgId) {
-        // Query org_members with explicit org_id filter and profile join
-        const { data: orgMembersData, error: orgMembersError } = await supabase
-          .from("org_members")
-          .select(`
-            org_id,
-            user_id,
-            role,
-            created_at,
-            profiles:user_id (
-              id,
-              full_name,
-              display_name,
-              avatar_url,
-              username
-            )
-          `)
-          .eq("org_id", orgId)
-          .order("created_at", { ascending: false });
+      // Query profiles directly - has permissive RLS for authenticated users
+      console.log("[Users] Querying profiles table...");
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-        if (orgMembersError) {
-          throw new Error(orgMembersError.message);
-        }
+      console.log("[Users] Profiles query result:", { data: profilesData, error: profilesError });
 
-        // Transform org_members data to TeamMember format
-        const members: TeamMember[] = (orgMembersData || []).map((m) => {
-          const profileData = m.profiles as { id: string; full_name: string | null; display_name: string | null; avatar_url: string | null; username: string | null } | null;
-          return {
-            id: m.user_id,
-            email: profileData?.username || "Unknown",
-            display_name: profileData?.display_name || profileData?.full_name || profileData?.username,
-            role: (m.role || "member") as Role,
-            status: "active" as Status,
-            avatar_url: profileData?.avatar_url || null,
-          };
-        });
-
-        setTeamMembers(members);
-      } else {
-        // Fallback: No org, query profiles directly (backward compatibility)
-        const { data: profilesData, error: profilesError } = await supabase
-          .from("profiles")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (profilesError) {
-          throw new Error(profilesError.message);
-        }
-
-        const members: TeamMember[] = (profilesData || []).map((p) => ({
-          id: p.id,
-          email: p.email || p.username || "Unknown",
-          display_name: p.display_name || p.full_name || p.username,
-          role: (p.role || "member") as Role,
-          status: "active" as Status,
-          avatar_url: p.avatar_url,
-        }));
-
-        setTeamMembers(members);
+      if (profilesError) {
+        console.error("[Users] Profiles query error:", profilesError);
+        throw new Error(profilesError.message);
       }
+
+      if (!profilesData || profilesData.length === 0) {
+        console.log("[Users] No profiles found, using current user as fallback");
+        // If no profiles found, at least show current user
+        if (user && profile) {
+          setTeamMembers([
+            {
+              id: user.id,
+              email: user.email || "Unknown",
+              display_name: profile.display_name || profile.full_name || user.email?.split("@")[0] || "User",
+              role: (profile.role as Role) || "member",
+              status: "active" as Status,
+              avatar_url: profile.avatar_url,
+            },
+          ]);
+        } else {
+          setTeamMembers([]);
+        }
+        return;
+      }
+
+      const members: TeamMember[] = profilesData.map((p) => ({
+        id: p.id,
+        email: p.email || p.username || "Unknown",
+        display_name: p.display_name || p.full_name || p.username || "User",
+        role: (p.role || "member") as Role,
+        status: "active" as Status,
+        avatar_url: p.avatar_url,
+      }));
+
+      console.log("[Users] Setting team members:", members.length);
+      setTeamMembers(members);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load team members";
-      console.error("Error fetching team members:", errorMessage);
+      console.error("[Users] Error fetching team members:", errorMessage, err);
       setError(errorMessage);
       
       // Fallback to current user if fetch fails
       if (user && profile) {
+        console.log("[Users] Using fallback - current user only");
         setTeamMembers([
           {
             id: user.id,
             email: user.email || "Unknown",
-            display_name: profile.display_name,
+            display_name: profile.display_name || profile.full_name || user.email?.split("@")[0] || "User",
             role: (profile.role as Role) || "member",
             status: "active",
             avatar_url: profile.avatar_url,
           },
         ]);
+        // Clear error since we have fallback data
+        setError(null);
       }
     } finally {
       setLoading(false);
     }
   }, [user, profile]);
 
-  // Fetch pending invites
-  const fetchPendingInvites = useCallback(async () => {
-    try {
-      const { data: invitesData, error: invitesError } = await supabase
-        .from("invitations")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!invitesError && invitesData) {
-        setPendingInvites(
-          invitesData.map((inv) => ({
-            id: inv.id,
-            email: inv.email,
-            role: inv.role as Role,
-            status: inv.status as Status,
-            created_at: inv.created_at,
-            expires_at: inv.expires_at,
-          })),
-        );
-      }
-    } catch (inviteErr) {
-      // Invitations table may not exist - that's OK
-      console.log("Invitations table not available:", inviteErr);
-    }
+  // Fetch pending invites - disabled without org system
+  const fetchPendingInvites = useCallback(async (_orgId: string | null) => {
+    setPendingInvites([]);
   }, []);
 
   // Create a new organization for the user
@@ -323,7 +272,7 @@ export default function UsersSettings() {
       setActiveOrgId(orgId);
       await Promise.all([
         fetchTeamMembers(orgId),
-        fetchPendingInvites(),
+        fetchPendingInvites(orgId),
       ]);
     }
 

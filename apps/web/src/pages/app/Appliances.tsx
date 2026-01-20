@@ -12,6 +12,7 @@ import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
 import { WaveformDecoration } from "@/components/brand/WaveformIcon";
 import { computeEnergyKwh } from "@/hooks/useNilmCsvData";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 export default function Appliances() {
   const {
@@ -23,15 +24,38 @@ export default function Appliances() {
     error,
     isRefreshing,
     refresh,
+    dateRange,
   } = useEnergy();
 
-  // Calculate total energy per appliance
-  const applianceEnergy = currentApplianceStatus.map((appliance) => {
-    const totalKwh = filteredRows.reduce((sum, row) => {
-      return sum + computeEnergyKwh(row.appliances[appliance.name] || 0);
-    }, 0);
-    return { ...appliance, totalKwh };
-  });
+  // Calculate historical consumption metrics per appliance
+  const applianceEnergy = useMemo(() => {
+    const ON_THRESHOLD = 0.01; // kW threshold for "on" state
+
+    return currentApplianceStatus.map((appliance) => {
+      let totalKwh = 0;
+      let totalKw = 0;
+      let count = 0;
+      let peakKw = 0;
+      let onCount = 0;
+
+      filteredRows.forEach((row) => {
+        const kw = row.appliances[appliance.name] || 0;
+        totalKwh += computeEnergyKwh(kw);
+        totalKw += kw;
+        count++;
+        if (kw > peakKw) peakKw = kw;
+        if (kw >= ON_THRESHOLD) onCount++;
+      });
+
+      return {
+        ...appliance,
+        totalKwh,
+        avgKw: count > 0 ? totalKw / count : 0,
+        peakKw,
+        onHours: onCount * 0.25, // Assuming 15-min intervals
+      };
+    });
+  }, [currentApplianceStatus, filteredRows]);
 
   if (loading) {
     return (
@@ -127,8 +151,8 @@ export default function Appliances() {
           Appliances
         </h1>
         <p className="text-sm text-muted-foreground">
-          Select an appliance to view detailed consumption patterns and
-          detection confidence
+          Comprehensive appliance inventory with historical consumption analysis for{" "}
+          {dateRange.start.toLocaleDateString()} - {dateRange.end.toLocaleDateString()}
         </p>
       </header>
 
@@ -161,28 +185,55 @@ export default function Appliances() {
                       showConfidence
                       size="sm"
                     />
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>
-                        <span className="font-medium text-foreground">
-                          {appliance.est_kW.toFixed(3)}
-                        </span>{" "}
-                        kW
-                      </span>
-                      <span>
-                        <span className="font-medium text-foreground">
-                          {appliance.totalKwh.toFixed(2)}
-                        </span>{" "}
-                        kWh total
-                      </span>
-                      {appliance.rated_kW && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3">
                         <span>
-                          Rated:{" "}
+                          Now:{" "}
                           <span className="font-medium text-foreground">
-                            {appliance.rated_kW}
+                            {appliance.est_kW.toFixed(3)}
                           </span>{" "}
                           kW
                         </span>
-                      )}
+                        <span>
+                          Avg:{" "}
+                          <span className="font-medium text-foreground">
+                            {appliance.avgKw.toFixed(3)}
+                          </span>{" "}
+                          kW
+                        </span>
+                        <span>
+                          Peak:{" "}
+                          <span className="font-medium text-foreground">
+                            {appliance.peakKw.toFixed(3)}
+                          </span>{" "}
+                          kW
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span>
+                          Total:{" "}
+                          <span className="font-medium text-foreground">
+                            {appliance.totalKwh.toFixed(2)}
+                          </span>{" "}
+                          kWh
+                        </span>
+                        <span>
+                          On:{" "}
+                          <span className="font-medium text-foreground">
+                            {appliance.onHours.toFixed(1)}
+                          </span>{" "}
+                          hrs
+                        </span>
+                        {appliance.rated_kW && (
+                          <span>
+                            Rated:{" "}
+                            <span className="font-medium text-foreground">
+                              {appliance.rated_kW}
+                            </span>{" "}
+                            kW
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="w-16">
