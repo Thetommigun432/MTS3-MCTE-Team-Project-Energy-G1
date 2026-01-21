@@ -49,6 +49,7 @@ const PORT = process.env.LOCAL_API_PORT || 3001;
 const INFERENCE_SERVICE_URL = process.env.INFERENCE_SERVICE_URL || 'http://localhost:8000';
 const INFLUX_URL = process.env.INFLUX_URL || 'http://localhost:8086';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:8080';
+const DEBUG = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
 const INFLUX_TOKEN = process.env.INFLUX_TOKEN!;
 const INFLUX_ORG = process.env.INFLUX_ORG!;
 const INFLUX_BUCKET = process.env.INFLUX_BUCKET!;
@@ -204,7 +205,9 @@ app.get('/api/local/predictions', async (req, res) => {
         });
       },
       complete() {
-        console.log(`Query returned ${rows.length} rows for building: ${buildingId}`);
+        if (DEBUG) {
+          console.log(`Query returned ${rows.length} rows for building: ${buildingId}`);
+        }
         res.json({
           success: true,
           data: rows,

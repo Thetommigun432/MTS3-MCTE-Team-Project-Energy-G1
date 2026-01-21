@@ -324,10 +324,10 @@ export default function Reports() {
         if (response.data) {
           // Transform API response to ReportData shape
           // For now, we generate from local data as the API shape may differ
-          console.log("API report response:", response);
+          void response; // API response available for future use
         }
-      } catch (err) {
-        console.warn("API report generation failed, using demo data:", err);
+      } catch {
+        // API report generation failed, fall back to demo data
       }
     }
 

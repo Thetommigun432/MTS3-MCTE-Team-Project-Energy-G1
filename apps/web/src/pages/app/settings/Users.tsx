@@ -129,19 +129,15 @@ export default function UsersSettings() {
 
   // Fetch team members from profiles table directly
   const fetchTeamMembers = useCallback(async (_orgId: string | null) => {
-    console.log("[Users] fetchTeamMembers called, user:", user?.id);
     setLoading(true);
     setError(null);
 
     try {
       // Query profiles directly - has permissive RLS for authenticated users
-      console.log("[Users] Querying profiles table...");
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
-
-      console.log("[Users] Profiles query result:", { data: profilesData, error: profilesError });
 
       if (profilesError) {
         console.error("[Users] Profiles query error:", profilesError);
@@ -149,7 +145,6 @@ export default function UsersSettings() {
       }
 
       if (!profilesData || profilesData.length === 0) {
-        console.log("[Users] No profiles found, using current user as fallback");
         // If no profiles found, at least show current user
         if (user && profile) {
           setTeamMembers([
@@ -177,7 +172,6 @@ export default function UsersSettings() {
         avatar_url: p.avatar_url,
       }));
 
-      console.log("[Users] Setting team members:", members.length);
       setTeamMembers(members);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load team members";
@@ -186,7 +180,6 @@ export default function UsersSettings() {
       
       // Fallback to current user if fetch fails
       if (user && profile) {
-        console.log("[Users] Using fallback - current user only");
         setTeamMembers([
           {
             id: user.id,
@@ -476,10 +469,6 @@ export default function UsersSettings() {
   );
 
   const isAdmin = profile?.role === "admin";
-
-  // Debug: log current user's role
-  console.log("Current user profile:", profile);
-  console.log("User role:", profile?.role, "isAdmin:", isAdmin);
 
   return (
     <div className="space-y-6">

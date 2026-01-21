@@ -45,7 +45,22 @@ def load_registry():
     global MODEL_REGISTRY
     try:
         with open(MODEL_REGISTRY_PATH) as f:
-            MODEL_REGISTRY = json.load(f)
+            data = json.load(f)
+
+        # Support both old flat format and new nested format
+        if "models" in data:
+            # New normalized format: { "models": {...}, "defaults": {...} }
+            MODEL_REGISTRY = data["models"]
+            defaults = data.get("defaults", {})
+            # Apply defaults to each model config
+            for model_id, config in MODEL_REGISTRY.items():
+                for key, value in defaults.items():
+                    if key not in config:
+                        config[key] = value
+        else:
+            # Old flat format: { "appliance_id": {...} }
+            MODEL_REGISTRY = data
+
         logger.info(f"Loaded model registry with {len(MODEL_REGISTRY)} models")
     except FileNotFoundError:
         logger.error(f"Model registry not found at {MODEL_REGISTRY_PATH}")

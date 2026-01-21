@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { isSupabaseEnabled } from "@/lib/env";
 
 export interface Building {
   id: string;
@@ -36,13 +37,34 @@ export interface UseBuildingsResult {
   deleteBuilding: (id: string) => Promise<boolean>;
 }
 
+// Demo building for when Supabase is not configured
+const DEMO_BUILDING: Building = {
+  id: "demo-building-1",
+  name: "Demo Building",
+  address: "123 Demo Street",
+  description: "Sample building for demonstration",
+  status: "active",
+  total_appliances: 5,
+  created_at: new Date().toISOString(),
+};
+
 export function useBuildings(): UseBuildingsResult {
   const { user, isAuthenticated } = useAuth();
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [loading, setLoading] = useState(true);
+  const supabaseEnabled = isSupabaseEnabled();
+  const [buildings, setBuildings] = useState<Building[]>(
+    supabaseEnabled ? [] : [DEMO_BUILDING]
+  );
+  const [loading, setLoading] = useState(supabaseEnabled);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBuildings = useCallback(async () => {
+    // Return demo data when Supabase is not enabled
+    if (!supabaseEnabled) {
+      setBuildings([DEMO_BUILDING]);
+      setLoading(false);
+      return;
+    }
+
     if (!isAuthenticated || !user) {
       setBuildings([]);
       setLoading(false);
@@ -53,28 +75,32 @@ export function useBuildings(): UseBuildingsResult {
       setLoading(true);
       setError(null);
 
+      // Fetch buildings with appliance count in a single query using Supabase's
+      // relation counting feature to avoid N+1 queries
       const { data, error: fetchError } = await supabase
         .from("buildings")
-        .select("*")
+        .select(`
+          *,
+          building_appliances!left(id, is_enabled)
+        `)
         .order("name");
 
       if (fetchError) throw fetchError;
 
-      // Count appliances for each building
-      const buildingsWithCounts = await Promise.all(
-        (data || []).map(async (building) => {
-          const { count } = await supabase
-            .from("building_appliances")
-            .select("*", { count: "exact", head: true })
-            .eq("building_id", building.id)
-            .eq("is_enabled", true);
+      // Process the joined data to count enabled appliances
+      const buildingsWithCounts = (data || []).map((building) => {
+        const appliances = building.building_appliances || [];
+        const enabledCount = appliances.filter(
+          (a: { is_enabled: boolean }) => a.is_enabled
+        ).length;
 
-          return {
-            ...building,
-            total_appliances: count || 0,
-          };
-        }),
-      );
+        // Remove the nested appliances data, keep only the count
+        const { building_appliances: _, ...buildingData } = building;
+        return {
+          ...buildingData,
+          total_appliances: enabledCount,
+        };
+      });
 
       setBuildings(buildingsWithCounts);
     } catch (err) {
@@ -83,7 +109,7 @@ export function useBuildings(): UseBuildingsResult {
     } finally {
       setLoading(false);
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, supabaseEnabled]);
 
   useEffect(() => {
     fetchBuildings();
@@ -95,6 +121,10 @@ export function useBuildings(): UseBuildingsResult {
       address?: string,
       description?: string,
     ): Promise<string | null> => {
+      if (!supabaseEnabled) {
+        toast.info("Building management requires Supabase connection");
+        return null;
+      }
       if (!user) return null;
 
       try {
@@ -120,7 +150,7 @@ export function useBuildings(): UseBuildingsResult {
         return null;
       }
     },
-    [user, fetchBuildings],
+    [user, fetchBuildings, supabaseEnabled],
   );
 
   const updateBuilding = useCallback(
@@ -130,6 +160,11 @@ export function useBuildings(): UseBuildingsResult {
         Pick<Building, "name" | "address" | "description" | "status">
       >,
     ): Promise<boolean> => {
+      if (!supabaseEnabled) {
+        toast.info("Building management requires Supabase connection");
+        return false;
+      }
+
       try {
         const { error } = await supabase
           .from("buildings")
@@ -147,11 +182,16 @@ export function useBuildings(): UseBuildingsResult {
         return false;
       }
     },
-    [fetchBuildings],
+    [fetchBuildings, supabaseEnabled],
   );
 
   const deleteBuilding = useCallback(
     async (id: string): Promise<boolean> => {
+      if (!supabaseEnabled) {
+        toast.info("Building management requires Supabase connection");
+        return false;
+      }
+
       try {
         const { error } = await supabase
           .from("buildings")
@@ -169,7 +209,7 @@ export function useBuildings(): UseBuildingsResult {
         return false;
       }
     },
-    [fetchBuildings],
+    [fetchBuildings, supabaseEnabled],
   );
 
   return {

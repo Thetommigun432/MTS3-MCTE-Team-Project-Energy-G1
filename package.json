@@ -15,6 +15,8 @@
     "typecheck": "npm run typecheck --workspace=apps/web",
     "format": "npm run format --workspace=apps/web",
     "format:check": "npm run format:check --workspace=apps/web",
+    "test": "npm run test --workspace=apps/web",
+    "test:watch": "npm run test:watch --workspace=apps/web",
     "local:server": "npm run dev --workspace=apps/local-server",
     "local:dev": "concurrently \"npm run local:server\" \"npm run dev\" --names \"api,vite\" --prefix-colors \"blue,green\"",
     "predictions:seed": "tsx scripts/write-to-influx.ts",

@@ -9,6 +9,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeFunction } from "@/lib/supabaseHelpers";
 import { setRememberMe } from "@/lib/authStorage";
+import { isSupabaseEnabled } from "@/lib/env";
 
 interface Profile {
   id: string;
@@ -40,13 +41,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Demo user for when Supabase is not configured
+const DEMO_USER: User = {
+  id: "demo-user-id",
+  email: "demo@example.com",
+  app_metadata: {},
+  user_metadata: { display_name: "Demo User" },
+  aud: "authenticated",
+  created_at: new Date().toISOString(),
+} as User;
+
+const DEMO_SESSION: Session = {
+  access_token: "demo-token",
+  refresh_token: "demo-refresh",
+  expires_in: 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  token_type: "bearer",
+  user: DEMO_USER,
+} as Session;
+
+const DEMO_PROFILE: Profile = {
+  id: "demo-user-id",
+  email: "demo@example.com",
+  display_name: "Demo User",
+  avatar_url: null,
+  role: "admin",
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const supabaseEnabled = isSupabaseEnabled();
+  const [user, setUser] = useState<User | null>(supabaseEnabled ? null : DEMO_USER);
+  const [session, setSession] = useState<Session | null>(supabaseEnabled ? null : DEMO_SESSION);
+  const [profile, setProfile] = useState<Profile | null>(supabaseEnabled ? null : DEMO_PROFILE);
+  const [loading, setLoading] = useState(supabaseEnabled);
 
   const fetchProfile = async (userId: string) => {
+    if (!supabaseEnabled) return;
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -60,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Log login event to Supabase
   const logLoginEvent = async (userId: string) => {
+    if (!supabaseEnabled) return;
+
     try {
       const uaBrands = (navigator as Navigator & { userAgentData?: NavigatorUAData })
         .userAgentData?.brands
@@ -76,6 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Skip Supabase setup if not enabled (demo/local mode)
+    if (!supabaseEnabled) {
+      return;
+    }
+
     // Set up auth state listener FIRST
     const {
       data: { subscription },
@@ -110,13 +148,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabaseEnabled]);
 
   const login = async (
     email: string,
     password: string,
     rememberMe = true,
   ): Promise<{ error: string | null }> => {
+    // In demo mode, auto-login as demo user
+    if (!supabaseEnabled) {
+      setUser(DEMO_USER);
+      setSession(DEMO_SESSION);
+      setProfile(DEMO_PROFILE);
+      return { error: null };
+    }
+
     // Set remember me preference before login
     setRememberMe(rememberMe);
 
@@ -142,6 +188,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     displayName?: string,
   ): Promise<{ error: string | null }> => {
+    // In demo mode, just set demo user
+    if (!supabaseEnabled) {
+      setUser(DEMO_USER);
+      setSession(DEMO_SESSION);
+      setProfile({ ...DEMO_PROFILE, display_name: displayName || email.split("@")[0] });
+      return { error: null };
+    }
+
     const redirectUrl = `${window.location.origin}/`;
 
     const { error } = await supabase.auth.signUp({
@@ -167,13 +221,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
+    if (supabaseEnabled) {
+      await supabase.auth.signOut();
+    }
+    // In demo mode without Supabase, restore demo user state
+    if (!supabaseEnabled) {
+      setUser(DEMO_USER);
+      setSession(DEMO_SESSION);
+      setProfile(DEMO_PROFILE);
+    } else {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+    }
   };
 
   const refreshProfile = async () => {
+    if (!supabaseEnabled) return;
     if (user) {
       await fetchProfile(user.id);
     }

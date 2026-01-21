@@ -108,8 +108,6 @@ export default function Login() {
         loginError.includes("Invalid login credentials") ||
         loginError.includes("invalid_credentials")
       ) {
-        console.log("Demo user does not exist, attempting to create...");
-
         // Try to sign up the demo user
         const { error: signupError } = await supabase.auth.signUp({
           email: DEMO_EMAIL,
