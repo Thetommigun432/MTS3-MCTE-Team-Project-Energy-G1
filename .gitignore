@@ -58,14 +58,16 @@ data/**/*.json
 *.parquet
 
 # ============================================
-# Model files
+# Model files (large, training outputs)
 # ============================================
-models/*.h5
-models/*.pt
-models/*.pth
-models/*.pkl
+*.h5
+*.pt
+*.pth
+*.pkl
+*.safetensors
+training/outputs/
+model_exploration/*.pth
 model_highfreq/*.pth
-model_highfreq/*.pkl
 
 # ============================================
 # Logs
