@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && cat {}')",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node node_modules/.bin/tsc:*)",
+      "Bash(npm install)",
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(git remote:*)",
+      "Bash(node --version:*)",
+      "Bash(az:*)",
+      "Bash(git --version:*)",
+      "Bash(supabase --version:*)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(gh --version:*)",
+      "Bash(npm ci:*)",
+      "Bash(cat:*)",
+      "Bash(git rm:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm install:*)",
+      "Bash(ls:*)",
+      "Bash(test:*)"
+    ]
+  }
+}

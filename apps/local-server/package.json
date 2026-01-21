@@ -1,0 +1,28 @@
+{
+  "name": "@nilm/local-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local API server for NILM Energy Monitor - InfluxDB proxy",
+  "type": "module",
+  "main": "local-server.ts",
+  "scripts": {
+    "start": "tsx local-server.ts",
+    "dev": "tsx watch local-server.ts"
+  },
+  "keywords": ["nilm", "energy", "influxdb", "local", "api"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.2",
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.30",
+    "tsx": "^4.7.1"
+  }
+}

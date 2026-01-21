@@ -1,0 +1,90 @@
+# NILM Energy Monitor - Docker Compose
+# Orchestrates all services for local development
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose logs -f        # View logs
+#   docker compose down           # Stop all services
+#   docker compose down -v        # Stop and remove volumes
+
+services:
+  # ==========================================================================
+  # InfluxDB - Time Series Database
+  # ==========================================================================
+  influxdb:
+    image: influxdb:2.8
+    container_name: nilm-influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET:-predictions}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # Inference Service - PyTorch Model Serving
+  # ==========================================================================
+  inference-service:
+    build:
+      context: ./apps/inference-service
+      dockerfile: Dockerfile
+    container_name: nilm-inference
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+    environment:
+      - MODEL_REGISTRY_PATH=/app/model_registry.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================================================
+  # Local API Server - InfluxDB Proxy (Optional - for containerized setup)
+  # ==========================================================================
+  # Uncomment to run the local server in Docker instead of npm run local:server
+  #
+  # local-server:
+  #   build:
+  #     context: ./apps/local-server
+  #     dockerfile: Dockerfile
+  #   container_name: nilm-local-server
+  #   ports:
+  #     - "3001:3001"
+  #   environment:
+  #     - INFLUX_URL=http://influxdb:8086
+  #     - INFLUX_TOKEN=${INFLUX_TOKEN}
+  #     - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+  #     - INFLUX_BUCKET=${INFLUX_BUCKET:-predictions}
+  #     - INFERENCE_SERVICE_URL=http://inference-service:8000
+  #     - CORS_ORIGIN=http://localhost:8080
+  #   depends_on:
+  #     influxdb:
+  #       condition: service_healthy
+  #     inference-service:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+volumes:
+  influxdb-data:
+  influxdb-config:
+
+networks:
+  default:
+    name: nilm-network

@@ -1,0 +1,24 @@
+{
+  "$schema": "./model_registry.schema.json",
+  "models": {
+    "heatpump": {
+      "model_path": "/app/models/transformer_heatpump_best.pth",
+      "model_version": "v1.0.0",
+      "model_type": "cnn",
+      "input_features": 7,
+      "sequence_length": 60,
+      "description": "CNN-based model for heat pump power disaggregation",
+      "normalization": {
+        "mean": [2.5],
+        "std": [1.5]
+      },
+      "created_at": "2024-01-15T00:00:00Z",
+      "updated_at": "2024-01-15T00:00:00Z"
+    }
+  },
+  "defaults": {
+    "model_type": "cnn",
+    "input_features": 7,
+    "sequence_length": 60
+  }
+}
