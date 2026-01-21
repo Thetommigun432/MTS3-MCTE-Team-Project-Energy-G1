@@ -2,16 +2,17 @@
 Inference API endpoints.
 """
 
-import hashlib
 import time
 from typing import Any
 
 from fastapi import APIRouter, Header, Request
 
 from app.api.deps import CurrentUserDep, RequestIdDep
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.telemetry import IDEMPOTENCY_CACHE_HIT, IDEMPOTENCY_CACHE_SIZE
 from app.domain.inference import get_inference_service
+from app.infra.redis import get_redis_cache
 from app.schemas.inference import InferRequest, InferResponse, ModelsListResponse
 
 logger = get_logger(__name__)
@@ -23,50 +24,9 @@ router = APIRouter(tags=["Inference"])
 # =============================================================================
 
 
-class IdempotencyCache:
-    """Simple in-memory idempotency cache."""
-
-    def __init__(self, ttl_seconds: int = 600) -> None:
-        self._cache: dict[str, tuple[float, dict]] = {}
-        self._ttl = ttl_seconds
-
-    def _key(self, user_id: str, idempotency_key: str) -> str:
-        """Generate cache key."""
-        return f"{user_id}:{idempotency_key}"
-
-    def get(self, user_id: str, idempotency_key: str) -> dict | None:
-        """Get cached response if exists and not expired."""
-        key = self._key(user_id, idempotency_key)
-        entry = self._cache.get(key)
-
-        if entry is None:
-            return None
-
-        timestamp, response = entry
-        if time.time() - timestamp > self._ttl:
-            del self._cache[key]
-            return None
-
-        IDEMPOTENCY_CACHE_HIT.inc()
-        return response
-
-    def set(self, user_id: str, idempotency_key: str, response: dict) -> None:
-        """Cache a response."""
-        key = self._key(user_id, idempotency_key)
-        self._cache[key] = (time.time(), response)
-        IDEMPOTENCY_CACHE_SIZE.set(len(self._cache))
-
-    def cleanup(self) -> int:
-        """Remove expired entries. Returns count removed."""
-        now = time.time()
-        expired = [k for k, (ts, _) in self._cache.items() if now - ts > self._ttl]
-        for k in expired:
-            del self._cache[k]
-        IDEMPOTENCY_CACHE_SIZE.set(len(self._cache))
-        return len(expired)
-
-
-_idempotency_cache = IdempotencyCache()
+def _idempotency_key(user_id: str, key: str) -> str:
+    """Generate cache key for idempotency."""
+    return f"idempotency:{user_id}:{key}"
 
 
 # =============================================================================
@@ -89,11 +49,17 @@ async def infer(
     - Returns 503 if InfluxDB write fails
 
     Supports idempotency via Idempotency-Key header.
+    Uses Redis cache with fallback to in-memory.
     """
+    settings = get_settings()
+    cache = get_redis_cache()
+
     # Check idempotency cache
     if idempotency_key:
-        cached = _idempotency_cache.get(current_user.user_id, idempotency_key)
+        cache_key = _idempotency_key(current_user.user_id, idempotency_key)
+        cached = await cache.get(cache_key)
         if cached:
+            IDEMPOTENCY_CACHE_HIT.inc()
             logger.debug(
                 "Returning cached idempotent response",
                 extra={"idempotency_key": idempotency_key},
@@ -110,10 +76,11 @@ async def infer(
 
     # Cache for idempotency
     if idempotency_key:
-        _idempotency_cache.set(
-            current_user.user_id,
-            idempotency_key,
+        cache_key = _idempotency_key(current_user.user_id, idempotency_key)
+        await cache.set(
+            cache_key,
             response.model_dump(),
+            ttl=settings.idempotency_cache_ttl_seconds,
         )
 
     return response

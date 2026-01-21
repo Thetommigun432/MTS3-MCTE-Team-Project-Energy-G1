@@ -3,12 +3,18 @@ Health check endpoints.
 """
 
 from fastapi import APIRouter, Response, status
+from pydantic import BaseModel
 
 from app.api.deps import RequestIdDep, SettingsDep
 from app.core.config import get_settings, validate_production_settings
-from app.domain.inference import get_inference_engine, get_model_registry
+from app.core.errors import ErrorCode
+from app.core.logging import get_logger
+from app.domain.inference import get_inference_engine
+from app.domain.inference.registry import get_model_registry
 from app.infra.influx import get_influx_client
+from app.infra.redis import get_redis_cache
 
+logger = get_logger(__name__)
 router = APIRouter(tags=["Health"])
 
 
@@ -71,6 +77,11 @@ async def readiness(request_id: RequestIdDep, response: Response):
         is_ready = False
         
     checks["models_count"] = len(registry.list_all())
+
+    # Check Redis (non-blocking - gracefully degrades to in-memory)
+    redis_cache = get_redis_cache()
+    checks["redis_available"] = not redis_cache.is_using_fallback
+    # Redis unavailability doesn't fail readiness (graceful degradation)
 
     if not is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

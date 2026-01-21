@@ -192,6 +192,22 @@ class Settings(BaseSettings):
     )
 
     # ==========================================================================
+    # Redis
+    # ==========================================================================
+    redis_url: str = Field(
+        default="",
+        description="Redis URL for caching (optional, falls back to in-memory)",
+    )
+    redis_pool_size: int = Field(
+        default=10,
+        description="Redis connection pool size",
+    )
+    redis_connect_timeout_ms: int = Field(
+        default=5000,
+        description="Redis connection timeout in milliseconds",
+    )
+
+    # ==========================================================================
     # Caching
     # ==========================================================================
     authz_cache_ttl_seconds: int = Field(

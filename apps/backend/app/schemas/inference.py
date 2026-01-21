@@ -22,12 +22,12 @@ class InferRequest(BaseModel):
         pattern=r"^[a-zA-Z0-9_-]+$",
         description="Building ID",
     )
-    appliance_id: str = Field(
-        ...,
+    appliance_id: str | None = Field(
+        None,
         min_length=1,
         max_length=64,
         pattern=r"^[a-zA-Z0-9_-]+$",
-        description="Appliance ID",
+        description="Appliance ID (optional for multi-head models)",
     )
     window: list[float] = Field(
         ...,
@@ -39,7 +39,7 @@ class InferRequest(BaseModel):
     )
     model_id: str | None = Field(
         None,
-        description="Optional model ID (if absent, use active model for appliance)",
+        description="Optional model ID (if absent, use default active model)",
     )
 
     @field_validator("window")
@@ -64,12 +64,23 @@ class InferRequest(BaseModel):
 
 
 class InferResponse(BaseModel):
-    """Response schema for POST /infer endpoint (success)."""
+    """
+    Response schema for POST /infer endpoint (success).
+    
+    For multi-head models, predicted_kw and confidence are dicts
+    mapping appliance field_key to value.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    predicted_kw: float = Field(..., ge=0, description="Predicted power in kW")
-    confidence: float = Field(..., ge=0, le=1, description="Prediction confidence")
+    predicted_kw: dict[str, float] = Field(
+        ...,
+        description="Predicted power in kW per appliance (e.g., {'fridge': 0.05, 'oven': 0.0})",
+    )
+    confidence: dict[str, float] = Field(
+        ...,
+        description="Prediction confidence per appliance (e.g., {'fridge': 0.98, 'oven': 0.63})",
+    )
     model_version: str = Field(..., description="Model version used")
     request_id: str = Field(..., description="Request ID for tracing")
     persisted: bool = Field(..., description="Whether prediction was persisted to InfluxDB")

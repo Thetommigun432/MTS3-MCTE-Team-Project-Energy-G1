@@ -135,3 +135,18 @@ RATE_LIMIT_HIT = Counter(
     "Rate limit violations",
     ["key_type"],  # "user" or "ip"
 )
+
+
+# =============================================================================
+# Redis Cache Metrics
+# =============================================================================
+
+REDIS_UNAVAILABLE = Counter(
+    "redis_unavailable_total",
+    "Number of times Redis was unavailable",
+)
+
+CACHE_FALLBACK_IN_USE = Gauge(
+    "cache_fallback_in_use",
+    "Whether in-memory fallback cache is in use (1=yes, 0=no)",
+)

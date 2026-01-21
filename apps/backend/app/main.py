@@ -23,6 +23,7 @@ from app.core.errors import AppError, ErrorCode, error_response
 from app.core.logging import get_logger, request_id_ctx, setup_logging
 from app.domain.inference import init_model_registry
 from app.infra.influx import close_influx_client, init_influx_client
+from app.infra.redis import close_redis_cache, init_redis_cache
 from app.infra.supabase import init_supabase_client
 
 logger = get_logger(__name__)
@@ -64,6 +65,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error("Failed to connect to Supabase", extra={"error": str(e)})
 
+    # Initialize Redis cache (graceful fallback to in-memory)
+    try:
+        await init_redis_cache()
+    except Exception as e:
+        logger.warning("Redis initialization failed, using in-memory fallback", extra={"error": str(e)})
+
     # Load model registry
     try:
         registry = init_model_registry()
@@ -80,6 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("Shutting down NILM Backend")
+    await close_redis_cache()
     await close_influx_client()
     logger.info("NILM Backend stopped")
 

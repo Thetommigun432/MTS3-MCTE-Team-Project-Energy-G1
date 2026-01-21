@@ -39,12 +39,38 @@ class PreprocessingConfig:
 
 
 @dataclass
+class HeadConfig:
+    """
+    Configuration for a single output head in multi-head models.
+    
+    Attributes:
+        appliance_id: Appliance identifier (e.g., "fridge")
+        field_key: Safe identifier for InfluxDB fields (e.g., "fridge")
+    """
+    appliance_id: str
+    field_key: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "HeadConfig":
+        """Create from dictionary."""
+        return cls(
+            appliance_id=data["appliance_id"],
+            field_key=data.get("field_key", data["appliance_id"]),
+        )
+
+
+@dataclass
 class ModelEntry:
-    """A model entry in the registry."""
+    """
+    A model entry in the registry.
+    
+    Supports both single-head (legacy) and multi-head models.
+    Multi-head models have a `heads` list with output configurations.
+    """
 
     model_id: str
     model_version: str
-    appliance_id: str
+    appliance_id: str  # Primary appliance for single-head, or first head for multi-head
     architecture: str
     architecture_params: dict[str, Any]
     artifact_path: str
@@ -52,6 +78,7 @@ class ModelEntry:
     input_window_size: int
     preprocessing: PreprocessingConfig
     is_active: bool = False
+    heads: list[HeadConfig] = field(default_factory=list)  # Multi-head config
 
     # Resolved absolute path (set during validation)
     _resolved_path: Path | None = field(default=None, repr=False)
@@ -62,6 +89,25 @@ class ModelEntry:
         if self._resolved_path is None:
             raise ValueError("Model entry not validated - call validate() first")
         return self._resolved_path
+
+    @property
+    def is_multi_head(self) -> bool:
+        """Check if this is a multi-head model."""
+        return len(self.heads) > 1
+
+    @property
+    def head_appliances(self) -> list[str]:
+        """Get list of appliance IDs for all heads."""
+        if not self.heads:
+            return [self.appliance_id]
+        return [h.appliance_id for h in self.heads]
+
+    @property
+    def head_field_keys(self) -> list[str]:
+        """Get list of field keys for all heads."""
+        if not self.heads:
+            return [self.appliance_id]
+        return [h.field_key for h in self.heads]
 
 
 class ModelRegistry:
@@ -154,7 +200,14 @@ class ModelRegistry:
             input_window_size=data["input_window_size"],
             preprocessing=preprocessing,
             is_active=data.get("is_active", False),
+            heads=[
+                HeadConfig.from_dict(h) for h in data.get("heads", [])
+            ],
         )
+
+        # Backward compat: if no heads, create single head from appliance_id
+        if not entry.heads:
+            entry.heads = [HeadConfig(appliance_id=entry.appliance_id, field_key=entry.appliance_id)]
 
         # Resolve artifact path
         artifact_path = Path(data["artifact_path"])

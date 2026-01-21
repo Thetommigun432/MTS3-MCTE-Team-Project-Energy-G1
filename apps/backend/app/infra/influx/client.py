@@ -338,6 +338,115 @@ class InfluxClient:
             details={"last_error": str(last_error) if last_error else None},
         )
 
+    async def write_predictions_wide(
+        self,
+        building_id: str,
+        predictions: dict[str, tuple[float, float]],  # {field_key: (predicted_kw, confidence)}
+        model_version: str,
+        user_id: str,
+        request_id: str,
+        latency_ms: float,
+        timestamp: datetime | None = None,
+        max_retries: int = 3,
+    ) -> bool:
+        """
+        Write multi-head predictions as a single WIDE point to InfluxDB.
+
+        Creates ONE point per timestamp with fields:
+        - predicted_kw_<field_key> for each head
+        - confidence_<field_key> for each head
+        - user_id, request_id, latency_ms
+
+        Tags: building_id, model_version (no appliance_id tag for wide format)
+
+        Args:
+            building_id: Building identifier
+            predictions: Dict mapping field_key to (predicted_kw, confidence)
+            model_version: Model version string
+            user_id: User ID who made the request
+            request_id: Request ID for tracing
+            latency_ms: Inference latency in milliseconds
+            timestamp: Optional timestamp (defaults to now)
+            max_retries: Retry count on failure
+
+        Returns:
+            True if write succeeded
+
+        Raises:
+            InfluxError: If all retries fail
+        """
+        settings = get_settings()
+        start_time = time.time()
+
+        if timestamp is None:
+            timestamp = datetime.now(timezone.utc)
+
+        # Build wide point with all predictions as fields
+        point = (
+            Point("predictions")  # Note: plural measurement for wide format
+            .tag("building_id", building_id)
+            .tag("model_version", model_version)
+            .field("user_id", user_id)
+            .field("request_id", request_id)
+            .field("latency_ms", latency_ms)
+            .time(timestamp)
+        )
+
+        # Add prediction fields for each head
+        for field_key, (predicted_kw, confidence) in predictions.items():
+            point = point.field(f"predicted_kw_{field_key}", max(0.0, predicted_kw))
+            point = point.field(f"confidence_{field_key}", min(1.0, max(0.0, confidence)))
+
+        last_error: Exception | None = None
+
+        for attempt in range(max_retries):
+            try:
+                if not self._write_api:
+                    raise InfluxError(
+                        code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                        message="InfluxDB write API not initialized",
+                    )
+
+                await self._write_api.write(
+                    bucket=settings.influx_bucket_pred,
+                    org=settings.influx_org,
+                    record=point,
+                )
+
+                duration = time.time() - start_time
+                INFLUX_WRITE_LATENCY.labels(bucket=settings.influx_bucket_pred).observe(duration)
+                INFLUX_WRITE_COUNT.labels(
+                    bucket=settings.influx_bucket_pred, status="success"
+                ).inc()
+
+                logger.debug(
+                    "Wide predictions written to InfluxDB",
+                    extra={
+                        "building_id": building_id,
+                        "heads_count": len(predictions),
+                        "field_keys": list(predictions.keys()),
+                    },
+                )
+                return True
+
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "InfluxDB wide write attempt failed",
+                    extra={"attempt": attempt + 1, "max_retries": max_retries, "error": str(e)},
+                )
+
+                if attempt < max_retries - 1:
+                    await self._sleep(0.1 * (2**attempt))
+
+        INFLUX_WRITE_COUNT.labels(bucket=settings.influx_bucket_pred, status="failure").inc()
+
+        raise InfluxError(
+            code=ErrorCode.INFLUX_WRITE_FAILED,
+            message=f"Failed to write wide predictions after {max_retries} attempts",
+            details={"last_error": str(last_error) if last_error else None},
+        )
+
     async def _sleep(self, seconds: float) -> None:
         """Async sleep helper."""
         import asyncio

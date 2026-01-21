@@ -472,6 +472,103 @@ class InferenceEngine:
             INFERENCE_LATENCY.labels(model_id=entry.model_id).observe(duration)
             INFERENCE_COUNT.labels(model_id=entry.model_id, status=status).inc()
 
+    def run_inference_multi_head(
+        self,
+        model: nn.Module,
+        entry: ModelEntry,
+        window: list[float],
+    ) -> dict[str, tuple[float, float]]:
+        """
+        Run multi-head inference on a window of data.
+
+        For multi-head models, the model output has N values (one per head).
+        For single-head models, this wraps the output in a dict.
+
+        Returns:
+            Dict mapping field_key to (predicted_kw, confidence)
+        """
+        start_time = time.time()
+        status = "success"
+
+        try:
+            # Validate window length
+            if len(window) != entry.input_window_size:
+                raise ValidationError(
+                    code=ErrorCode.VALIDATION_WINDOW_LENGTH,
+                    message=f"Expected window of {entry.input_window_size} values, got {len(window)}",
+                )
+
+            # Preprocess
+            preprocessed = apply_preprocessing(window, entry.preprocessing)
+
+            # Convert to tensor: (1, seq_len, 1)
+            x = torch.tensor(preprocessed, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
+
+            # Run inference
+            with torch.no_grad():
+                output = model(x)
+
+            # Get number of output heads
+            num_heads = len(entry.heads)
+            field_keys = entry.head_field_keys
+
+            # Parse output based on shape
+            if output.dim() == 3:
+                # Sequence output (batch, seq_len, heads) -> take mean over sequence
+                output_vals = output.mean(dim=1).squeeze(0)  # (heads,) or scalar
+            elif output.dim() == 2:
+                # (batch, heads) or (batch, 1)
+                output_vals = output.squeeze(0)  # (heads,) or scalar
+            else:
+                # Scalar
+                output_vals = output
+
+            # Convert to list of floats
+            if output_vals.numel() == 1:
+                # Single output - distribute to all heads (legacy single-head models)
+                raw_val = output_vals.item()
+                output_list = [raw_val] * num_heads
+            else:
+                # Multi-output
+                output_list = output_vals.tolist()
+                if len(output_list) < num_heads:
+                    # Pad with zeros if fewer outputs than heads
+                    output_list.extend([0.0] * (num_heads - len(output_list)))
+                elif len(output_list) > num_heads:
+                    # Truncate if more outputs than heads
+                    output_list = output_list[:num_heads]
+
+            # Build result dict
+            results: dict[str, tuple[float, float]] = {}
+            for i, field_key in enumerate(field_keys):
+                raw_val = output_list[i]
+
+                # Apply inverse preprocessing
+                predicted_kw = apply_inverse_preprocessing(raw_val, entry.preprocessing)
+
+                # Clamp to non-negative
+                predicted_kw = max(0.0, predicted_kw)
+
+                # Confidence (placeholder - could use model uncertainty per head)
+                confidence = 0.85
+
+                results[field_key] = (predicted_kw, confidence)
+
+            return results
+
+        except Exception as e:
+            status = "error"
+            if isinstance(e, (ModelError, ValidationError)):
+                raise
+            raise ModelError(
+                code=ErrorCode.INFERENCE_FAILED,
+                message=f"Multi-head inference failed: {e}",
+            )
+        finally:
+            duration = time.time() - start_time
+            INFERENCE_LATENCY.labels(model_id=entry.model_id).observe(duration)
+            INFERENCE_COUNT.labels(model_id=entry.model_id, status=status).inc()
+
     def get_loaded_models(self) -> list[str]:
         """Get list of loaded model IDs."""
         return [f"{mid}:{ver}" for mid, ver in self._model_cache.keys()]
