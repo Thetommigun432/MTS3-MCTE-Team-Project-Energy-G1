@@ -1,6 +1,6 @@
 # Local Development Guide - NILM Energy Monitor
 
-Complete guide to running the NILM Energy Monitor locally with InfluxDB for prediction storage.
+Complete guide to running the NILM Energy Monitor locally with the FastAPI backend.
 
 ## Table of Contents
 
@@ -9,6 +9,7 @@ Complete guide to running the NILM Energy Monitor locally with InfluxDB for pred
 - [Quick Start](#quick-start)
 - [Detailed Setup](#detailed-setup)
 - [Architecture](#architecture)
+- [Development Workflow](#development-workflow)
 - [Available Commands](#available-commands)
 - [Troubleshooting](#troubleshooting)
 - [Data Model](#data-model)
@@ -18,16 +19,18 @@ Complete guide to running the NILM Energy Monitor locally with InfluxDB for pred
 ## Overview
 
 This guide enables you to:
-- Run the entire NILM system locally without cloud dependencies
-- Store predictions in a local InfluxDB time-series database
-- Generate mock predictions from CSV data for testing
-- Access the dashboard, API server, and InfluxDB UI on localhost
+- Run the complete NILM system locally without cloud dependencies
+- Use the unified FastAPI backend for all data and ML operations
+- Store predictions and readings in local InfluxDB time-series database
+- Generate and persist predictions from CSV data
+- Access the React frontend, FastAPI backend, and InfluxDB UI on localhost
 
 **What's included:**
-- Docker Compose for InfluxDB 2.7
-- Node.js/Express backend API server
-- Prediction generation from CSV dataset
-- React frontend with local mode support
+- Docker Compose for InfluxDB 2.7 + FastAPI backend
+- FastAPI (Python 3.12) backend with ML inference
+- Prediction generation and seeding scripts
+- React frontend (Vite) with Supabase authentication
+- Local development with hot reload
 
 ---
 
@@ -35,17 +38,21 @@ This guide enables you to:
 
 ### Required Software
 
-1. **Node.js 18+** with npm
-   - Check: `node --version` (should be 18.x or higher)
-   - Download: https://nodejs.org/
-
-2. **Docker** and **Docker Compose**
+1. **Docker** and **Docker Compose**
    - Windows: Docker Desktop with WSL2
    - macOS: Docker Desktop
    - Linux: Docker Engine + Docker Compose plugin
    - Check: `docker --version` and `docker compose version`
 
-3. **Git** (for cloning the repository)
+2. **Node.js 18+** with npm (for frontend development)
+   - Check: `node --version` (should be 18.x or higher)
+   - Download: https://nodejs.org/
+
+3. **Python 3.12** (optional - only if running backend locally without Docker)
+   - Check: `python --version`
+   - Backend can run entirely in Docker, so this is optional
+
+4. **Git** (for cloning the repository)
    - Check: `git --version`
 
 ### Windows-Specific Requirements
@@ -58,26 +65,38 @@ If you're on Windows, you need:
 
 ## Quick Start
 
-Get up and running in 3 commands:
+Get up and running in 3 steps:
 
 ```bash
-# 1. Start InfluxDB
+# 1. Configure environment
+cp .env.local.example .env.local
+# Edit .env.local and set INFLUX_TOKEN
+
+# 2. Start backend and InfluxDB
 docker compose up -d
 
-# 2. Seed predictions (from repository root)
-cd frontend
-npm install
+# 3. Seed test data
 npm run predictions:seed
-
-# 3. Start development servers
-npm run local:dev
 ```
 
-Access the application:
-- **Dashboard**: http://localhost:8080
+Access the services:
+- **Backend API**: http://localhost:8000
+  - Health: http://localhost:8000/live
+  - Docs: http://localhost:8000/docs (dev only)
 - **InfluxDB UI**: http://localhost:8086
   - Username: `admin`
   - Password: `admin12345` (from `.env.local`)
+
+### Frontend Development
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+Access the frontend:
+- **Dashboard**: http://localhost:8080
 
 ---
 
@@ -86,434 +105,474 @@ Access the application:
 ### Step 1: Clone and Configure
 
 ```bash
-# Navigate to repository root
-cd /path/to/MTS3-MCTE-Team-Project-Energy-G1
+# Clone repository
+git clone <repository-url>
+cd MTS3-MCTE-Team-Project-Energy-G1
 
 # Create local environment file
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` and set a secure token:
+Edit `.env.local` and configure:
 
 ```env
+# InfluxDB configuration
 INFLUX_TOKEN=your-unique-secure-token-min-32-characters
+INFLUX_ORG=energy-monitor
+INFLUX_BUCKET=predictions
+INFLUX_BUCKET_RAW=raw_sensor_data
+
+# Backend environment
+ENV=dev
+DEBUG=true
+
+# (Optional) Supabase configuration if using auth
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-key
 ```
 
-**Generate a secure token:**
+**Important**: Generate a secure InfluxDB token:
 ```bash
-# Option 1: Using openssl
-openssl rand -hex 32
-
-# Option 2: Using Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Generate a random 32-character token
+openssl rand -base64 32
 ```
 
-### Step 2: Start InfluxDB
+### Step 2: Start Backend Services
 
 ```bash
-# Start InfluxDB in the background
-docker compose up -d influxdb
+# Start InfluxDB + Backend
+docker compose up -d
 
-# Verify it's running
+# Check services are running
 docker compose ps
 
-# Expected output:
-# NAME            STATUS        PORTS
-# nilm-influxdb   Up (healthy)  0.0.0.0:8086->8086/tcp
+# View logs
+docker compose logs -f backend
+docker compose logs -f influxdb
 ```
 
-Wait for health check to pass (~10-30 seconds).
-
-### Step 3: Install Dependencies
-
+**Verify backend is healthy:**
 ```bash
-# Frontend dependencies
-cd frontend
-npm install
+curl http://localhost:8000/live
+# Expected: {"status":"ok","request_id":"..."}
 
-# Backend dependencies
-cd ../backend
-npm install
+curl http://localhost:8000/ready
+# Expected: {"status":"ok","checks":{...}}
 ```
 
-### Step 4: Generate and Load Predictions
+### Step 3: Initialize InfluxDB
+
+The backend automatically creates buckets on startup, but you can verify:
 
 ```bash
-# From frontend directory
-cd frontend
+# Access InfluxDB UI
+open http://localhost:8086
+
+# Login with credentials from .env.local
+# Username: admin
+# Password: admin12345
+```
+
+Navigate to **Data > Buckets** and verify:
+- `predictions` bucket exists
+- `raw_sensor_data` bucket exists
+
+### Step 4: Seed Test Data
+
+Generate and persist predictions from the NILM CSV dataset:
+
+```bash
+# From repository root
 npm run predictions:seed
 ```
 
-This will:
-1. Read `frontend/public/data/nilm_ready_dataset.csv` (~5.6 MB)
-2. Generate predictions for 11 appliances
-3. Write ~150,000 data points to InfluxDB
-4. Takes ~30-60 seconds
+This script:
+1. Reads `apps/web/public/data/nilm_ready_dataset.csv`
+2. Generates predictions using ML (if backend available) or mock data
+3. Writes predictions to InfluxDB `predictions` bucket
+4. Takes 30-60 seconds for the full dataset
 
-**Expected output:**
-```
-========================================
-  NILM Prediction Seeder
-========================================
+**Options:**
+```bash
+# Force mock mode (skip ML inference)
+USE_ML_INFERENCE=false npm run predictions:seed
 
-📊 Step 1: Generating predictions from CSV...
-✅ Generated 165,000 predictions
-
-📝 Step 2: Writing predictions to InfluxDB...
-  [100%] Written 165,000/165,000 points (45.2s elapsed)
-
-✅ SUCCESS
-📊 Total predictions written: 165,000
-⏱️  Total time: 46.5s
+# Custom backend URL
+BACKEND_URL=http://localhost:8000 npm run predictions:seed
 ```
 
-### Step 5: Verify Data
+### Step 5: Start Frontend
 
 ```bash
-# From frontend directory
-npm run predictions:verify
+cd apps/web
+npm install
+npm run dev
 ```
 
-**Expected output:**
-```
-========================================
-  InfluxDB Data Verification
-========================================
-
-✅ Found 11 appliances with predictions:
-
-  RangeHood                      15,000 points
-  Dryer                          15,000 points
-  Stove                          15,000 points
-  ...
-  ─────────────────────────────────────────
-  TOTAL                         165,000 points
-
-✅ Time range:
-  First: 2023-01-01T00:00:00.000Z
-  Last:  2023-12-31T23:45:00.000Z
-```
-
-### Step 6: Start Development Servers
-
-```bash
-# From frontend directory
-npm run local:dev
-```
-
-This starts:
-- **Local API server** on port 3001 (backend proxy)
-- **Vite dev server** on port 8080 (frontend)
-
-**Expected output:**
-```
-[api]  ========================================
-[api]    Local API Server for NILM Monitor
-[api]  ========================================
-[api]  🚀 Server running on http://localhost:3001
-
-[vite] VITE v5.4.19 ready in 1234 ms
-[vite] ➜  Local:   http://localhost:8080/
-```
-
-### Step 7: Enable Local Mode in Frontend
-
-Create `frontend/.env.local`:
-
-```env
-# Enable local InfluxDB mode
-VITE_LOCAL_MODE=true
-```
-
-Restart the dev server (`Ctrl+C` then `npm run local:dev`).
-
-The dashboard will now fetch data from local InfluxDB instead of demo CSV or cloud API.
+The frontend starts at **http://localhost:8080** with:
+- Vite dev server with hot module replacement
+- Proxy: `/api/*` → `http://localhost:8000`
+- Demo mode enabled by default (no auth required)
 
 ---
 
 ## Architecture
 
+### Local Development Stack
+
 ```
-┌───────────────────────────────────────────────────────────┐
-│                   CSV Dataset (Demo Data)                  │
-│            frontend/public/data/nilm_ready_dataset.csv     │
-│                      (~5.6 MB, 15-min intervals)           │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-                          ▼
-┌───────────────────────────────────────────────────────────┐
-│             Prediction Generator (TypeScript)              │
-│              scripts/generate-predictions.ts               │
-│   • Reads CSV aggregate power                             │
-│   • Applies appliance weights (Dryer: 15%, HeatPump: 25%)│
-│   • Adds deterministic noise (sinusoidal patterns)        │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-                          ▼
-┌───────────────────────────────────────────────────────────┐
-│                  InfluxDB 2.7 (Docker)                     │
-│                    Port: 8086                              │
-│   • Bucket: predictions                                   │
-│   • Measurement: appliance_prediction                     │
-│   • Tags: building_id, appliance_name                     │
-│   • Fields: predicted_kw, confidence                      │
-│   • Storage: ./influxdb-data (persistent volume)          │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-                          ▼
-┌───────────────────────────────────────────────────────────┐
-│            Local API Server (Express + TypeScript)         │
-│                backend/local-server.ts                     │
-│                    Port: 3001                              │
-│   • Endpoint: GET /api/local/predictions                  │
-│   • Queries InfluxDB using Flux language                  │
-│   • Returns JSON to frontend                              │
-│   • Token stays server-side (not exposed to browser)      │
-└─────────────────────────┬─────────────────────────────────┘
-                          │
-                          ▼
-┌───────────────────────────────────────────────────────────┐
-│                  Vite Dev Server (React)                   │
-│                       Port: 8080                           │
-│   • Proxy: /api/local/* → http://localhost:3001          │
-│   • Hook: useLocalInfluxPredictions()                     │
-│   • Mode: 'local' (alongside 'demo' and 'api')           │
-│   • UI: Dashboard, charts, appliance status               │
-└───────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                    Developer (Browser)                    │
+│                  http://localhost:8080                    │
+└────────────────────────┬─────────────────────────────────┘
+                         │
+                         ▼
+              ┌──────────────────┐
+              │   Vite Dev       │
+              │   Server         │
+              │   (Port 8080)    │
+              └────────┬─────────┘
+                       │
+         /api/* →      │ (proxy)
+                       ▼
+              ┌──────────────────┐
+              │   FastAPI        │◄────────┐
+              │   Backend        │         │ Read models
+              │   (Port 8000)    │         │
+              └────┬─────────────┘         │
+                   │                       │
+     ┌─────────────┼───────────────┐       │
+     │             │               │       │
+     ▼             ▼               ▼       ▼
+┌─────────┐   ┌─────────┐   ┌──────────────────┐
+│InfluxDB │   │Supabase │   │ Model Registry   │
+│(Docker) │   │(Cloud)  │   │ (Local FS)       │
+│Port 8086│   │         │   │ models/registry  │
+└─────────┘   └─────────┘   └──────────────────┘
 ```
 
-### Data Flow
+### Component Responsibilities
 
-1. **Seeding Phase** (one-time):
-   - Read CSV → Generate predictions → Write to InfluxDB
+**FastAPI Backend** (`apps/backend`):
+- Health checks (`/live`, `/ready`)
+- ML inference endpoint (`POST /infer`)
+- Analytics endpoints (`GET /analytics/readings`, `/analytics/predictions`)
+- Model registry (`GET /models`)
+- JWT authentication & authorization
+- InfluxDB client
+- Supabase client (for user data)
 
-2. **Runtime Phase** (dashboard running):
-   - Frontend (React) → Local API (Express) → InfluxDB → Response → Frontend
+**React Frontend** (`apps/web`):
+- Dashboard UI with charts
+- Building/appliance selection
+- Supabase authentication
+- API client with Bearer token injection
+- Demo mode (works without auth)
 
-### Security
+**InfluxDB**:
+- `predictions` bucket: ML predictions with confidence scores
+- `raw_sensor_data` bucket: Sensor readings (if ingesting live data)
 
-- InfluxDB token stored in `.env.local` (gitignored)
-- Backend server queries InfluxDB on behalf of frontend
-- Token never exposed to browser
-- CORS restricted to `http://localhost:8080`
+---
+
+## Development Workflow
+
+### Hot Reload Development
+
+**Backend:**
+```bash
+# Backend auto-reloads on code changes
+docker compose logs -f backend
+
+# To restart after dependency changes:
+docker compose restart backend
+```
+
+**Frontend:**
+```bash
+# Frontend hot reloads automatically
+cd apps/web
+npm run dev
+```
+
+### Testing Changes End-to-End
+
+1. **Update backend code** in `apps/backend/`
+2. **Backend auto-reloads** (thanks to mounted volume)
+3. **Update frontend code** in `apps/web/src/`
+4. **Frontend hot reloads** automatically
+5. **Test in browser** at http://localhost:8080
+
+### Making API Calls from Frontend
+
+The frontend uses a centralized API client:
+
+```typescript
+// apps/web/src/services/energy.ts
+import { energyApi } from '@/services/energy';
+
+// Get predictions
+const response = await energyApi.getPredictions({
+  building_id: 'building-123',
+  start: '-7d',
+  end: 'now()',
+  resolution: '15m'
+});
+
+// Run inference
+const result = await energyApi.runInference({
+  building_id: 'building-123',
+  appliance_id: 'fridge',
+  window: [...], // 1000 floats
+});
+```
+
+All calls:
+- Go through Vite proxy: `/api/*` → `http://localhost:8000`
+- Include `Authorization: Bearer <token>` if user is logged in
+- Include `X-Request-ID` for tracing
+- Parse backend error format with request_id
+
+### Running Backend Tests
+
+```bash
+cd apps/backend
+pytest
+
+# With coverage
+pytest --cov=app --cov-report=html
+
+# Specific test file
+pytest tests/test_auth.py -v
+```
+
+### Running Frontend Tests
+
+```bash
+cd apps/web
+npm test
+
+# TypeScript type checking
+npm run typecheck
+
+# Linting
+npm run lint
+```
 
 ---
 
 ## Available Commands
 
-### Docker Commands
+### Repository Root
 
 ```bash
-# Start services
+# Start all services
 docker compose up -d
 
-# Stop services
+# Stop all services
 docker compose down
 
 # View logs
-docker compose logs influxdb
+docker compose logs -f
 
-# Follow logs in real-time
-docker compose logs -f influxdb
+# Rebuild backend
+docker compose build backend
 
-# Restart InfluxDB
-docker compose restart influxdb
-
-# Remove all data (WARNING: destructive)
-docker compose down -v
-rm -rf influxdb-data influxdb-config
-```
-
-### Prediction Management
-
-```bash
-# From frontend directory
-
-# Seed predictions (run once after starting InfluxDB)
+# Seed predictions
 npm run predictions:seed
-
-# Verify data in InfluxDB
-npm run predictions:verify
 ```
 
-### Development Servers
+### Backend (`apps/backend`)
 
 ```bash
-# From frontend directory
+# Run backend locally (without Docker)
+cd apps/backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
 
-# Start both servers (API + frontend)
-npm run local:dev
+# Run tests
+pytest
 
-# Start API server only
-npm run local:server
+# Type checking
+mypy .
 
-# Start frontend only (requires API server already running)
+# Linting
+ruff check .
+```
+
+### Frontend (`apps/web`)
+
+```bash
+cd apps/web
+
+# Install dependencies
+npm install
+
+# Start dev server
 npm run dev
-```
 
-### Build and Quality
-
-```bash
-# From frontend directory
-
-# Production build
+# Build for production
 npm run build
+
+# Preview production build
+npm run preview
 
 # Type checking
 npm run typecheck
 
 # Linting
 npm run lint
+```
 
-# Format code
-npm run format
+### Data Scripts
+
+```bash
+# Generate predictions (ML or mock)
+npm run predictions:seed
+
+# Force mock mode
+USE_ML_INFERENCE=false npm run predictions:seed
+
+# Custom backend URL
+BACKEND_URL=http://localhost:8000 npm run predictions:seed
 ```
 
 ---
 
 ## Troubleshooting
 
-### Problem: InfluxDB container won't start
+### Backend Not Starting
 
-**Symptoms:**
-```
-docker compose ps
-# STATUS shows "Exited" or "Restarting"
-```
+**Symptom**: `docker compose up -d` fails or backend exits immediately
 
-**Solution:**
+**Fixes**:
 ```bash
-# Check logs for errors
-docker compose logs influxdb
+# Check logs
+docker compose logs backend
 
 # Common issues:
-# 1. Port 8086 already in use
-#    → Stop other services using that port
-# 2. Permission denied on influxdb-data/
-#    → Fix permissions: sudo chown -R $USER influxdb-data
-# 3. Docker daemon not running
-#    → Start Docker Desktop
+# 1. Port 8000 already in use
+lsof -i :8000  # macOS/Linux
+netstat -ano | findstr :8000  # Windows
 
-# Nuclear option: reset everything
-docker compose down -v
-rm -rf influxdb-data influxdb-config
+# 2. InfluxDB not ready
+docker compose logs influxdb
+
+# 3. Missing environment variables
+cat .env.local
+# Ensure INFLUX_TOKEN is set
+
+# Restart services
+docker compose down
 docker compose up -d
 ```
 
-### Problem: Predictions seed fails with "ECONNREFUSED"
+### InfluxDB Connection Errors
 
-**Symptoms:**
-```
-❌ ERROR
-Error writing predictions: connect ECONNREFUSED 127.0.0.1:8086
-```
+**Symptom**: Backend logs show `INFLUX_CONNECTION_FAILED`
 
-**Solution:**
+**Fixes**:
 ```bash
 # 1. Verify InfluxDB is running
-docker compose ps
-# Should show "Up (healthy)"
+docker compose ps influxdb
 
-# 2. Wait for health check
-docker compose logs influxdb | grep "ready"
-# Should see: "msg"="InfluxDB is ready"
+# 2. Check InfluxDB health
+curl http://localhost:8086/health
 
-# 3. Check .env.local exists and has valid token
-cat .env.local | grep INFLUX_TOKEN
+# 3. Verify token in .env.local matches InfluxDB
+# Login to http://localhost:8086
+# Navigate to Settings > Tokens
 
-# 4. Retry seeding
-npm run predictions:seed
+# 4. Restart services in order
+docker compose down
+docker compose up -d influxdb
+# Wait 10 seconds
+docker compose up -d backend
 ```
 
-### Problem: Frontend shows "Cannot connect to local API server"
+### Frontend Can't Reach Backend
 
-**Symptoms:**
-- Dashboard displays error: "Cannot connect to local API server"
-- No data appears in local mode
+**Symptom**: API calls fail with CORS errors or network errors
 
-**Solution:**
+**Fixes**:
 ```bash
-# 1. Check if API server is running
-curl http://localhost:3001/health
-# Should return: {"status":"ok", ...}
+# 1. Verify backend is running
+curl http://localhost:8000/live
 
-# 2. If not running, start it
-cd frontend
-npm run local:server
+# 2. Check Vite proxy config
+cat apps/web/vite.config.ts
+# Should have: proxy: { "/api": { target: "http://localhost:8000" } }
 
-# 3. Check Vite proxy configuration
-# frontend/vite.config.ts should have:
-# proxy: { '/api/local': { target: 'http://localhost:3001' } }
+# 3. Check CORS origins in backend
+# apps/backend/.env should include:
+# CORS_ORIGINS=http://localhost:8080,http://localhost:5173
 
-# 4. Restart frontend dev server
+# 4. Restart frontend
+cd apps/web
 npm run dev
 ```
 
-### Problem: "No data" in dashboard despite successful seed
+### Predictions Not Appearing
 
-**Symptoms:**
-- Predictions seed completes successfully
-- Dashboard shows "No data available"
+**Symptom**: Dashboard shows "No data" after seeding
 
-**Solution:**
+**Fixes**:
 ```bash
-# 1. Verify data in InfluxDB
-npm run predictions:verify
-# Should show non-zero point counts
+# 1. Verify seeding succeeded
+npm run predictions:seed
+# Should show: "✅ Successfully wrote X predictions"
 
-# 2. Check VITE_LOCAL_MODE is enabled
-cat frontend/.env.local | grep VITE_LOCAL_MODE
-# Should be: VITE_LOCAL_MODE=true
+# 2. Check InfluxDB has data
+# Login to http://localhost:8086
+# Navigate to Data Explorer
+# Query: from(bucket: "predictions") |> range(start: -7d)
 
-# 3. Check browser console for errors
-# Open DevTools → Console
-# Look for fetch errors or CORS issues
+# 3. Verify frontend is calling correct endpoint
+# Open browser console at http://localhost:8080
+# Should see API calls to /api/analytics/predictions
 
-# 4. Try manual query
-curl "http://localhost:3001/api/local/predictions?buildingId=local&start=-7d&end=now()"
-# Should return JSON with data array
+# 4. Check backend logs
+docker compose logs backend | grep predictions
 ```
 
-### Problem: Windows Docker Desktop issues
+### Authentication Errors
 
-**WSL2 Integration:**
+**Symptom**: 401 Unauthorized errors
+
+**Fixes**:
 ```bash
-# 1. Enable WSL2 backend in Docker Desktop settings
-# Settings → General → Use the WSL 2 based engine
+# 1. Check if Supabase is configured
+cat apps/web/.env
+# Should have VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY
 
-# 2. Ensure WSL integration is enabled for your distro
-# Settings → Resources → WSL Integration
+# 2. Use demo mode (no auth required)
+# Edit apps/web/.env:
+# VITE_DEMO_MODE=true
 
-# 3. Restart Docker Desktop
-
-# 4. Run commands from WSL terminal, not PowerShell
-wsl
-cd /mnt/c/Users/YourName/path/to/project
-docker compose up -d
+# 3. Check backend JWT verification
+docker compose logs backend | grep JWT
 ```
 
-### Problem: Port conflicts
+### Port Conflicts
 
-**Port 8086 (InfluxDB):**
+**Symptom**: "Port already in use" errors
+
+**Fixes**:
 ```bash
-# Check what's using the port
-# Windows:
-netstat -ano | findstr :8086
+# Backend (port 8000)
+lsof -i :8000
+kill -9 <PID>
 
-# macOS/Linux:
+# Frontend (port 8080)
+lsof -i :8080
+kill -9 <PID>
+
+# InfluxDB (port 8086)
 lsof -i :8086
-
-# Kill the process or change docker-compose.yml ports:
-# ports: - "9086:8086"  # Map to different host port
-```
-
-**Port 3001 (API server):**
-```bash
-# Change in .env.local:
-LOCAL_API_PORT=3002
-
-# And update frontend/.env.local:
-VITE_LOCAL_API_URL=http://localhost:3002
+docker compose down
+docker compose up -d
 ```
 
 ---
@@ -522,116 +581,115 @@ VITE_LOCAL_API_URL=http://localhost:3002
 
 ### InfluxDB Schema
 
-**Bucket:** `predictions`
+#### Predictions Bucket
 
-**Measurement:** `appliance_prediction`
-
-**Tags:**
-- `building_id` (string): Building identifier (default: "local")
-- `appliance_name` (string): Appliance type
-
-**Fields:**
-- `predicted_kw` (float): Predicted power consumption in kilowatts
-- `confidence` (float): Prediction confidence score (0.0 to 1.0)
-
-**Timestamp:** Millisecond precision
-
-### Appliances
-
-The system tracks 11 appliances:
-
-| Appliance Name         | Typical Weight | Typical Power |
-|------------------------|----------------|---------------|
-| RangeHood              | 5%             | Low           |
-| Dryer                  | 15%            | High          |
-| Stove                  | 20%            | High          |
-| Dishwasher             | 10%            | Medium        |
-| HeatPump               | 25%            | High          |
-| Washer                 | 8%             | Medium        |
-| Fridge                 | 7%             | Low           |
-| Microwave              | 4%             | Medium        |
-| AirConditioner         | 3%             | Medium        |
-| ElectricWaterHeater    | 2%             | High          |
-| Lighting               | 1%             | Low           |
-
-### Example Flux Query
-
-```flux
-from(bucket: "predictions")
-  |> range(start: -24h)
-  |> filter(fn: (r) => r._measurement == "appliance_prediction")
-  |> filter(fn: (r) => r.appliance_name == "Dryer")
-  |> filter(fn: (r) => r._field == "predicted_kw")
+```
+Measurement: predictions
+Tags:
+  - building_id (string)
+  - appliance_id (string)
+  - model_version (string, optional)
+Fields:
+  - predicted_kw (float)
+  - confidence (float, 0-1)
+Timestamp: time (nanosecond precision)
 ```
 
----
+**Example Query**:
+```flux
+from(bucket: "predictions")
+  |> range(start: -7d)
+  |> filter(fn: (r) => r.building_id == "building-123")
+  |> filter(fn: (r) => r.appliance_id == "fridge")
+  |> aggregateWindow(every: 15m, fn: mean)
+```
 
-## Limitations
+#### Raw Sensor Data Bucket
 
-### Current Limitations
+```
+Measurement: sensor_readings
+Tags:
+  - building_id (string)
+  - sensor_id (string)
+Fields:
+  - value (float)
+  - unit (string)
+Timestamp: time (nanosecond precision)
+```
 
-1. **Mock Predictions**: Predictions are generated using a deterministic algorithm, not a real ML model
-2. **Single Building**: Only supports `building_id = "local"`
-3. **No Real-Time**: Predictions are pre-generated, not computed in real-time
-4. **CSV-Based**: Uses historical CSV data as input
+### Backend API Schemas
 
-### Future Enhancements
+See complete API documentation at http://localhost:8000/docs (when backend is running in dev mode).
 
-- Connect to actual NILM ML models
-- Real-time prediction inference
-- Multi-building support
-- Integration with live sensor data
-- Prediction accuracy metrics
-
----
-
-## Next Steps
-
-Once you have local development working:
-
-1. **Explore InfluxDB UI**: http://localhost:8086
-   - Data Explorer: Query and visualize data
-   - Dashboards: Create custom visualizations
-   - Tasks: Schedule data processing
-
-2. **Customize Predictions**: Edit `scripts/generate-predictions.ts`
-   - Adjust appliance weights
-   - Modify noise patterns
-   - Add new appliances
-
-3. **Integrate with ML Models**: Replace mock generator with actual NILM model inference
-
-4. **Deploy to Production**: See deployment guides:
-   - **[Cloudflare Pages Deployment](../frontend/docs/DEPLOY_CLOUDFLARE_PAGES.md)** (current, recommended)
-   - ~~[Azure Storage](../frontend/DEPLOYMENT_STEPS.md)~~ (deprecated)
+**Key Endpoints**:
+- `POST /infer`: Run inference and persist prediction
+- `GET /analytics/predictions`: Query predictions from InfluxDB
+- `GET /analytics/readings`: Query raw sensor data
+- `GET /models`: List available ML models
 
 ---
 
-## Support
+## Advanced Topics
 
-If you encounter issues not covered in this guide:
+### Running Backend Without Docker
 
-1. Check [INFLUX_SCHEMA.md](./INFLUX_SCHEMA.md) for detailed schema documentation
-2. Check [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for production setup
-3. Review InfluxDB logs: `docker compose logs influxdb`
-4. Check API server logs in the terminal running `npm run local:server`
-5. Open browser DevTools → Console for frontend errors
+```bash
+cd apps/backend
+
+# Setup virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+export INFLUX_URL=http://localhost:8086
+export INFLUX_TOKEN=your-token
+export INFLUX_ORG=energy-monitor
+export INFLUX_BUCKET_PRED=predictions
+export SUPABASE_URL=your-supabase-url
+export SUPABASE_PUBLISHABLE_KEY=your-key
+
+# Run server
+uvicorn app.main:app --reload --port 8000
+```
+
+### Custom Model Integration
+
+1. Add model files to `models/` directory
+2. Update `models/registry.json`:
+```json
+{
+  "models": [
+    {
+      "model_id": "my-custom-model",
+      "model_version": "v1",
+      "appliance_id": "fridge",
+      "architecture": "lstm",
+      "input_window_size": 1000,
+      "is_active": true,
+      "artifact_path": "my_model.h5"
+    }
+  ]
+}
+```
+3. Restart backend: `docker compose restart backend`
+
+### Production Deployment
+
+See `docs/DEPLOYMENT.md` (to be created) for production deployment guides.
 
 ---
 
-## Summary Checklist
+## Additional Resources
 
-- [ ] Docker and Docker Compose installed
-- [ ] Node.js 18+ installed
-- [ ] `.env.local` created with secure token
-- [ ] InfluxDB started: `docker compose up -d`
-- [ ] InfluxDB health check passed
-- [ ] Dependencies installed: `npm install` (frontend and backend)
-- [ ] Predictions seeded: `npm run predictions:seed`
-- [ ] Data verified: `npm run predictions:verify`
-- [ ] `frontend/.env.local` has `VITE_LOCAL_MODE=true`
-- [ ] Dev servers running: `npm run local:dev`
-- [ ] Dashboard accessible: http://localhost:8080
-- [ ] InfluxDB UI accessible: http://localhost:8086
+- **Backend README**: `apps/backend/README.md`
+- **Frontend README**: `apps/web/docs/README.md`
+- **Integration Audit**: `docs/integration-audit.md`
+- **API Documentation**: http://localhost:8000/docs (when running)
 
-Good luck with local development! 🚀
+---
+
+**Last Updated**: 2026-01-21
+**Version**: 2.0 (FastAPI Unified Backend)

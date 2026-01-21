@@ -11,7 +11,9 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public data?: unknown,
+    public code?: string,
+    public requestId?: string,
+    public details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -45,6 +47,13 @@ function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
 }
 
 /**
+ * Generate a unique request ID for tracing
+ */
+function generateRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
  * Core fetch wrapper with error handling
  */
 async function request<T>(
@@ -53,8 +62,12 @@ async function request<T>(
 ): Promise<T> {
   const { body, params, headers: customHeaders, ...restOptions } = options;
 
+  // Generate request ID for tracing
+  const requestId = generateRequestId();
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
+    "X-Request-ID": requestId,
     ...customHeaders,
   };
 
@@ -84,6 +97,11 @@ async function request<T>(
 
   const url = buildUrl(endpoint, params);
 
+  // Log in development
+  if (import.meta.env.DEV) {
+    console.log(`[API] ${options.method || 'GET'} ${endpoint} [${requestId}]`);
+  }
+
   try {
     const response = await fetch(url, config);
 
@@ -95,9 +113,28 @@ async function request<T>(
         errorData = await response.text();
       }
 
+      // Parse backend error format: { error: { code, message, details }, request_id }
+      if (errorData && typeof errorData === 'object' && 'error' in errorData) {
+        const backendError = errorData as {
+          error?: { code?: string; message?: string; details?: unknown };
+          request_id?: string;
+        };
+
+        throw new ApiError(
+          backendError.error?.message || `Request failed with status ${response.status}`,
+          response.status,
+          backendError.error?.code,
+          backendError.request_id || requestId,
+          backendError.error?.details,
+        );
+      }
+
+      // Fallback for non-standard error format
       throw new ApiError(
         `Request failed with status ${response.status}`,
         response.status,
+        undefined,
+        requestId,
         errorData,
       );
     }
@@ -116,6 +153,8 @@ async function request<T>(
     throw new ApiError(
       error instanceof Error ? error.message : "Network error",
       0,
+      "NETWORK_ERROR",
+      requestId,
     );
   }
 }

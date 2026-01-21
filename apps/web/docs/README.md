@@ -81,13 +81,15 @@ docker compose up -d
 # 2. Seed predictions
 npm run predictions:seed
 
-# 3. Start frontend + local API together
-npm run local:dev
+# 3. Start frontend dev server
+cd apps/web
+npm run dev
 ```
 
 Access:
 
 - **Dashboard**: http://localhost:8080
+- **Backend API**: http://localhost:8000 (or via proxy at /api)
 - **InfluxDB UI**: http://localhost:8086 (admin / admin12345)
 
 ### Verify Local Data
@@ -109,8 +111,6 @@ npm run predictions:verify
 | `npm run typecheck`          | TypeScript type check             |
 | `npm run format`             | Format with Prettier              |
 | `npm run format:check`       | Check formatting                  |
-| `npm run local:dev`          | Start frontend + local API server |
-| `npm run local:server`       | Start local API server only       |
 | `npm run predictions:seed`   | Seed InfluxDB with predictions    |
 | `npm run predictions:verify` | Verify InfluxDB data              |
 

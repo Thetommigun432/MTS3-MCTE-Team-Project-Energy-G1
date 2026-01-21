@@ -133,21 +133,6 @@ services:
       retries: 3
       start_period: 15s
 
-  # ==========================================================================
-  # Legacy Inference Service (DEPRECATED - kept for migration testing)
-  # ==========================================================================
-  # inference-service:
-  #   build:
-  #     context: ./apps/inference-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "8001:8000"
-  #   volumes:
-  #     - ./models:/app/models:ro
-  #   environment:
-  #     - MODEL_REGISTRY_PATH=/app/model_registry.json
-  #   restart: unless-stopped
-
 volumes:
   influxdb-data:
   influxdb-config:

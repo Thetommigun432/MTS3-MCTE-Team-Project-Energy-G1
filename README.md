@@ -10,20 +10,14 @@ Real-time Non-Intrusive Load Monitoring (NILM) web application with deep learnin
 |---------|------|--------|
 | **Backend API** | `apps/backend` | ✅ Active - FastAPI monolith |
 | Web Frontend | `apps/web` | ✅ Active - React/Vite |
-| inference-service | `apps/inference-service` | ⚠️ Deprecated |
-| local-server | `apps/local-server` | ⚠️ Deprecated |
-| backend-legacy | `backend-legacy/` | ⚠️ Deprecated |
 
 ## Project Structure (Monorepo)
 
 ```
 MTS3-MCTE-Team-Project-Energy-G1/
 ├── apps/
-│   ├── backend/                # ✅ Canonical FastAPI backend
-│   ├── web/                    # React frontend (Vite + TypeScript)
-│   ├── local-server/           # ⚠️ DEPRECATED
-│   └── inference-service/      # ⚠️ DEPRECATED
-├── backend-legacy/             # ⚠️ DEPRECATED (Flask)
+│   ├── backend/                # ✅ FastAPI backend (Python 3.12)
+│   └── web/                    # ✅ React frontend (Vite + TypeScript)
 ├── infra/
 │   └── influxdb/               # InfluxDB standalone setup
 ├── scripts/                    # Data seeding and utilities

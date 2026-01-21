@@ -1,9 +1,103 @@
 /**
  * Energy API Service
  * Typed interface for energy data endpoints.
+ *
+ * This service interfaces with the FastAPI backend for:
+ * - Analytics: readings and predictions from InfluxDB
+ * - Inference: running ML predictions
+ * - Models: listing available ML models
  */
 
 import { api, isApiConfigured } from "./api";
+
+// ============================================================================
+// Analytics Types (readings and predictions from InfluxDB)
+// ============================================================================
+
+export interface AnalyticsParams {
+  building_id: string;
+  start: string; // ISO8601 or relative (e.g., "-7d", "2024-01-01T00:00:00Z")
+  end: string; // ISO8601 or relative (e.g., "now()", "2024-01-08T00:00:00Z")
+  appliance_id?: string;
+  resolution?: "1s" | "1m" | "15m";
+}
+
+export interface ReadingDataPoint {
+  time: string; // ISO8601
+  value: number;
+  [key: string]: unknown; // Additional fields allowed
+}
+
+export interface ReadingsResponse {
+  building_id: string;
+  appliance_id: string | null;
+  start: string;
+  end: string;
+  resolution: string;
+  data: ReadingDataPoint[];
+  count: number;
+}
+
+export interface PredictionDataPoint {
+  time: string; // ISO8601
+  predicted_kw: number;
+  confidence?: number;
+  model_version?: string;
+  [key: string]: unknown; // Additional fields allowed
+}
+
+export interface PredictionsResponse {
+  building_id: string;
+  appliance_id: string | null;
+  start: string;
+  end: string;
+  resolution: string;
+  data: PredictionDataPoint[];
+  count: number;
+}
+
+// ============================================================================
+// Inference Types (ML prediction)
+// ============================================================================
+
+export interface InferRequest {
+  building_id: string;
+  appliance_id: string;
+  window: number[]; // Array of 1000 floats (power readings)
+  timestamp?: string; // ISO8601, optional
+  model_id?: string; // Optional, defaults to active model
+}
+
+export interface InferResponse {
+  predicted_kw: number;
+  confidence: number;
+  model_version: string;
+  request_id: string;
+  persisted: boolean;
+}
+
+// ============================================================================
+// Model Registry Types
+// ============================================================================
+
+export interface Model {
+  model_id: string;
+  model_version: string;
+  appliance_id: string;
+  architecture: string;
+  input_window_size: number;
+  is_active: boolean;
+  cached: boolean;
+}
+
+export interface ModelsListResponse {
+  models: Model[];
+  count: number;
+}
+
+// ============================================================================
+// Legacy Types (kept for backward compatibility during migration)
+// ============================================================================
 
 export interface EnergyReading {
   timestamp: string;
@@ -14,92 +108,60 @@ export interface EnergyReading {
   status: "on" | "off";
 }
 
-export interface EnergyInsight {
-  type: "consumption" | "anomaly" | "saving";
-  title: string;
-  description: string;
-  value?: number;
-  unit?: string;
-}
-
-export interface EnergyDataResponse {
-  readings: EnergyReading[];
-  buildings: string[];
-  appliances: string[];
-  dateRange: {
-    min: string;
-    max: string;
-  };
-}
-
-export interface ReportRequest {
-  building?: string;
-  appliance?: string;
-  startDate: string;
-  endDate: string;
-  format?: "json" | "pdf" | "csv";
-}
-
-export interface ReportResponse {
-  id: string;
-  status: "pending" | "completed" | "failed";
-  downloadUrl?: string;
-  data?: {
-    totalConsumption: number;
-    averagePower: number;
-    peakPower: number;
-    readings: EnergyReading[];
-  };
-}
+// ============================================================================
+// Energy API
+// ============================================================================
 
 /**
  * Energy data API endpoints
  */
 export const energyApi = {
   /**
-   * Fetch energy readings with optional filters
+   * Fetch sensor readings from InfluxDB
+   * Endpoint: GET /analytics/readings
    */
-  getReadings: (params?: {
-    building?: string;
-    appliance?: string;
-    startDate?: string;
-    endDate?: string;
-    limit?: number;
-  }) => api.get<EnergyDataResponse>("/api/energy/readings", { params }),
+  getReadings: (params: AnalyticsParams) =>
+    api.get<ReadingsResponse>("/analytics/readings", { params }),
 
   /**
-   * Fetch insights for the dashboard
+   * Fetch predictions from InfluxDB
+   * Endpoint: GET /analytics/predictions
    */
-  getInsights: (params?: {
-    building?: string;
-    startDate?: string;
-    endDate?: string;
-  }) => api.get<EnergyInsight[]>("/api/energy/insights", { params }),
+  getPredictions: (params: AnalyticsParams) =>
+    api.get<PredictionsResponse>("/analytics/predictions", { params }),
 
   /**
-   * Generate a report
+   * Run inference on a power window and persist the prediction
+   * Endpoint: POST /infer
    */
-  generateReport: (request: ReportRequest) =>
-    api.post<ReportResponse>("/api/energy/reports", request),
+  runInference: (request: InferRequest) =>
+    api.post<InferResponse>("/infer", request),
 
   /**
-   * Get report status and download URL
+   * List available ML models
+   * Endpoint: GET /models
    */
-  getReport: (reportId: string) =>
-    api.get<ReportResponse>(`/api/energy/reports/${reportId}`),
+  getModels: () => api.get<ModelsListResponse>("/models"),
 
   /**
-   * Get available buildings
+   * Get available buildings (from Supabase via frontend logic)
+   * Note: This should query Supabase directly, not via backend
    */
-  getBuildings: () => api.get<string[]>("/api/energy/buildings"),
+  getBuildings: () => {
+    // TODO: Implement Supabase query for buildings
+    // For now, return empty array to prevent breaking existing code
+    return Promise.resolve([]);
+  },
 
   /**
-   * Get available appliances for a building
+   * Get available appliances for a building (from Supabase via frontend logic)
+   * Note: This should query Supabase directly, not via backend
    */
-  getAppliances: (building?: string) =>
-    api.get<string[]>("/api/energy/appliances", {
-      params: building ? { building } : undefined,
-    }),
+  getAppliances: (building?: string) => {
+    // TODO: Implement Supabase query for appliances
+    // For now, return empty array to prevent breaking existing code
+    return Promise.resolve([]);
+  },
 };
 
 /**
@@ -107,4 +169,53 @@ export const energyApi = {
  */
 export function isEnergyApiAvailable(): boolean {
   return isApiConfigured();
+}
+
+/**
+ * Validate analytics query parameters
+ */
+export function validateAnalyticsParams(params: AnalyticsParams): void {
+  if (!params.building_id || params.building_id.length > 64) {
+    throw new Error("Invalid building_id: must be 1-64 characters");
+  }
+
+  if (params.appliance_id && params.appliance_id.length > 64) {
+    throw new Error("Invalid appliance_id: must be 1-64 characters");
+  }
+
+  if (
+    params.resolution &&
+    !["1s", "1m", "15m"].includes(params.resolution)
+  ) {
+    throw new Error('Invalid resolution: must be "1s", "1m", or "15m"');
+  }
+
+  if (!params.start || !params.end) {
+    throw new Error("start and end parameters are required");
+  }
+}
+
+/**
+ * Validate inference request
+ */
+export function validateInferRequest(request: InferRequest): void {
+  if (!request.building_id || request.building_id.length > 64) {
+    throw new Error("Invalid building_id: must be 1-64 characters");
+  }
+
+  if (!request.appliance_id || request.appliance_id.length > 64) {
+    throw new Error("Invalid appliance_id: must be 1-64 characters");
+  }
+
+  if (!Array.isArray(request.window)) {
+    throw new Error("window must be an array of numbers");
+  }
+
+  if (request.window.length < 1 || request.window.length > 10000) {
+    throw new Error("window must contain 1-10000 elements");
+  }
+
+  if (request.window.some((v) => typeof v !== "number" || !isFinite(v))) {
+    throw new Error("window must contain only finite numbers (no NaN/Inf)");
+  }
 }

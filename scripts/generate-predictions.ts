@@ -31,8 +31,8 @@ interface InferenceResponse {
   model_version: string;
 }
 
-// Inference service configuration
-const INFERENCE_SERVICE_URL = process.env.INFERENCE_SERVICE_URL || 'http://localhost:8000';
+// Backend API configuration
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 const SEQUENCE_LENGTH = 60;
 const USE_ML_INFERENCE = process.env.USE_ML_INFERENCE !== 'false'; // Default to true
 
@@ -53,42 +53,42 @@ const APPLIANCE_WEIGHTS: Record<string, number> = {
 };
 
 /**
- * Call inference service for a single prediction
+ * Call backend inference endpoint for a single prediction
  */
 async function callInferenceService(request: InferenceRequest): Promise<InferenceResponse> {
   try {
-    const response = await axios.post(`${INFERENCE_SERVICE_URL}/infer`, request, {
+    const response = await axios.post(`${BACKEND_URL}/infer`, request, {
       timeout: 5000, // 5 second timeout
     });
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNREFUSED') {
-        throw new Error('Inference service is not running');
+        throw new Error('Backend is not running. Start it with: docker compose up -d');
       }
-      throw new Error(`Inference service error: ${error.message}`);
+      throw new Error(`Backend inference error: ${error.message}`);
     }
     throw error;
   }
 }
 
 /**
- * Get available models from inference service
+ * Get available models from backend
  */
 async function getAvailableModels(): Promise<string[]> {
   try {
-    const response = await axios.get(`${INFERENCE_SERVICE_URL}/models`, {
+    const response = await axios.get(`${BACKEND_URL}/models`, {
       timeout: 3000,
     });
     return response.data.models || [];
   } catch (error) {
-    console.warn('Failed to fetch available models from inference service');
+    console.warn('Failed to fetch available models from backend');
     return [];
   }
 }
 
 /**
- * Generate ML-based NILM predictions using inference service
+ * Generate ML-based NILM predictions using backend API
  *
  * @param csvPath Path to the CSV file with aggregate power data
  * @returns Array of predictions for each appliance and timestamp
@@ -110,11 +110,11 @@ export async function generatePredictionsML(csvPath: string): Promise<Prediction
   console.log(`✅ Parsed ${parsed.data.length} rows from CSV`);
 
   // Get available models
-  console.log(`🔍 Fetching available models from ${INFERENCE_SERVICE_URL}...`);
+  console.log(`🔍 Fetching available models from ${BACKEND_URL}...`);
   const availableAppliances = await getAvailableModels();
 
   if (availableAppliances.length === 0) {
-    throw new Error('No models available in inference service');
+    throw new Error('No models available in backend');
   }
 
   console.log(`✅ Found ${availableAppliances.length} model(s): ${availableAppliances.join(', ')}\n`);
@@ -144,7 +144,7 @@ export async function generatePredictionsML(csvPath: string): Promise<Prediction
           aggregateWindow.push(Number(parsed.data[j].Aggregate) || 0);
         }
 
-        // Call inference service
+        // Call backend inference endpoint
         const result = await callInferenceService({
           appliance_id: appliance,
           aggregate_data: aggregateWindow,
@@ -290,8 +290,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       });
     } catch (error) {
       console.error('\n❌ ERROR:', error instanceof Error ? error.message : 'Unknown error');
-      console.error('\n💡 TIP: Make sure the inference service is running:');
-      console.error('   docker compose up -d inference-service');
+      console.error('\n💡 TIP: Make sure the backend is running:');
+      console.error('   docker compose up -d');
       console.error('\n💡 Or run in mock mode:');
       console.error('   USE_ML_INFERENCE=false npm run predictions:seed');
       process.exit(1);

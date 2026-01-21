@@ -43,7 +43,7 @@ async function writePredictions() {
     console.log(`  InfluxDB URL: http://localhost:8086`);
     console.log(`  Organization: ${process.env.INFLUX_ORG}`);
     console.log(`  Bucket: ${process.env.INFLUX_BUCKET}`);
-    console.log(`  Inference Mode: ${USE_ML_INFERENCE ? '🤖 ML (via inference service)' : '🎲 Mock (deterministic)'}`);
+    console.log(`  Inference Mode: ${USE_ML_INFERENCE ? '🤖 ML (via backend API)' : '🎲 Mock (deterministic)'}`);
     console.log('');
 
     // Generate predictions from CSV
@@ -59,8 +59,8 @@ async function writePredictions() {
         console.error('❌ ML inference failed:', error.message);
         console.error('');
         console.error('💡 Falling back to mock (deterministic) mode...');
-        console.error('   To avoid this fallback, ensure inference service is running:');
-        console.error('   docker compose up -d inference-service');
+        console.error('   To avoid this fallback, ensure backend is running:');
+        console.error('   docker compose up -d');
         console.error('');
         predictions = generatePredictions(csvPath);
       }

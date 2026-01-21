@@ -27,7 +27,6 @@ import {
   ManagedAppliance,
 } from "@/hooks/useManagedAppliances";
 import { useBuildings } from "@/hooks/useBuildings";
-import { useLocalInfluxPredictions } from "@/hooks/useLocalInfluxPredictions";
 import { energyApi, isEnergyApiAvailable } from "@/services/energy";
 import { edgeFunctions } from "@/lib/supabaseHelpers";
 import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
@@ -92,7 +91,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Determine initial mode from environment variables
   const [mode, setModeInternal] = useState<DataMode>(() => {
-    if (import.meta.env.VITE_LOCAL_MODE === "true") return "local";
     if (import.meta.env.VITE_DEMO_MODE === "true") return "demo";
     return "demo"; // Default to demo mode
   });
@@ -112,18 +110,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return { start, end };
   });
 
-  // Local InfluxDB data hook (only active when mode === 'local')
-  const {
-    data: localRows,
-    loading: localLoading,
-    error: localError,
-    refetch: localRefetch,
-  } = useLocalInfluxPredictions({
-    buildingId: "local",
-    startDate: dateRange.start,
-    endDate: dateRange.end,
-    enabled: mode === "local",
-  });
+  // Local mode removed - unified backend handles all data via API mode
 
   // Check if API is available (user must be authenticated for API mode)
   const isApiAvailable = useMemo(
@@ -137,24 +124,17 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       // API mode: return API rows only, even if empty
       return apiRows;
     }
-    if (mode === "local") {
-      // Local mode: return local InfluxDB rows only
-      return localRows;
-    }
     // Demo mode: return demo rows only
     return demoRows;
-  }, [mode, apiRows, localRows, demoRows]);
+  }, [mode, apiRows, demoRows]);
 
-  const loading =
-    mode === "api" ? apiLoading : mode === "local" ? localLoading : demoLoading;
+  const loading = mode === "api" ? apiLoading : demoLoading;
   const error =
     mode === "api" && apiError
       ? apiError
-      : mode === "local" && localError
-        ? localError
-        : mode === "demo"
-          ? demoError
-          : null;
+      : mode === "demo"
+        ? demoError
+        : null;
 
   // Mode setter that clears stale data when switching
   const setMode = useCallback(
@@ -216,10 +196,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     setIsRefreshing(true);
     setApiError(null);
 
-    if (mode === "local") {
-      // Local mode: refetch from local InfluxDB
-      await localRefetch();
-    } else if (mode === "api") {
+    if (mode === "api") {
       // API mode: fetch from API only, do NOT fall back to demo
       if (isAuthenticated && selectedBuildingId) {
         // Supabase edge function mode
@@ -315,7 +292,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     isRefreshing,
     loading,
     demoRefetch,
-    localRefetch,
     fetchApiReadings,
   ]);
 
@@ -365,7 +341,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (mode === "api" && !selectedBuildingId && supabaseBuildings.length > 0) {
       setSelectedBuildingId(supabaseBuildings[0].id);
-    } else if ((mode === "demo" || mode === "local") && !selectedBuildingId) {
+    } else if (mode === "demo" && !selectedBuildingId) {
       // Auto-select demo building
       setSelectedBuildingId("demo-residential-001");
     }
@@ -390,7 +366,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return demoAppliances;
   }, [managedAppliances, demoAppliances]);
 
-  // Buildings from Supabase for API mode, demo building for demo/local modes
+  // Buildings from Supabase for API mode, demo building for demo mode
   const buildings = useMemo((): Building[] => {
     if (mode === "api" && supabaseBuildings.length > 0) {
       return supabaseBuildings.map(b => ({
@@ -400,7 +376,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         status: b.status as 'active' | 'inactive' | 'maintenance' | undefined
       }));
     }
-    // For demo/local modes, return demo building with realistic details
+    // For demo mode, return demo building with realistic details
     // Based on the NILM dataset which contains appliances from a residential building
     return [{
       id: "demo-residential-001",
