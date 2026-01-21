@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Papa from "papaparse";
 import { supabase } from "@/integrations/supabase/client";
+import { getEnv } from "@/lib/env";
 
 export interface NilmDataRow {
   time: Date;
@@ -124,9 +125,8 @@ function parseCSVClientSide(csvText: string): NilmDataRow[] {
  * Check if Supabase is configured and available
  */
 function isSupabaseAvailable(): boolean {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  return Boolean(url && key);
+  const { supabaseEnabled } = getEnv();
+  return supabaseEnabled;
 }
 
 export function useNilmCsvData(): NilmData {

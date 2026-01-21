@@ -37,3 +37,6 @@ dist-ssr
 # Supabase local development
 supabase/.branches
 supabase/.temp
+
+# Wrangler cache (if previously used)
+.wrangler

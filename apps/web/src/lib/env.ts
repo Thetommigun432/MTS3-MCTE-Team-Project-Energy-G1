@@ -1,12 +1,17 @@
 type RequiredEnv = {
+  // New standardized names
   VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_ANON_KEY?: string;
+  VITE_BACKEND_URL?: string;
+  // Deprecated names (backward compatibility)
   VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  VITE_API_BASE_URL?: string;
 };
 
 export type AppEnv = {
   supabaseUrl: string;
   supabaseAnonKey: string;
-  apiBaseUrl: string;
+  backendBaseUrl: string;
   demoMode: boolean;
   localMode: boolean;
   supabaseEnabled: boolean;
@@ -14,10 +19,45 @@ export type AppEnv = {
 
 let cachedEnv: AppEnv | null = null;
 
+/**
+ * Helper to read env var with fallback to deprecated name
+ */
+function getEnvVar(
+  env: Record<string, string | undefined>,
+  newName: string,
+  deprecatedName?: string
+): string {
+  const newValue = env[newName]?.trim();
+  if (newValue) return newValue;
+
+  if (deprecatedName) {
+    const deprecatedValue = env[deprecatedName]?.trim();
+    if (deprecatedValue) {
+      console.warn(
+        `[env] ${deprecatedName} is deprecated, use ${newName} instead`
+      );
+      return deprecatedValue;
+    }
+  }
+
+  return "";
+}
+
 function readEnv(): AppEnv {
   const env = import.meta.env as RequiredEnv & Record<string, string | undefined>;
-  const supabaseUrl = env.VITE_SUPABASE_URL?.trim() || "";
-  const supabaseAnonKey = env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || "";
+
+  const supabaseUrl = getEnvVar(env, "VITE_SUPABASE_URL");
+  const supabaseAnonKey = getEnvVar(
+    env,
+    "VITE_SUPABASE_ANON_KEY",
+    "VITE_SUPABASE_PUBLISHABLE_KEY"
+  );
+  const backendBaseUrl = getEnvVar(
+    env,
+    "VITE_BACKEND_URL",
+    "VITE_API_BASE_URL"
+  ) || (import.meta.env.DEV ? "http://localhost:8000" : "");
+
   const demoMode = env.VITE_DEMO_MODE === "true";
   const localMode = env.VITE_LOCAL_MODE === "true";
 
@@ -28,7 +68,7 @@ function readEnv(): AppEnv {
   if (!supabaseEnabled && !demoMode && !localMode) {
     const missing: string[] = [];
     if (!supabaseUrl) missing.push("VITE_SUPABASE_URL");
-    if (!supabaseAnonKey) missing.push("VITE_SUPABASE_PUBLISHABLE_KEY");
+    if (!supabaseAnonKey) missing.push("VITE_SUPABASE_ANON_KEY");
     const message = `Missing required environment variables: ${missing.join(", ")}. Set VITE_DEMO_MODE=true or VITE_LOCAL_MODE=true to run without Supabase.`;
     console.error(message);
     throw new Error(message);
@@ -37,7 +77,7 @@ function readEnv(): AppEnv {
   return {
     supabaseUrl: supabaseUrl || "https://placeholder.supabase.co",
     supabaseAnonKey: supabaseAnonKey || "placeholder-key",
-    apiBaseUrl: env.VITE_API_BASE_URL?.trim() || "",
+    backendBaseUrl,
     demoMode,
     localMode,
     supabaseEnabled,
@@ -51,10 +91,15 @@ export function getEnv(): AppEnv {
   return cachedEnv;
 }
 
-export function hasApiBaseUrl(): boolean {
-  return Boolean(getEnv().apiBaseUrl);
+export function hasBackendUrl(): boolean {
+  return Boolean(getEnv().backendBaseUrl);
 }
 
 export function isSupabaseEnabled(): boolean {
   return getEnv().supabaseEnabled;
+}
+
+// Deprecated - use hasBackendUrl instead
+export function hasApiBaseUrl(): boolean {
+  return hasBackendUrl();
 }

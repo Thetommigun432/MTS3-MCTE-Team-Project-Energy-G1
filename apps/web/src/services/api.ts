@@ -5,7 +5,7 @@
 
 import { getEnv } from "@/lib/env";
 
-const { apiBaseUrl: API_BASE_URL } = getEnv();
+const { backendBaseUrl: API_BASE_URL } = getEnv();
 
 export class ApiError extends Error {
   constructor(
