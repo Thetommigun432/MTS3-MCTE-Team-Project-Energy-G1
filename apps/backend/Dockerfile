@@ -45,7 +45,7 @@ COPY app/ ./app/
 
 # Copy models directory (if present - can be mounted as volume)
 # Models should be bundled for Railway or mounted for local dev
-COPY models/ ./models/ 2>/dev/null || true
+COPY models/ ./models/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
