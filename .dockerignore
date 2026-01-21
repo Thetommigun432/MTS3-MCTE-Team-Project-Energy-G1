@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# Environments
+env/
+venv/
+.env
+.env.local
+.env.*
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Frontend (CRITICAL to exclude)
+node_modules/
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.turbo/
+
+# Backend (exclude specific)
+apps/backend/models/*.safetensors
+!apps/backend/models/registry.json
+!apps/backend/models/registry.schema.json

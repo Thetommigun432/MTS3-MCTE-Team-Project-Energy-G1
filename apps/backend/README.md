@@ -10,14 +10,11 @@ Production-grade FastAPI backend for the Energy Monitor.
 
 This service uses **Config as Code** (`railway.json` at repo root).
 
-### Critical UI Settings
-**You MUST configure this in Railway Service Settings (it cannot be set via config-as-code):**
-
-1.  **Root Directory**: `/apps/backend`
-    - **CRITICAL**: If you skip this, the build will FAIL with `"/models": not found`.
-    - Go to **Settings** -> **Build** -> **Root Directory** and set it to `/apps/backend`.
-2.  **Builder**: Dockerfile
-    - *Note*: Railway will automatically find the `Dockerfile` in `/apps/backend` because of the Root Directory setting.
+### Digital Tweak: Root Directory
+**NOTE**: This project uses **Root Build Context** (Strategy B).
+The `railway.json` forces Railway to use `apps/backend/Dockerfile`, but builds from the repository root.
+- **You do NOT need to set Root Directory in UI** (leave as `/`).
+- **Local Build**: Run from repo root: `docker build -f apps/backend/Dockerfile -t backend .`
 
 ### Health Checks
 - **Path**: `/live`
