@@ -4,7 +4,7 @@ All settings are loaded from environment variables with sensible defaults.
 """
 
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -109,8 +109,20 @@ class Settings(BaseSettings):
     )
     supabase_jwks_url: str | None = Field(
         default=None,
-        description="Optional JWKS URL for RS256 verification",
+        description="Optional JWKS URL for RS256 verification (auto-derived if empty)",
     )
+
+    @field_validator("supabase_jwks_url")
+    @classmethod
+    def set_default_jwks_url(cls, v: str | None, info: Any) -> str | None:
+        """Derive JWKS URL from Supabase URL if not explicitly set."""
+        if v:
+            return v
+        values = info.data
+        if "supabase_url" in values and values["supabase_url"]:
+            base_url = values["supabase_url"].rstrip("/")
+            return f"{base_url}/auth/v1/.well-known/jwks.json"
+        return None
 
     # ==========================================================================
     # Authentication
