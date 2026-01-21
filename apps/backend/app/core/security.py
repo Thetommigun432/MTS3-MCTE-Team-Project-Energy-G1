@@ -139,6 +139,30 @@ class TokenPayload:
         return self.sub
 
 
+def extract_token_from_header(authorization: str | None) -> str:
+    """
+    Extract Bearer token from Authorization header.
+    
+    Raises:
+        AuthenticationError: If header is missing or invalid format
+    """
+    if not authorization:
+        raise AuthenticationError(
+            code=ErrorCode.AUTH_MISSING_TOKEN,
+            message="Missing authorization header",
+        )
+
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise AuthenticationError(
+            code=ErrorCode.AUTH_INVALID_TOKEN,
+            message="Invalid authorization header format. Expected 'Bearer <token>'",
+        )
+
+    return parts[1]
+
+
+
 def verify_token(token: str) -> TokenPayload:
     """
     Verify a JWT token and return the payload.
