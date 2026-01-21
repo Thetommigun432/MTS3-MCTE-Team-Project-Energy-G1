@@ -47,18 +47,54 @@ services:
       - INFLUX_HOST=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     entrypoint: ["/bin/sh", "-c"]
     command: |
       set -euo pipefail
-      echo "Ensuring predictions bucket exists: $INFLUX_BUCKET_PRED"
-      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
-        echo "Bucket already exists."
+      echo "Waiting for InfluxDB to be ready..."
+      # We rely on depends_on: service_healthy, but a double check doesn't hurt
+      influx ping --host "$INFLUX_HOST"
+
+      echo "----------------------------------------"
+      echo "Ensuring buckets exist..."
+      echo "----------------------------------------"
+
+      # 1. Check/Create INFLUX_BUCKET_RAW
+      # Note: DOCKER_INFLUXDB_INIT_BUCKET usually creates this, but we verify to be sure.
+      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
+        echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
       else
-        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
-        echo "Bucket created."
+        echo "Creating bucket '$INFLUX_BUCKET_RAW'..."
+        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_RAW" --retention 0
       fi
-      echo "InfluxDB initialization complete"
+
+      # 2. Check/Create INFLUX_BUCKET_PRED
+      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
+        echo "✅ Bucket '$INFLUX_BUCKET_PRED' exists."
+      else
+        echo "Creating bucket '$INFLUX_BUCKET_PRED'..."
+        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
+      fi
+
+      echo "----------------------------------------"
+      echo "Verifying final state..."
+      echo "----------------------------------------"
+      
+      # Final verification - FAIL if either bucket is missing
+      msg=$(influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG")
+      
+      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_RAW "; then
+        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_RAW' missing after init!"
+        exit 1
+      fi
+      
+      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_PRED "; then
+        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_PRED' missing after init!"
+        exit 1
+      fi
+
+      echo "✅ InfluxDB initialization complete. Both buckets ready."
     restart: "no"
 
   # ==========================================================================

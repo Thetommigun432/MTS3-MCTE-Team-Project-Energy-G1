@@ -83,10 +83,26 @@ class Settings(BaseSettings):
         default="",
         description="Supabase project URL",
     )
+    supabase_publishable_key: str = Field(
+        default="",
+        description="Supabase publishable key (preferred)",
+    )
     supabase_anon_key: str = Field(
         default="",
-        description="Supabase anonymous/public key",
+        description="Supabase anonymous/public key (legacy fallback)",
     )
+
+    @field_validator("supabase_publishable_key")
+    @classmethod
+    def validate_supabase_keys(cls, v: str, info: Any) -> str:
+        """Fallback to anon_key if publishable_key is missing."""
+        if v:
+            return v
+        # Try to get anon_key from values if available
+        values = info.data
+        if "supabase_anon_key" in values and values["supabase_anon_key"]:
+            return values["supabase_anon_key"]
+        return v
     supabase_jwt_secret: str = Field(
         default="",
         description="Supabase JWT secret for HS256 verification",

@@ -66,6 +66,39 @@ class InfluxClient:
             logger.error("InfluxDB ping failed", extra={"error": str(e)})
             return False
 
+    async def verify_setup(self) -> dict[str, bool]:
+        """
+        Verify InfluxDB setup (connection + buckets).
+        Returns a dict of status checks.
+        """
+        status = {
+            "connected": False,
+            "bucket_raw": False,
+            "bucket_pred": False
+        }
+        
+        # 1. Check connection
+        if not await self.ping():
+            return status
+        status["connected"] = True
+
+        # 2. Check buckets
+        settings = get_settings()
+        try:
+            buckets_api = self._client.buckets_api()
+            
+            # Get all buckets once to reduce API calls
+            buckets = await buckets_api.find_buckets()
+            bucket_names = {b.name for b in buckets.buckets}
+            
+            status["bucket_raw"] = settings.influx_bucket_raw in bucket_names
+            status["bucket_pred"] = settings.influx_bucket_pred in bucket_names
+            
+        except Exception as e:
+            logger.error("Failed to list buckets during verification", extra={"error": str(e)})
+            
+        return status
+
     async def bucket_exists(self, bucket_name: str) -> bool:
         """Check if a bucket exists."""
         if not self._client:

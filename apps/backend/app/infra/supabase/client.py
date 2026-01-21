@@ -23,13 +23,16 @@ class SupabaseClient:
         """Initialize the Supabase client."""
         settings = get_settings()
 
-        if not settings.supabase_url or not settings.supabase_anon_key:
+        # Prefer publishable key, fallback handled in config or here if needed
+        key = settings.supabase_publishable_key or settings.supabase_anon_key
+
+        if not settings.supabase_url or not key:
             logger.warning("Supabase credentials not configured")
             return
 
         self._client = create_client(
             settings.supabase_url,
-            settings.supabase_anon_key,
+            key,
         )
         logger.info("Supabase client connected")
 
@@ -91,6 +94,8 @@ class SupabaseClient:
     async def get_user_role(self, user_id: str) -> str | None:
         """
         Get user role from profiles table.
+        WARNING: The 'role' column might not exist in the 'profiles' table in all environments.
+        Prefer obtaining role from JWT claims where possible.
 
         Returns:
             Role string or None if not found
@@ -99,6 +104,8 @@ class SupabaseClient:
             return None
 
         try:
+            # We select * to see what we get, or specific columns if we were sure.
+            # But here we try 'role' specifically. If it fails, we catch it.
             response = (
                 self._client.table("profiles")
                 .select("role")
@@ -106,10 +113,9 @@ class SupabaseClient:
                 .single()
                 .execute()
             )
-            # Note: The profiles table in types.ts doesn't have a role column
-            # but the schema.sql does. We'll try to get it if present.
             return response.data.get("role") if response.data else None
         except Exception:
+            # Column might not exist or user not found
             return None
 
     async def get_org_appliance_by_slug(self, slug: str) -> dict[str, Any] | None:
