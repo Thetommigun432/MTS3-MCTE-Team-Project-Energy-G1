@@ -97,8 +97,10 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.env != "prod" else None,
     )
 
-    # Add ASGI middleware (order matters - first added = outermost)
-    app = RequestSizeLimitMiddleware(app)  # type: ignore
+    # Add ASGI middleware
+    # Note: add_middleware adds to the stack in reverse order (last added = outermost)
+    app.add_middleware(RequestSizeLimitMiddleware)
+
 
     # Add Starlette middleware
     app.add_middleware(RateLimitMiddleware)

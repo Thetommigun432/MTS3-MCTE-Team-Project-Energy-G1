@@ -11,6 +11,6 @@
     "deploy": {
         "healthcheckPath": "/live",
         "healthcheckTimeout": 300,
-        "restartPolicyType": "ON_FAILURE"
+        "restartPolicyType": "ALWAYS"
     }
 }
