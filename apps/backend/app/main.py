@@ -56,6 +56,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize InfluxDB client
     try:
         await init_influx_client()
+        # Ensure predictions bucket exists (critical for persistence)
+        try:
+            influx = get_influx_client()
+            await influx.ensure_predictions_bucket()
+        except Exception as e:
+            logger.error("Failed to ensure predictions bucket", extra={"error": str(e)})
     except Exception as e:
         logger.error("Failed to connect to InfluxDB", extra={"error": str(e)})
 

@@ -111,6 +111,56 @@ class InfluxClient:
             logger.error("Bucket check failed", extra={"bucket": bucket_name, "error": str(e)})
             return False
 
+    async def ensure_predictions_bucket(self) -> bool:
+        """
+        Ensure the predictions bucket exists, creating it if necessary.
+        
+        This is called during startup to ensure the bucket exists before
+        the readiness check runs.
+        
+        Returns:
+            True if bucket exists or was created successfully
+        """
+        settings = get_settings()
+        bucket_name = settings.influx_bucket_pred
+        
+        if not self._client:
+            logger.error("Cannot ensure predictions bucket: client not connected")
+            return False
+        
+        try:
+            buckets_api = self._client.buckets_api()
+            
+            # Check if bucket already exists
+            existing = await buckets_api.find_bucket_by_name(bucket_name)
+            if existing:
+                logger.debug("Predictions bucket already exists", extra={"bucket": bucket_name})
+                return True
+            
+            # Get organization ID
+            orgs_api = self._client.organizations_api()
+            orgs = await orgs_api.find_organizations(org=settings.influx_org)
+            if not orgs:
+                logger.error("Organization not found", extra={"org": settings.influx_org})
+                return False
+            
+            org_id = orgs[0].id
+            
+            # Create the bucket with infinite retention (0 = never expire)
+            from influxdb_client import BucketRetentionRules
+            await buckets_api.create_bucket(
+                bucket_name=bucket_name,
+                org_id=org_id,
+                retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
+            )
+            
+            logger.info("Created predictions bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
+            return True
+            
+        except Exception as e:
+            logger.error("Failed to ensure predictions bucket", extra={"bucket": bucket_name, "error": str(e)})
+            return False
+
     async def query_readings(
         self,
         building_id: str,

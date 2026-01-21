@@ -6,23 +6,41 @@ Production-grade FastAPI backend for the Energy Monitor.
 - [Backend Documentation](../../docs/backend.md)
 - [Railway Deployment Guide](../../docs/deployment/railway.md)
 
-## Railway Deployment Quick Reference
+## Railway Deployment
 
-This service uses **Config as Code** (`railway.json` at repo root).
+This service is deployed on Railway with Redis and InfluxDB.
 
-### Digital Tweak: Root Directory
-**NOTE**: This project uses **Root Build Context** (Strategy B).
-The `railway.json` forces Railway to use `apps/backend/Dockerfile`, but builds from the repository root.
-- **You do NOT need to set Root Directory in UI** (leave as `/`).
-- **Local Build**: Run from repo root: `docker build -f apps/backend/Dockerfile -t backend .`
+### Quick Start (CLI)
 
-### Health Checks
-- **Path**: `/live`
-- **Success**: 200 OK
-- **Timeout**: 300s (recommended)
+```bash
+# 1. Link to project
+railway link
 
-### Environment Variables
-See `.env.example`.
-- `ENV=prod`
-- `CORS_ORIGINS` (No wildcards)
-- `INFLUX_URL` (Must be external/hosted)
+# 2. Deploy Backend
+# (Run from repo root to capture build context)
+railway up --service backend
+```
+
+### Configuration
+
+- **Config as Code**: `railway.json` (at repo root) defines build context and Dockerfile.
+- **Port**: Auto-detected (8000).
+- **Health Checks**:
+  - `/live` (Liveness)
+  - `/ready` (Readiness - checks InfluxDB/Redis)
+
+### Services Setup
+
+1. **Backend** (Public): `MTS3-MCTE-Team-Project-Energy-G1`
+   - Env Vars: `ENV, INFLUX_*, REDIS_URL, SUPABASE_*, ADMIN_TOKEN`
+2. **Redis** (Private): `Redis`
+   - Used for headers caching & idempotency.
+3. **InfluxDB** (Private): `influxdb`
+   - **Important**: Must attach volume to `/var/lib/influxdb2` manually in UI if using Docker image.
+   - Init vars: `DOCKER_INFLUXDB_INIT_*`
+
+### Troubleshooting
+
+- **InfluxDB Connection**: Ensure `INFLUX_URL` uses internal DNS (`http://influxdb.railway.internal:8086`).
+- **Volume Permissions**: If InfluxDB fails to write, set `RAILWAY_RUN_UID=0` in InfluxDB variables.
+- **Predictions Bucket**: Backend attempts to create it on startup if missing (`ensure_predictions_bucket`).
