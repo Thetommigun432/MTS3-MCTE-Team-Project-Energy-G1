@@ -24,7 +24,7 @@ services:
       - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER:-admin}
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET:-predictions}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_RAW:-raw_sensor_data}
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN}
     restart: unless-stopped
     healthcheck:
@@ -34,51 +34,81 @@ services:
       retries: 5
 
   # ==========================================================================
-  # Inference Service - PyTorch Model Serving
+  # InfluxDB Init - Create predictions bucket
   # ==========================================================================
-  inference-service:
+  influxdb-init:
+    image: influxdb:2.8
+    container_name: nilm-influxdb-init
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      - INFLUX_HOST=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Creating predictions bucket..."
+        influx bucket create \
+          --host $$INFLUX_HOST \
+          --token $$INFLUX_TOKEN \
+          --org $$INFLUX_ORG \
+          --name predictions \
+          --retention 0 || echo "Bucket may already exist"
+        echo "InfluxDB initialization complete"
+    restart: "no"
+
+  # ==========================================================================
+  # Unified Backend - Python FastAPI (replaces inference-service + local-server)
+  # ==========================================================================
+  backend:
     build:
-      context: ./apps/inference-service
+      context: ./apps/backend
       dockerfile: Dockerfile
-    container_name: nilm-inference
+    container_name: nilm-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./models:/app/models:ro
-      - ./data:/app/data:ro
+      - ./apps/backend/models:/app/models:ro
     environment:
-      - MODEL_REGISTRY_PATH=/app/model_registry.json
+      - ENV=dev
+      - PORT=8000
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      influxdb-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/live"]
       interval: 10s
       timeout: 5s
       retries: 3
 
   # ==========================================================================
-  # Local API Server - InfluxDB Proxy (Optional - for containerized setup)
+  # Legacy Inference Service (DEPRECATED - kept for migration testing)
   # ==========================================================================
-  # Uncomment to run the local server in Docker instead of npm run local:server
-  #
-  # local-server:
+  # inference-service:
   #   build:
-  #     context: ./apps/local-server
+  #     context: ./apps/inference-service
   #     dockerfile: Dockerfile
-  #   container_name: nilm-local-server
+  #   container_name: nilm-inference
   #   ports:
-  #     - "3001:3001"
+  #     - "8001:8000"
+  #   volumes:
+  #     - ./models:/app/models:ro
   #   environment:
-  #     - INFLUX_URL=http://influxdb:8086
-  #     - INFLUX_TOKEN=${INFLUX_TOKEN}
-  #     - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-  #     - INFLUX_BUCKET=${INFLUX_BUCKET:-predictions}
-  #     - INFERENCE_SERVICE_URL=http://inference-service:8000
-  #     - CORS_ORIGIN=http://localhost:8080
-  #   depends_on:
-  #     influxdb:
-  #       condition: service_healthy
-  #     inference-service:
-  #       condition: service_healthy
+  #     - MODEL_REGISTRY_PATH=/app/model_registry.json
   #   restart: unless-stopped
 
 volumes:

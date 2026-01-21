@@ -1,0 +1,5 @@
+# PyTorch CPU-only constraints
+# Install via: pip install torch --index-url https://download.pytorch.org/whl/cpu
+# Or include this file: pip install -c constraints.txt -r requirements.txt
+
+torch==2.5.1

@@ -1,0 +1,124 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "NILM Model Registry Schema",
+    "type": "object",
+    "properties": {
+        "models": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/ModelEntry"
+            }
+        }
+    },
+    "required": [
+        "models"
+    ],
+    "$defs": {
+        "ModelEntry": {
+            "type": "object",
+            "properties": {
+                "model_id": {
+                    "type": "string",
+                    "description": "Unique model identifier"
+                },
+                "model_version": {
+                    "type": "string",
+                    "description": "Model version string"
+                },
+                "appliance_id": {
+                    "type": "string",
+                    "description": "Associated appliance ID"
+                },
+                "architecture": {
+                    "type": "string",
+                    "enum": [
+                        "CNNTransformer",
+                        "CNNSeq2Seq",
+                        "UNet1D"
+                    ],
+                    "description": "Model architecture type"
+                },
+                "architecture_params": {
+                    "type": "object",
+                    "description": "Architecture-specific hyperparameters"
+                },
+                "artifact_path": {
+                    "type": "string",
+                    "description": "Path to .safetensors file (relative to models dir)"
+                },
+                "artifact_sha256": {
+                    "type": "string",
+                    "description": "SHA256 hash of artifact file"
+                },
+                "input_window_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Required input window size"
+                },
+                "preprocessing": {
+                    "$ref": "#/$defs/Preprocessing"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether this is the active model for the appliance"
+                }
+            },
+            "required": [
+                "model_id",
+                "model_version",
+                "appliance_id",
+                "architecture",
+                "artifact_path",
+                "artifact_sha256",
+                "input_window_size"
+            ]
+        },
+        "Preprocessing": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "standard",
+                        "minmax",
+                        "identity"
+                    ],
+                    "default": "identity"
+                },
+                "mean": {
+                    "oneOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        }
+                    ]
+                },
+                "std": {
+                    "oneOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        }
+                    ]
+                },
+                "min": {
+                    "type": "number"
+                },
+                "max": {
+                    "type": "number"
+                }
+            }
+        }
+    }
+}
