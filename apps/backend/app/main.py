@@ -18,7 +18,7 @@ from app.api.middleware import (
     RequestSizeLimitMiddleware,
 )
 from app.api.routers import admin, analytics, health, inference
-from app.core.config import get_settings
+from app.core.config import get_settings, validate_production_settings
 from app.core.errors import AppError, ErrorCode, error_response
 from app.core.logging import get_logger, request_id_ctx, setup_logging
 from app.domain.inference import init_model_registry
@@ -39,6 +39,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Startup
     logger.info("Starting NILM Backend", extra={"env": settings.env})
+
+    # Validate production settings
+    if settings.env == "prod":
+        config_errors = validate_production_settings(settings)
+        if config_errors:
+            logger.error("Configuration validation failed", extra={"errors": config_errors})
+            # We don't exit here to allow /ready to report the issue, 
+            # but we definitely log it loudly.
 
     # Setup logging
     log_level = "DEBUG" if settings.debug else "INFO"

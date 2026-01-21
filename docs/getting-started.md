@@ -684,9 +684,8 @@ See `docs/DEPLOYMENT.md` (to be created) for production deployment guides.
 
 ## Additional Resources
 
-- **Backend README**: `apps/backend/README.md`
-- **Frontend README**: `apps/web/docs/README.md`
-- **Integration Audit**: `docs/integration-audit.md`
+- **Backend README**: [Backend Docs](backend.md)
+- **Frontend README**: [Frontend Docs](frontend.md)
 - **API Documentation**: http://localhost:8000/docs (when running)
 
 ---

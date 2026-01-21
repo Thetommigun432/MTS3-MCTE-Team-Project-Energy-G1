@@ -151,11 +151,12 @@ python train_model.py --appliance heatpump --model cnn
 
 ## Documentation
 
-- [Backend API](apps/backend/README.md) - FastAPI backend docs
-- [Local Development Guide](docs/LOCAL_DEVELOPMENT.md) - Full local setup
-- [InfluxDB Schema](docs/INFLUX_SCHEMA.md) - Data model
-- [Supabase Setup](docs/SUPABASE_SETUP.md) - Cloud backend
-- [Cloudflare Deployment](apps/web/docs/DEPLOY_CLOUDFLARE_PAGES.md) - Production
+- [**Documentation Index**](docs/README.md) - **Start Here**
+- [Backend Documentation](docs/backend.md)
+- [Frontend Documentation](docs/frontend.md)
+- [Local Development Guide](docs/getting-started.md)
+- [Railway Deployment](docs/deployment/railway.md)
+- [Cloudflare Deployment](docs/deployment/cloudflare.md)
 
 ## Security Notes
 

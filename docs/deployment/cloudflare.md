@@ -53,6 +53,7 @@ Navigate to: **Pages project** → **Settings** → **Environment variables**
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | `eyJhb...` (anon key) | Supabase Dashboard → Settings → API |
 | `VITE_SUPABASE_PROJECT_ID` | `bhdcbvruzvhmcogxfkil` | From Supabase URL |
 
+
 **Optional variables:**
 
 | Variable | Value | Purpose |

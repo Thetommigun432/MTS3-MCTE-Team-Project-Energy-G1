@@ -160,12 +160,12 @@ npm run build
 
 Output is in `dist/`. Deploy to any static host (Azure Static Web Apps, Vercel, Netlify).
 
-For Azure Static Web Apps, see [DEPLOYMENT_STEPS.md](./DEPLOYMENT_STEPS.md).
+For Azure Static Web Apps, see [Archive](../_archive/web-deployment-steps.md).
 
 ---
 
 ## Documentation
 
-- [Local Development Guide](../docs/LOCAL_DEVELOPMENT.md) - Full local setup with InfluxDB
-- [Security Notes](./docs/SECURITY.md) - Auth and API security
-- [Supabase Setup](../docs/SUPABASE_SETUP.md) - Backend configuration
+- [Local Development Guide](getting-started.md) - Full local setup with InfluxDB
+- [Security Notes](operations/security.md) - Auth and API security
+- [Supabase Setup](supabase.md) - Backend configuration

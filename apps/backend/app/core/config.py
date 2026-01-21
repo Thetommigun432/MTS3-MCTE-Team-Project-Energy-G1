@@ -212,3 +212,40 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Get cached application settings."""
     return Settings()
+
+
+def validate_production_settings(settings: Settings) -> list[str]:
+    """
+    Validate critical settings for production environment.
+    Returns a list of error messages.
+    """
+    if settings.env != "prod":
+        return []
+
+    errors = []
+
+    # 1. Critical Services
+    if not settings.supabase_url:
+        errors.append("Missing SUPABASE_URL")
+    if not settings.supabase_publishable_key and not settings.supabase_anon_key:
+        errors.append("Missing SUPABASE_PUBLISHABLE_KEY")
+    if not settings.influx_url or "localhost" in settings.influx_url:
+        errors.append("INFLUX_URL must be set and not localhost in prod")
+    if not settings.influx_token:
+        errors.append("Missing INFLUX_TOKEN")
+
+    # 2. CORS
+    if not settings.cors_origins or settings.cors_origins == "*":
+        errors.append("CORS_ORIGINS must be set and cannot be wildcard '*' in prod")
+    
+    for origin in settings.cors_origins_list:
+        if origin == "*":
+            errors.append("Generic wildcard '*' in CORS_ORIGINS is not allowed in prod")
+        if "localhost" in origin:
+            errors.append(f"Localhost origin '{origin}' is not allowed in prod")
+
+    # 3. Security
+    if not settings.auth_verify_aud:
+        errors.append("AUTH_VERIFY_AUD must be True in prod")
+
+    return errors

@@ -5,6 +5,7 @@ Health check endpoints.
 from fastapi import APIRouter, Response, status
 
 from app.api.deps import RequestIdDep, SettingsDep
+from app.core.config import get_settings, validate_production_settings
 from app.domain.inference import get_inference_engine, get_model_registry
 from app.infra.influx import get_influx_client
 
@@ -38,6 +39,17 @@ async def readiness(request_id: RequestIdDep, response: Response):
     """
     checks = {}
     is_ready = True
+
+    # Check Configuration (Critical for Prod)
+    settings = get_settings()
+    if settings.env == "prod":
+        config_errors = validate_production_settings(settings)
+        checks["config_valid"] = len(config_errors) == 0
+        if config_errors:
+            is_ready = False
+            # We log these in main.py, but returning them here helps debugging if safe.
+            # Avoid exposing secrets, but these messages are generic.
+            checks["config_errors"] = config_errors
 
     # Check InfluxDB (Connection + Buckets)
     influx = get_influx_client()
