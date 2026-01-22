@@ -27,7 +27,7 @@
     "tsx": "^4.21.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "packageManager": "npm@10.9.2"
 }
