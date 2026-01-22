@@ -10,7 +10,7 @@ Deploy the NILM Energy Monitor frontend to Cloudflare Pages with automated build
 
 ---
 
-## Step 1: Initial Cloudflare Pages Setup
+## Step 1: Cloudflare Pages Setup
 
 ### 1.1 Connect GitHub Repository
 
@@ -19,23 +19,30 @@ Deploy the NILM Energy Monitor frontend to Cloudflare Pages with automated build
 3. Click **Connect to Git**
 4. Select **GitHub** and authorize Cloudflare
 5. Select repository: `MTS3-MCTE-Team-Project-Energy-G1`
-6. Click **Begin setup**
+6. Select branch: `frontend`
+7. Click **Begin setup**
 
 ### 1.2 Configure Build Settings
 
-**Framework preset**: Select **Vite**
+> **IMPORTANT:** This is a monorepo with npm workspaces. Settings below are critical.
 
-**Build configuration:**
-- **Build command**: `npm run build`
-- **Build output directory**: `dist`
-- **Root directory**: `frontend` ⚠️ IMPORTANT (monorepo structure)
-- **Environment variables**: (configure in next step)
+**Cloudflare Pages Settings:**
+
+| Setting | Value |
+|---------|-------|
+| **Framework preset** | `None` (manual configuration) |
+| **Root directory** | *(leave empty - repo root)* |
+| **Build command** | `npm run build --workspace=apps/web` |
+| **Build output directory** | `apps/web/dist` |
 
 **Advanced settings:**
-- **Node.js version**: `20` (reads from `.nvmrc`)
-- **Branch deployments**: Enable for `main` branch
+- **Node.js version**: `20` (or set `NODE_VERSION=20` env var)
 
 Click **Save and Deploy**
+
+### 1.3 Alternative: Using .nvmrc
+
+The repo includes a `.nvmrc` file at the root specifying Node version. Cloudflare should auto-detect this.
 
 ---
 
@@ -49,10 +56,9 @@ Navigate to: **Pages project** → **Settings** → **Environment variables**
 
 | Variable | Value | Where to find |
 |----------|-------|---------------|
-| `VITE_SUPABASE_URL` | `https://bhdcbvruzvhmcogxfkil.supabase.co` | Supabase Dashboard → Settings → API |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `eyJhb...` (anon key) | Supabase Dashboard → Settings → API |
-| `VITE_SUPABASE_PROJECT_ID` | `bhdcbvruzvhmcogxfkil` | From Supabase URL |
-
+| `VITE_SUPABASE_URL` | `https://xxx.supabase.co` | Supabase Dashboard → Settings → API |
+| `VITE_SUPABASE_ANON_KEY` | `eyJhb...` (anon key) | Supabase Dashboard → Settings → API |
+| `VITE_BACKEND_URL` | `https://your-backend.railway.app` | Railway Dashboard |
 
 **Optional variables:**
 
@@ -60,32 +66,54 @@ Navigate to: **Pages project** → **Settings** → **Environment variables**
 |----------|-------|---------|
 | `VITE_DEMO_MODE` | `false` | Disable demo login in production |
 | `VITE_LOCAL_MODE` | `false` | Disable local InfluxDB mode |
+| `NODE_VERSION` | `20` | Explicit Node.js version |
 
 ### 2.2 Apply to Environments
 
 - **Production**: Set all variables
-- **Preview**: Use same values OR separate demo Supabase project
+- **Preview**: Use same values OR separate test Supabase project
 
 Click **Save** after adding each variable.
 
 ---
 
-## Step 3: Deploy and Verify
+## Step 3: Verify Build Locally
 
-### 3.1 Trigger Deployment
+Before pushing, always verify the build works with a clean install:
 
-- **Automatic**: Push to `main` branch triggers auto-deploy
+```bash
+# From repo root
+rm -rf node_modules apps/web/node_modules apps/web/dist
+
+# Clean install (mimics Cloudflare)
+npm ci --progress=false
+
+# Build the frontend
+npm run build --workspace=apps/web
+
+# Verify output exists
+ls apps/web/dist/
+# Should show: index.html, assets/, etc.
+```
+
+---
+
+## Step 4: Deploy and Verify
+
+### 4.1 Trigger Deployment
+
+- **Automatic**: Push to `frontend` branch triggers auto-deploy
 - **Manual**: Dashboard → **Deployments** → **Retry deployment**
 
 Wait 2-3 minutes for build to complete.
 
-### 3.2 Get Deployment URL
+### 4.2 Get Deployment URL
 
 After successful deployment:
 - Production URL: `https://nilm-energy-monitor.pages.dev`
 - Or: `https://[project-slug].pages.dev`
 
-### 3.3 SPA Routing Verification
+### 4.3 SPA Routing Verification
 
 **Test deep links work** (must NOT 404):
 
@@ -95,15 +123,10 @@ After successful deployment:
 2. Open: `https://your-site.pages.dev/app/reports`
    - Should load reports page
 
-3. Open: `https://your-site.pages.dev/login`
-   - Should load login page
+3. **Refresh test**: On any `/app/*` page, press `F5`
+   - Should reload same page (not 404)
 
-4. **Refresh test**: On any `/app/*` page, press `F5`
-   - Should reload same page (not 404 or redirect to home)
-
-### 3.4 Security Headers Verification
-
-**Check headers with curl:**
+### 4.4 Security Headers Verification
 
 ```bash
 curl -I https://your-site.pages.dev/
@@ -111,90 +134,64 @@ curl -I https://your-site.pages.dev/
 
 **Expected response headers:**
 ```
-HTTP/2 200
 x-content-type-options: nosniff
 x-frame-options: DENY
 referrer-policy: strict-origin-when-cross-origin
-cache-control: public, max-age=0, must-revalidate
-```
-
-**Check asset caching:**
-
-```bash
-curl -I https://your-site.pages.dev/assets/index-[hash].js
-```
-
-**Expected:**
-```
-cache-control: public, max-age=31536000, immutable
 ```
 
 ---
 
-## Step 4: Update Supabase Redirect URLs
-
-### 4.1 Add Cloudflare Pages URL to Supabase
+## Step 5: Update Supabase Redirect URLs
 
 1. Go to: [Supabase Dashboard](https://supabase.com/dashboard)
-2. Select project: `bhdcbvruzvhmcogxfkil`
+2. Select your project
 3. Navigate to: **Authentication** → **URL Configuration**
 4. **Add** to **Redirect URLs**:
    ```
+   https://your-site.pages.dev/**
    https://your-site.pages.dev/auth/**
    https://your-site.pages.dev/login
    https://your-site.pages.dev/verify-email
    https://your-site.pages.dev/reset-password
    ```
-
 5. **Site URL**: Set to `https://your-site.pages.dev`
 6. Click **Save**
-
-### 4.2 Test Authentication Flow
-
-1. Go to: `https://your-site.pages.dev/login`
-2. Try to sign in
-3. Verify redirect back to dashboard after login
-4. Test email verification link (if applicable)
-
----
-
-## Step 5: Custom Domain (Optional)
-
-### 5.1 Add Custom Domain
-
-1. Cloudflare Dashboard → Pages project → **Custom domains**
-2. Click **Set up a custom domain**
-3. Enter domain: `energy.yourdomain.com`
-4. Follow DNS configuration instructions
-5. Cloudflare provisions SSL automatically (free)
-
-### 5.2 Update Supabase Redirect URLs
-
-Add custom domain URLs to Supabase redirect list:
-```
-https://energy.yourdomain.com/**
-```
 
 ---
 
 ## Troubleshooting
 
-### Build Fails: "Module not found"
+### Build Fails: "npm ci can only install packages when your package.json and package-lock.json are in sync"
 
-**Cause**: Missing dependencies or wrong root directory
+**Cause**: Lock file out of sync with package.json
 
 **Fix:**
-1. Check **Root directory** is set to `frontend`
-2. Verify `package.json` has all dependencies
-3. Check build logs for specific missing module
+```bash
+# From repo root
+rm -rf node_modules apps/web/node_modules
+npm install
+# Commit the updated package-lock.json
+git add package-lock.json
+git commit -m "fix: sync package-lock.json"
+git push
+```
+
+### Build Fails: "Module not found"
+
+**Cause**: Cloudflare running from wrong directory
+
+**Fix:**
+1. Verify **Root directory** is empty (repo root)
+2. Verify **Build command** is `npm run build --workspace=apps/web`
+3. Verify **Build output directory** is `apps/web/dist`
 
 ### Routes Return 404
 
-**Cause**: Missing `_redirects` file or wrong syntax
+**Cause**: Missing `_redirects` file
 
 **Fix:**
-1. Verify `frontend/public/_redirects` exists
-2. Content: `/*  /index.html  200`
+1. Verify `apps/web/public/_redirects` exists
+2. Content: `/* /index.html 200`
 3. Redeploy
 
 ### Environment Variables Not Working
@@ -206,83 +203,44 @@ https://energy.yourdomain.com/**
 2. Verify set in **Production** environment
 3. Redeploy after adding variables
 
-### Security Headers Missing
-
-**Cause**: Missing `_headers` file
-
-**Fix:**
-1. Verify `frontend/public/_headers` exists
-2. Check syntax (no tabs, proper spacing)
-3. Test with `curl -I https://your-site.pages.dev/`
-
 ---
 
-## Comparison: Azure vs Cloudflare Pages
+## Quick Reference: Cloudflare Pages Settings
 
-| Feature | Azure Storage | Cloudflare Pages |
-|---------|---------------|------------------|
-| **Deployment** | Manual (Azure CLI) | Auto (GitHub push) |
-| **SPA Config** | `staticwebapp.config.json` | `_redirects` file |
-| **Headers** | `staticwebapp.config.json` | `_headers` file |
-| **SSL** | Manual setup | Automatic (free) |
-| **Build** | Manual `npm run build` | Automated CI/CD |
-| **Cost** | ~$0.01/GB/month | Free (500 builds/month) |
-| **Speed** | Azure CDN | Cloudflare global CDN |
+Copy-paste settings for Cloudflare Pages:
 
----
+```
+Root directory:           (empty - repo root)
+Build command:            npm run build --workspace=apps/web
+Build output directory:   apps/web/dist
+```
 
-## Rollback to Azure (Emergency)
-
-If Cloudflare deployment fails:
-
-1. **Revert DNS** (if custom domain changed)
-2. **Build locally**:
-   ```bash
-   cd frontend
-   npm run build
-   ```
-3. **Deploy to Azure** (original method):
-   ```bash
-   az storage blob upload-batch \
-     --account-name energymonitorstorage \
-     --source ./dist \
-     --destination '$web' \
-     --overwrite
-   ```
-
-Azure site remains accessible at:
-`https://energymonitorstorage.z1.web.core.windows.net/`
+Environment variables:
+```
+NODE_VERSION=20
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_BACKEND_URL=https://your-backend.railway.app
+```
 
 ---
 
 ## Success Checklist
 
 - [ ] Cloudflare Pages project created
+- [ ] Build command: `npm run build --workspace=apps/web`
+- [ ] Output directory: `apps/web/dist`
+- [ ] Root directory: empty (repo root)
+- [ ] Environment variables configured
 - [ ] Build succeeds (green checkmark)
 - [ ] Site accessible at `*.pages.dev` URL
-- [ ] Deep links work (`/app/reports` loads directly)
+- [ ] Deep links work (`/app/dashboard` loads directly)
 - [ ] Refresh works on any route (no 404)
-- [ ] Security headers present (`curl -I` check)
-- [ ] Asset caching works (31536000 max-age)
-- [ ] Login/signup authentication flows work
 - [ ] Supabase redirect URLs updated
-- [ ] Environment variables configured
-- [ ] Custom domain configured (optional)
-
----
-
-## Next Steps
-
-1. **Monitor first deployment** - check build logs
-2. **Test all routes** - smoke test critical paths
-3. **Update documentation** - point team to new URL
-4. **Sunset Azure Storage** - after successful migration (30 day grace)
-5. **Set up preview deployments** - for PRs (Cloudflare auto-creates)
 
 ---
 
 ## Support
 
 - **Cloudflare Pages Docs**: https://developers.cloudflare.com/pages/
-- **Redirect Rules**: https://developers.cloudflare.com/pages/configuration/redirects/
-- **Headers**: https://developers.cloudflare.com/pages/configuration/headers/
+- **npm Workspaces**: https://docs.npmjs.com/cli/v10/using-npm/workspaces
