@@ -27,7 +27,7 @@ import {
   ManagedAppliance,
 } from "@/hooks/useManagedAppliances";
 import { useBuildings } from "@/hooks/useBuildings";
-import { energyApi, isEnergyApiAvailable } from "@/services/energy";
+import { isEnergyApiAvailable } from "@/services/energy";
 import { edgeFunctions } from "@/lib/supabaseHelpers";
 import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -81,7 +81,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   } = useManagedAppliances();
   const {
     buildings: supabaseBuildings,
-    loading: buildingsLoading,
   } = useBuildings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -180,7 +179,10 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         time: new Date(r.ts),
         aggregate: r.aggregate_kw,
         appliances: r.appliance_estimates,
-        confidence: r.confidence,
+        confidence: r.confidence
+          ? Object.values(r.confidence).reduce((a, b) => a + b, 0) /
+          Object.values(r.confidence).length
+          : 0,
       }));
 
       return transformed.sort((a, b) => a.time.getTime() - b.time.getTime());
@@ -222,58 +224,16 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
           setApiLoading(false);
         }
       } else if (isApiAvailable) {
-        // Legacy API mode (external API URL configured)
-        try {
-          setApiLoading(true);
-          const response = await energyApi.getReadings();
-
-          const transformed: NilmDataRow[] = [];
-          const byTimestamp: Record<
-            string,
-            { aggregate: number; appliances: Record<string, number> }
-          > = {};
-
-          response.readings.forEach((r) => {
-            if (!byTimestamp[r.timestamp]) {
-              byTimestamp[r.timestamp] = { aggregate: 0, appliances: {} };
-            }
-            byTimestamp[r.timestamp].appliances[r.appliance] = r.power_kw;
-            byTimestamp[r.timestamp].aggregate += r.power_kw;
-          });
-
-          Object.entries(byTimestamp).forEach(([ts, data]) => {
-            transformed.push({
-              time: new Date(ts),
-              aggregate: data.aggregate,
-              appliances: data.appliances,
-            });
-          });
-
-          transformed.sort((a, b) => a.time.getTime() - b.time.getTime());
-
-          if (transformed.length > 0) {
-            setApiRows(transformed);
-            setApiError(null);
-          } else {
-            setApiError(
-              "No data from API — select a building or check API configuration",
-            );
-          }
-        } catch (err) {
-          console.warn("API fetch failed:", err);
-          setApiError(
-            "API unreachable — click Refresh to retry or switch to Demo mode",
-          );
-        } finally {
-          setApiLoading(false);
-        }
+        // Legacy API mode removed - use Supabase Auth to access data
+        setApiError("Legacy API access unavailable. Please log in.");
+        setApiLoading(false);
       } else {
         // API mode but missing configuration or building selection
         if (isAuthenticated && !selectedBuildingId) {
           setApiError("Select a building to load data in API mode.");
         } else {
           setApiError(
-            "API mode requires configuration. Set VITE_API_BASE_URL or switch to Demo mode.",
+            "API mode requires configuration. Set VITE_BACKEND_URL or switch to Demo mode.",
           );
         }
       }

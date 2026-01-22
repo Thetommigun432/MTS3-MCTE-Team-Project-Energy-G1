@@ -11,7 +11,9 @@ interface ImportMetaEnv {
   readonly VITE_DEMO_PASSWORD?: string;
   readonly VITE_DEMO_USERNAME?: string;
   // Deprecated (backward compatibility)
+  /** @deprecated Use VITE_SUPABASE_ANON_KEY instead */
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  /** @deprecated Use VITE_BACKEND_URL instead */
   readonly VITE_API_BASE_URL?: string;
 }
 
