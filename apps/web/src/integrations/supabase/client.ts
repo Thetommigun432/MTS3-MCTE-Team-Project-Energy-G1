@@ -4,7 +4,7 @@ import type { Database } from "./types";
 import { getEnv } from "@/lib/env";
 import { customAuthStorage } from "@/lib/authStorage";
 
-const { supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_KEY } =
+const { supabaseUrl: SUPABASE_URL, supabaseAnonKey: SUPABASE_ANON_KEY } =
   getEnv();
 
 // Import the supabase client like this:
@@ -12,7 +12,7 @@ const { supabaseUrl: SUPABASE_URL, supabasePublishableKey: SUPABASE_PUBLISHABLE_
 
 export const supabase = createClient<Database>(
   SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_ANON_KEY,
   {
     auth: {
       storage: customAuthStorage,

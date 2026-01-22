@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
-// Mock environment variables for tests
-process.env.VITE_DEMO_MODE = 'true';
-process.env.VITE_LOCAL_MODE = 'false';
+// Mock environment variables for tests via import.meta.env
+// Vitest uses import.meta.env, not process.env for Vite projects
+vi.stubEnv('VITE_DEMO_MODE', 'true');
+vi.stubEnv('VITE_LOCAL_MODE', 'false');
+vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key-placeholder');
 
 // Mock ResizeObserver which is not available in jsdom
 global.ResizeObserver = class ResizeObserver {

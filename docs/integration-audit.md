@@ -1,8 +1,8 @@
 # Frontend-Backend Integration Audit
 
-**Date:** 2026-01-21
-**Branch:** backend
-**Status:** Gap Analysis Complete
+**Date:** 2026-01-22
+**Branch:** frontend (synced with backend)
+**Status:** Mostly Resolved - Remaining Items Documented
 
 ---
 
@@ -33,11 +33,16 @@ This audit documents the integration status between the React/Vite frontend (`ap
 - Generic API client with automatic Bearer token injection
 - Request ID middleware on backend
 
-⚠️ **Critical Gaps:**
-- API endpoint mismatches (frontend calls `/api/energy/*`, backend has `/analytics/*`)
-- Legacy service references in scripts and hooks
-- Incomplete error handling alignment
-- Missing production environment variables
+✅ **Resolved (as of 2026-01-22):**
+- API endpoints aligned: frontend now calls `/analytics/*` correctly
+- Error handling updated with code, request_id extraction
+- Request ID generation in frontend API client
+- Query parameter validation in energy.ts
+
+⚠️ **Remaining Issues:**
+- Frontend test failure: `useNilmCsvData.test.ts` fails due to Supabase client init during import
+- Some legacy references in documentation
+- `getBuildings()` and `getAppliances()` in energy.ts are stubs (return empty arrays)
 
 ---
 
