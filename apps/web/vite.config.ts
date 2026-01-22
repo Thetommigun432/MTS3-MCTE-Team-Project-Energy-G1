@@ -8,9 +8,9 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      // Proxy local API requests to the backend server
-      "/api/local": {
-        target: "http://localhost:3001",
+      // Proxy API requests to the unified backend
+      "/api": {
+        target: "http://localhost:8000",
         changeOrigin: true,
       },
     },
@@ -28,7 +28,6 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           "vendor-react": ["react", "react-dom"],
           "vendor-router": ["react-router-dom"],
-          "vendor-query": ["@tanstack/react-query"],
           "vendor-supabase": ["@supabase/supabase-js"],
           "vendor-recharts": ["recharts"],
         },

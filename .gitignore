@@ -51,17 +51,23 @@ ENV/
 # ============================================
 # Data files (large datasets - keep local only)
 # ============================================
+data/
 data/**/*.csv
 data/**/*.xlsx
 data/**/*.json
+*.parquet
 
 # ============================================
-# Model files
+# Model files (large, training outputs)
 # ============================================
-models/*.h5
-models/*.pt
-models/*.pth
-models/*.pkl
+*.h5
+*.pt
+*.pth
+*.pkl
+*.safetensors
+training/outputs/
+model_exploration/*.pth
+model_highfreq/*.pth
 
 # ============================================
 # Logs
@@ -82,6 +88,8 @@ Thumbs.db
 *.temp
 *.bak
 temp/
+temp_model/
+tempo/
 *.stackdump
 
 # ============================================
@@ -99,3 +107,4 @@ supabase/.temp/
 # Unrelated projects / misc
 # ============================================
 go-cursor-help/
+config.json
