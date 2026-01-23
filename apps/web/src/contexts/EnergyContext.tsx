@@ -88,9 +88,10 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [apiLoading, setApiLoading] = useState(false);
 
   // Determine initial mode from environment variables
+  // CRITICAL: Production defaults to API mode; Demo mode requires explicit opt-in
   const [mode, setModeInternal] = useState<DataMode>(() => {
     if (import.meta.env.VITE_DEMO_MODE === "true") return "demo";
-    return "demo"; // Default to demo mode
+    return "api"; // Default to API mode in production
   });
   const [selectedBuilding, setSelectedBuilding] = useState("Demo Building");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(

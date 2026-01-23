@@ -17,12 +17,13 @@ import {
 } from "@/components/ui/table";
 import { RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import { useModels } from "@/hooks/useModels";
+import { useEnergy } from "@/contexts/EnergyContext";
 import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
 import { WaveformDecoration } from "@/components/brand/WaveformIcon";
-import { isDemoMode } from "@/lib/dataSource";
 
 export default function Model() {
-  const { models, loading, refetch } = useModels();
+  const { mode } = useEnergy();
+  const { models, loading, refetch } = useModels(mode);
 
   if (loading) {
     return (
@@ -74,7 +75,7 @@ export default function Model() {
       </header>
 
       {/* Demo Mode Notice */}
-      {isDemoMode() && (
+      {mode === 'demo' && (
         <div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 px-4 py-3 text-sm flex items-center gap-2">
           <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
           <span className="text-amber-800 dark:text-amber-200">

@@ -5,7 +5,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { energyApi, Model } from "@/services/energy";
 import { toast } from "sonner";
-import { getDataSource } from "@/lib/dataSource";
+
+import { DataMode } from "@/types/energy";
 
 export interface UseModelsResult {
   models: Model[]; // Using backend Model type
@@ -18,15 +19,15 @@ export interface UseModelsResult {
   setActiveVersion: () => Promise<boolean>;
 }
 
-export function useModels(_buildingId?: string | null): UseModelsResult {
+export function useModels(mode: DataMode = 'api', _buildingId?: string | null): UseModelsResult {
   const [models, setModels] = useState<Model[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchModels = useCallback(async () => {
-    // In Demo mode, we might want simulated models, but for now we settle for empty or mocked
-    if (getDataSource() === 'demo') {
+    // In Demo mode, or if forced to demo
+    if (mode === 'demo') {
       setLoading(false);
       return;
     }
@@ -45,7 +46,7 @@ export function useModels(_buildingId?: string | null): UseModelsResult {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     fetchModels();

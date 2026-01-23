@@ -65,15 +65,23 @@ export interface PredictionsResponse {
 
 export interface InferRequest {
   building_id: string;
-  appliance_id: string;
-  window: number[]; // Array of 1000 floats (power readings)
+  appliance_id?: string; // Optional for multi-head models
+  window: number[]; // Array of power readings (e.g., 1024 floats for transformer)
   timestamp?: string; // ISO8601, optional
   model_id?: string; // Optional, defaults to active model
 }
 
+/**
+ * Inference response from the backend.
+ *
+ * NOTE: Multi-head models return `predicted_kw` and `confidence` as objects
+ * mapping appliance keys to values. Single-head models return scalar values.
+ */
 export interface InferResponse {
-  predicted_kw: number;
-  confidence: number;
+  // Multi-head: { "heatpump": 0.5, "dishwasher": 0.0 }
+  // Single-head (legacy): number
+  predicted_kw: Record<string, number> | number;
+  confidence: Record<string, number> | number;
   model_version: string;
   request_id: string;
   persisted: boolean;
@@ -83,19 +91,49 @@ export interface InferResponse {
 // Model Registry Types
 // ============================================================================
 
+/**
+ * Output head configuration for multi-head models.
+ * Each head predicts power for one appliance.
+ */
+export interface ModelHead {
+  appliance_id: string;
+  field_key: string;
+}
+
+/**
+ * Model metadata from the backend registry.
+ *
+ * NOTE: Modern NILM models are multi-head (one model predicts all appliances).
+ * The `appliance_id` field is for backward compatibility with single-head models.
+ * For multi-head models, use the `heads` array to get the list of appliances.
+ */
 export interface Model {
   model_id: string;
   model_version: string;
-  appliance_id: string;
+  appliance_id: string; // "multi" for multi-head models, specific appliance for single-head
   architecture: string;
   input_window_size: number;
   is_active: boolean;
   cached: boolean;
+  // Multi-head support
+  heads?: ModelHead[]; // List of appliance heads (empty for single-head models)
 }
 
 export interface ModelsListResponse {
   models: Model[];
   count: number;
+}
+
+/**
+ * Get the list of appliances supported by a model.
+ * For multi-head models, returns the heads. For single-head, returns [appliance_id].
+ */
+export function getModelAppliances(model: Model): string[] {
+  if (model.heads && model.heads.length > 0) {
+    return model.heads.map((h) => h.appliance_id);
+  }
+  // Single-head fallback
+  return model.appliance_id !== "multi" ? [model.appliance_id] : [];
 }
 
 // ============================================================================

@@ -200,9 +200,10 @@ def build_predictions_wide_query(
     start_param = format_time_param(start_flux)
     end_param = format_time_param(end_flux)
 
+    # IMPORTANT: measurement name must match write operations (client.py uses "prediction" singular)
     query = f'''from(bucket: "{bucket}")
   |> range(start: {start_param}, stop: {end_param})
-  |> filter(fn: (r) => r._measurement == "predictions")
+  |> filter(fn: (r) => r._measurement == "prediction")
   |> filter(fn: (r) => r.building_id == "{building_id}")
   |> aggregateWindow(every: {resolution_flux}, fn: mean, createEmpty: false)
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
