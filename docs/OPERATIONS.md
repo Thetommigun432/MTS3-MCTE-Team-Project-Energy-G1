@@ -86,6 +86,16 @@ To demonstrate the end-to-end pipeline with automatic inference:
 
 **Security Note**: Never commit `.env` files. Use secrets management in production (Railway Variables / Cloudflare Pages Variables).
 
+### Railway Private Network
+These internal DNS values are available only within the Railway project network:
+
+| Service | Connection String | Notes |
+|---------|-------------------|-------|
+| **InfluxDB** | `influxdb.railway.internal` | Port 8086 |
+| **Redis** | `redis://redis.railway.internal:6379` | No password used internally |
+| **Backend** | `mts3-mcte-team-project-energy-g1.railway.internal` | Private DNS |
+
+
 ## 4. Troubleshooting
 
 ### Build Failures
