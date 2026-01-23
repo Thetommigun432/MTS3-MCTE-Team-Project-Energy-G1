@@ -3,6 +3,7 @@ NILM Energy Monitor - Unified Python Backend
 FastAPI application entry point with lifespan management.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 

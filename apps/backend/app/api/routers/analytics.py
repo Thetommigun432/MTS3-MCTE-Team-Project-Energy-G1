@@ -3,6 +3,7 @@ Analytics API endpoints.
 """
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.deps import CurrentUserDep, RequestIdDep
 from app.core.security import TokenPayload
