@@ -12,6 +12,7 @@ export function useSignedAvatarUrl(
 
   useEffect(() => {
     if (!avatarPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting state when input is null
       setSignedUrl(null);
       return;
     }

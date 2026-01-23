@@ -148,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchProfile is stable, only re-run on supabaseEnabled change
   }, [supabaseEnabled]);
 
   const login = async (

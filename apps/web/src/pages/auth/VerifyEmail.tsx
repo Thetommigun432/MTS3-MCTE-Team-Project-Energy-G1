@@ -1,4 +1,3 @@
-/* eslint-disable */
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -19,12 +18,12 @@ export default function VerifyEmail() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     // Check if we have a hash fragment (email confirmation flow)
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     const accessToken = hashParams.get("access_token");
     const type = hashParams.get("type");
 
+    /* eslint-disable react-hooks/set-state-in-effect -- legitimate state update based on URL params */
     if (accessToken && type === "signup") {
       // User clicked confirmation link - they're now verified
       setStatus("success");
@@ -42,6 +41,7 @@ export default function VerifyEmail() {
         }
       });
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [navigate]);
 
   return (
