@@ -4,7 +4,6 @@ import {
   LogOut,
   Settings,
   Filter,
-  Info,
   Plus,
   Building2,
 } from "lucide-react";
@@ -24,11 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEnergy } from "@/contexts/EnergyContext";
@@ -47,8 +41,6 @@ export function TopBar() {
   const {
     mode,
     setMode,
-    selectedBuilding,
-    setSelectedBuilding,
     selectedBuildingId,
     setSelectedBuildingId,
     selectedAppliance,
@@ -132,11 +124,11 @@ export function TopBar() {
                     setMode("api");
                   }
                 }}
-                disabled={mode === "demo" || mode === "local"}
+                disabled={mode === "demo"}
               >
                 <SelectTrigger className={cn(
                   "w-36 md:w-48 border-border bg-background text-foreground",
-                  (mode === "demo" || mode === "local") && "opacity-70 cursor-not-allowed"
+                  mode === "demo" && "opacity-70 cursor-not-allowed"
                 )}>
                   <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Select Building" />
@@ -246,11 +238,6 @@ export function TopBar() {
         {mode === "api" && !selectedBuildingId && (
           <span className="text-amber-600 dark:text-amber-400">
             Select a building to view live data
-          </span>
-        )}
-        {mode === "local" && (
-          <span>
-            Local InfluxDB mode • Showing ML predictions
           </span>
         )}
       </div>

@@ -60,7 +60,8 @@ import {
   parseLocalDate,
   parseLocalDateEnd,
 } from "@/lib/dateUtils";
-import { energyApi, isEnergyApiAvailable } from "@/services/energy";
+// energyApi imports removed as they are no longer used for report generation
+// import { energyApi, isEnergyApiAvailable } from "@/services/energy";
 import {
   BarChart,
   Bar,
@@ -222,9 +223,9 @@ export default function Reports() {
     const breakdownTotal = isSingleAppliance
       ? totalEnergyKwh
       : filteredRows.reduce(
-          (sum, row) => sum + computeEnergyKwh(row.aggregate),
-          0,
-        );
+        (sum, row) => sum + computeEnergyKwh(row.aggregate),
+        0,
+      );
 
     // Calculate breakdown with confidence and hours on
     const applianceBreakdown = applianceEnergy.map((app) => {
@@ -308,30 +309,10 @@ export default function Reports() {
     setIsGenerating(true);
     setReportError(null);
 
-    // In API mode, attempt backend fetch
-    if (mode === "api" && isEnergyApiAvailable()) {
-      try {
-        const response = await energyApi.generateReport({
-          building: selectedBuilding,
-          appliance:
-            selectedAppliance !== "All" ? selectedAppliance : undefined,
-          startDate: dateRange.start.toISOString(),
-          endDate: dateRange.end.toISOString(),
-          format: "json",
-        });
+    // NOTE: Backend API generation is not currently supported by spec.
+    // We rely on client-side generation from the fetched rows.
 
-        // If API returns data, transform and use it
-        if (response.data) {
-          // Transform API response to ReportData shape
-          // For now, we generate from local data as the API shape may differ
-          void response; // API response available for future use
-        }
-      } catch {
-        // API report generation failed, fall back to demo data
-      }
-    }
-
-    // Generate from local data (demo fallback or demo mode)
+    // Generate from local data (uses cached context data)
     setTimeout(() => {
       try {
         const report = generateReportFromData();

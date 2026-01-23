@@ -22,7 +22,7 @@ from app.core.config import get_settings, validate_production_settings
 from app.core.errors import AppError, ErrorCode, error_response
 from app.core.logging import get_logger, request_id_ctx, setup_logging
 from app.domain.inference import init_model_registry
-from app.infra.influx import close_influx_client, init_influx_client
+from app.infra.influx import close_influx_client, get_influx_client, init_influx_client
 from app.infra.redis import close_redis_cache, init_redis_cache
 from app.infra.supabase import init_supabase_client
 

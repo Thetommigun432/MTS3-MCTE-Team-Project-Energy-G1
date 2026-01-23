@@ -98,8 +98,8 @@ export function PageFilters({
                 </SelectTrigger>
                 <SelectContent>
                   {buildings.map((building) => (
-                    <SelectItem key={building} value={building}>
-                      {building}
+                    <SelectItem key={building.id} value={building.id}>
+                      {building.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -19,6 +19,15 @@ interface Profile {
   role: "admin" | "user" | "member" | "viewer" | null;
 }
 
+// Type for User Agent Client Hints API (not in all TypeScript libs)
+interface UADataBrand {
+  brand: string;
+  version: string;
+}
+interface UADataValues {
+  brands?: UADataBrand[];
+}
+
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
@@ -85,7 +94,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (!error && data) {
-      setProfile(data);
+      setProfile({
+        id: data.id,
+        email: data.email,
+        display_name: data.display_name,
+        avatar_url: data.avatar_url,
+        role: (data as { role?: Profile["role"] }).role ?? null,
+      });
     }
   };
 
@@ -94,9 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabaseEnabled) return;
 
     try {
-      const uaBrands = (navigator as Navigator & { userAgentData?: NavigatorUAData })
+      const uaBrands = (navigator as Navigator & { userAgentData?: UADataValues })
         .userAgentData?.brands
-        ?.map((entry) => `${entry.brand}/${entry.version}`)
+        ?.map((entry: UADataBrand) => `${entry.brand}/${entry.version}`)
         .join(" ");
 
       await invokeFunction("log-login-event", {
@@ -117,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener FIRST
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 

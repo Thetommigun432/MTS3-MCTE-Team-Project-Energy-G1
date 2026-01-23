@@ -147,14 +147,16 @@ export default function UsersSettings() {
       if (!profilesData || profilesData.length === 0) {
         // If no profiles found, at least show current user
         if (user && profile) {
+          // Use type assertion since profile may have additional fields from DB
+          const p = profile as { display_name?: string | null; full_name?: string | null; role?: string | null; avatar_url?: string | null };
           setTeamMembers([
             {
               id: user.id,
               email: user.email || "Unknown",
-              display_name: profile.display_name || profile.full_name || user.email?.split("@")[0] || "User",
-              role: (profile.role as Role) || "member",
+              display_name: p.display_name || p.full_name || user.email?.split("@")[0] || "User",
+              role: ((p.role || "member") as Role),
               status: "active" as Status,
-              avatar_url: profile.avatar_url,
+              avatar_url: p.avatar_url ?? null,
             },
           ]);
         } else {
@@ -163,31 +165,37 @@ export default function UsersSettings() {
         return;
       }
 
-      const members: TeamMember[] = profilesData.map((p) => ({
-        id: p.id,
-        email: p.email || p.username || "Unknown",
-        display_name: p.display_name || p.full_name || p.username || "User",
-        role: (p.role || "member") as Role,
-        status: "active" as Status,
-        avatar_url: p.avatar_url,
-      }));
+      // Type assertion for profile data since DB may have additional fields
+      const members: TeamMember[] = profilesData.map((p) => {
+        const profile = p as typeof p & { full_name?: string; username?: string; role?: string };
+        return {
+          id: profile.id,
+          email: profile.email || profile.username || "Unknown",
+          display_name: profile.display_name || profile.full_name || profile.username || "User",
+          role: ((profile.role || "member") as Role),
+          status: "active" as Status,
+          avatar_url: profile.avatar_url,
+        };
+      });
 
       setTeamMembers(members);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load team members";
       console.error("[Users] Error fetching team members:", errorMessage, err);
       setError(errorMessage);
-      
+
       // Fallback to current user if fetch fails
       if (user && profile) {
+        // Use type assertion since profile may have additional fields from DB
+        const p = profile as { display_name?: string | null; full_name?: string | null; role?: string | null; avatar_url?: string | null };
         setTeamMembers([
           {
             id: user.id,
             email: user.email || "Unknown",
-            display_name: profile.display_name || profile.full_name || user.email?.split("@")[0] || "User",
-            role: (profile.role as Role) || "member",
+            display_name: p.display_name || p.full_name || user.email?.split("@")[0] || "User",
+            role: ((p.role || "member") as Role),
             status: "active",
-            avatar_url: profile.avatar_url,
+            avatar_url: p.avatar_url ?? null,
           },
         ]);
         // Clear error since we have fallback data
@@ -206,15 +214,17 @@ export default function UsersSettings() {
   // Create a new organization for the user
   const handleCreateOrganization = async () => {
     if (!user) return;
-    
+
     setIsSubmitting(true);
     try {
       // Create organization
-      const orgName = profile?.display_name 
-        ? `${profile.display_name}'s Organization` 
+      const orgName = profile?.display_name
+        ? `${profile.display_name}'s Organization`
         : `${user.email?.split('@')[0]}'s Organization`;
-      
-      const { data: newOrg, error: orgError } = await supabase
+
+      // Cast to any because organizations table exists in DB but not in generated types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: newOrg, error: orgError } = await (supabase as any)
         .from("organizations")
         .insert({
           name: orgName,
@@ -229,7 +239,9 @@ export default function UsersSettings() {
       }
 
       // Add user as admin of the new org
-      const { error: memberError } = await supabase
+      // Cast to any because org_members table exists in DB but not in generated types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: memberError } = await (supabase as any)
         .from("org_members")
         .insert({
           org_id: newOrg.id,
@@ -368,8 +380,9 @@ export default function UsersSettings() {
     setIsSubmitting(true);
 
     try {
-      // Update role in database via RLS-protected update
-      const { error: updateError } = await supabase
+      // Cast to any because org_members table exists in DB but not in generated types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: updateError } = await (supabase as any)
         .from("org_members")
         .update({ role: newRole })
         .eq("org_id", activeOrgId)
@@ -414,8 +427,9 @@ export default function UsersSettings() {
     setIsSubmitting(true);
 
     try {
-      // Delete membership from database via RLS-protected delete
-      const { error: deleteError } = await supabase
+      // Cast to any because org_members table exists in DB but not in generated types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: deleteError } = await (supabase as any)
         .from("org_members")
         .delete()
         .eq("org_id", activeOrgId)
@@ -613,8 +627,8 @@ export default function UsersSettings() {
                 </Button>
               )
             ) : (
-              <Button 
-                onClick={handleCreateOrganization} 
+              <Button
+                onClick={handleCreateOrganization}
                 className="mt-2"
                 disabled={isSubmitting}
               >

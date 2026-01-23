@@ -27,8 +27,7 @@ import {
   ManagedAppliance,
 } from "@/hooks/useManagedAppliances";
 import { useBuildings } from "@/hooks/useBuildings";
-import { isEnergyApiAvailable } from "@/services/energy";
-import { edgeFunctions } from "@/lib/supabaseHelpers";
+import { energyApi, isEnergyApiAvailable, ReadingDataPoint } from "@/services/energy";
 import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -155,35 +154,51 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     [mode],
   );
 
-  // Fetch readings from Supabase edge function
+  // Fetch readings from unified backend API
   const fetchApiReadings = useCallback(async () => {
     if (!isAuthenticated || !selectedBuildingId) {
       return [];
     }
 
     try {
-      const { data, error } = await edgeFunctions.getReadings({
+      // Use the unified backend API instead of Edge Functions
+      const response = await energyApi.getReadings({
         building_id: selectedBuildingId,
-        start_date: startOfDayLocal(
+        start: startOfDayLocal(
           new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         ).toISOString(),
-        end_date: endOfDayLocal(new Date()).toISOString(),
+        end: endOfDayLocal(new Date()).toISOString(),
+        resolution: "15m" // Request downsampled data for performance
       });
 
-      if (error || !data) {
-        throw new Error(error?.message || "Failed to fetch readings");
+      if (!response.data) {
+        throw new Error("Failed to fetch readings: No data in response");
       }
 
-      // Transform to NilmDataRow format
-      const transformed: NilmDataRow[] = data.readings.map((r) => ({
-        time: new Date(r.ts),
-        aggregate: r.aggregate_kw,
-        appliances: r.appliance_estimates,
-        confidence: r.confidence
-          ? Object.values(r.confidence).reduce((a, b) => a + b, 0) /
-          Object.values(r.confidence).length
-          : 0,
-      }));
+      // Transform Backend API response (ReadingDataPoint[]) to NilmDataRow format
+      // Access response.data because response is ReadingsResponse (which has .data field)
+      // api.ts already unwraps the fetch response body.
+      const transformed: NilmDataRow[] = response.data.map((r: ReadingDataPoint) => {
+        // Backend returns "value", we map to "aggregate"
+        // Backend returns additional fields, we check for appliance breakdowns if available
+        // Note: The backend /readings endpoint currently returns aggregate data.
+        // If appliance breakdowns are needed, we might need to fetch predictions or 
+        // rely on the backend to provide disaggregated data in the same call.
+        // For now, we map the aggregate value.
+
+        // Use type assertion for flexible data handling from backend
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const anyRecord = r as any;
+
+        return {
+          time: new Date(r.time),
+          aggregate: r.value,
+          // If the API returns appliance estimates in the extra fields, use them
+          // Otherwise default to empty structure (will be filled by predictions if fetched separately)
+          appliances: anyRecord.appliances || {},
+          confidence: anyRecord.confidence || 0,
+        };
+      });
 
       return transformed.sort((a, b) => a.time.getTime() - b.time.getTime());
     } catch (err) {

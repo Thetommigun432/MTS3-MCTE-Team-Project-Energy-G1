@@ -135,7 +135,7 @@ export default function Buildings() {
       setLoading(true);
 
       // In demo mode, show demo building from context
-      if (mode === "demo" || mode === "local") {
+      if (mode === "demo") {
         const demoBuildings = contextBuildings.map(b => ({
           id: b.id,
           name: b.name,
@@ -176,13 +176,13 @@ export default function Buildings() {
   const fetchAppliances = async (buildingId: string) => {
     try {
       // In demo mode, show demo appliances from context
-      if (mode === "demo" || mode === "local") {
+      if (mode === "demo") {
         const demoAppliances = contextAppliances.map((name, index) => ({
           id: `demo-appliance-${index}`,
           building_id: buildingId,
           name: name,
           type: "other",
-          rated_power_kw: null,
+          rated_power_kw: null as number | null,
           status: "active",
           notes: "From training dataset",
           created_at: "2024-10-20T00:00:00Z",
@@ -529,7 +529,7 @@ export default function Buildings() {
           <h1 className="text-2xl font-bold text-foreground">Buildings</h1>
           <p className="text-muted-foreground mt-1">
             Manage buildings and their appliances
-            {(mode === "demo" || mode === "local") && (
+            {mode === "demo" && (
               <span className="text-blue-600 dark:text-blue-400">
                 {" "}• Viewing demo building
               </span>
@@ -550,21 +550,21 @@ export default function Buildings() {
                 Add Building
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Building</DialogTitle>
-              <DialogDescription>
-                Add a new building to monitor energy consumption.
-              </DialogDescription>
-            </DialogHeader>
-            <BuildingFormFields form={buildingForm} setForm={setBuildingForm} />
-            <DialogFooter>
-              <Button onClick={handleAddBuilding} disabled={saving}>
-                {saving ? "Saving..." : "Add Building"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Building</DialogTitle>
+                <DialogDescription>
+                  Add a new building to monitor energy consumption.
+                </DialogDescription>
+              </DialogHeader>
+              <BuildingFormFields form={buildingForm} setForm={setBuildingForm} />
+              <DialogFooter>
+                <Button onClick={handleAddBuilding} disabled={saving}>
+                  {saving ? "Saving..." : "Add Building"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 

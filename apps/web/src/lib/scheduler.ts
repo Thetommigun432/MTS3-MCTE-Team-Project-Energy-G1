@@ -2,18 +2,30 @@ type IdleHandle = number;
 
 // schedule a callback during idle time with a timeout fallback
 export function scheduleIdle(fn: () => void, fallbackDelay = 1): IdleHandle {
-  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-    // requestIdleCallback is not universally available; cast to access when present
-    return (window as Window & { requestIdleCallback?: (cb: IdleRequestCallback) => IdleHandle }).requestIdleCallback?.(fn) ?? window.setTimeout(fn, fallbackDelay);
+  if (typeof window === "undefined") {
+    // Non-browser environment - return a dummy handle
+    return 0 as IdleHandle;
   }
-  return window.setTimeout(fn, fallbackDelay);
+  const win = window as Window & typeof globalThis & {
+    requestIdleCallback?: (cb: IdleRequestCallback) => IdleHandle
+  };
+  if (win.requestIdleCallback) {
+    return win.requestIdleCallback(fn);
+  }
+  return win.setTimeout(fn, fallbackDelay);
 }
 
 // cancel a scheduled idle callback or timeout
 scheduleIdle.cancel = function cancel(handle: IdleHandle) {
-  if (typeof window !== "undefined" && "cancelIdleCallback" in window) {
-    (window as Window & { cancelIdleCallback?: (handle: IdleHandle) => void }).cancelIdleCallback?.(handle);
+  if (typeof window === "undefined") {
+    return;
+  }
+  const win = window as Window & typeof globalThis & {
+    cancelIdleCallback?: (handle: IdleHandle) => void
+  };
+  if (win.cancelIdleCallback) {
+    win.cancelIdleCallback(handle);
   } else {
-    clearTimeout(handle);
+    win.clearTimeout(handle);
   }
 };

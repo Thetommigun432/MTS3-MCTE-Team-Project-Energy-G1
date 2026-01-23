@@ -56,7 +56,7 @@ function readEnv(): AppEnv {
     env,
     "VITE_BACKEND_URL",
     "VITE_API_BASE_URL"
-  ) || (import.meta.env.DEV ? "http://localhost:8000" : "");
+  ) || (import.meta.env.DEV ? "/api" : "");
 
   const demoMode = env.VITE_DEMO_MODE === "true";
   const localMode = env.VITE_LOCAL_MODE === "true";

@@ -108,6 +108,28 @@ export interface EnergyReading {
   status: "on" | "off";
 }
 
+export interface ReportRequest {
+  start: string;
+  end: string;
+  building_id: string;
+}
+
+export interface ReportResponse {
+  url: string;
+  generated_at: string;
+}
+
+export interface EnergyInsight {
+  type: "anomaly" | "trend" | "saving_opportunity";
+  description: string;
+  confidence: number;
+}
+
+export interface EnergyDataResponse {
+  readings: EnergyReading[];
+  insights: EnergyInsight[];
+}
+
 // ============================================================================
 // Energy API
 // ============================================================================
@@ -121,14 +143,16 @@ export const energyApi = {
    * Endpoint: GET /analytics/readings
    */
   getReadings: (params: AnalyticsParams) =>
-    api.get<ReadingsResponse>("/analytics/readings", { params }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    api.get<ReadingsResponse>("/analytics/readings", { params: params as any }),
 
   /**
    * Fetch predictions from InfluxDB
    * Endpoint: GET /analytics/predictions
    */
   getPredictions: (params: AnalyticsParams) =>
-    api.get<PredictionsResponse>("/analytics/predictions", { params }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    api.get<PredictionsResponse>("/analytics/predictions", { params: params as any }),
 
   /**
    * Run inference on a power window and persist the prediction
@@ -157,7 +181,7 @@ export const energyApi = {
    * Get available appliances for a building (from Supabase via frontend logic)
    * Note: This should query Supabase directly, not via backend
    */
-  getAppliances: (building?: string) => {
+  getAppliances: (_building?: string) => {
     // TODO: Implement Supabase query for appliances
     // For now, return empty array to prevent breaking existing code
     return Promise.resolve([]);

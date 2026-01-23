@@ -30,7 +30,11 @@
       "Bash(npm install:*)",
       "Bash(ls:*)",
       "Bash(test:*)",
-      "Bash(npx wrangler --version)"
+      "Bash(npx wrangler --version)",
+      "Bash(npm audit:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npm update:*)",
+      "Bash(npm test:*)"
     ]
   }
 }

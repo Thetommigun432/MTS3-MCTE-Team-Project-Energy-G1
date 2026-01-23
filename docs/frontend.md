@@ -1,171 +1,107 @@
-# NILM Energy Monitor - Frontend
+# Frontend Documentation (`apps/web`)
 
-React/TypeScript dashboard for Non-Intrusive Load Monitoring (NILM) energy disaggregation.
+## 1. Overview
+The Frontend is a **React 19** Single Page Application (SPA) built with **Vite 7**. It serves as the primary user interface for the NILM Energy Monitor, visualizing real-time energy data and disaggregated appliance usage.
 
-## Features
+- **URL**: `http://localhost:8080` (Dev), Production URL via Cloudflare.
+- **Key Features**: Real-time charts, Supabase Auth integration, Demo mode, Dark/Light theme.
 
-- **Appliance Detection**: See which appliances are currently ON based on total building consumption
-- **Energy Disaggregation**: View predicted kW breakdown across ~15 appliances
-- **Data Modes**:
-  - **Demo Mode**: Uses bundled CSV training data for testing
-  - **API Mode**: Live predictions from Supabase backend
-  - **Local Mode**: Predictions from local InfluxDB (for development)
+## 2. Technology Stack
+- **Core**: React 19, TypeScript 5.9
+- **Build**: Vite 7 (ESBuild)
+- **Styling**: Tailwind CSS v3, `shadcn/ui` (Radix Primitives + `class-variance-authority`)
+- **State Management**: React Context (`AuthContext`, `EnergyContext`)
+- **Data Visualization**: Recharts (ResponsiveContainer, AreaChart, BarChart)
+- **Protocol**: REST API (via Axios) + Supabase Client
 
-## Tech Stack
-
-- **Vite 7** - Build tool and dev server
-- **React 19** - UI framework
-- **TypeScript 5.9** - Type safety
-- **shadcn/ui** - Component library (Radix + Tailwind)
-- **Recharts** - Data visualization
-- **Supabase** - Auth and database (production)
-- **InfluxDB** - Time-series storage (local dev)
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+ with npm
-- Docker (for local InfluxDB mode)
-
-### Installation
-
-```bash
-cd apps/web
-npm install
-```
-
-### Environment Setup
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-cp .env.example .env
-```
-
-**Required variables for production:**
-
-```env
-VITE_SUPABASE_PROJECT_ID="your-project-id"
-VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key"
-VITE_SUPABASE_URL="https://your-project.supabase.co"
-```
-
-**For local development with InfluxDB:**
-
-```env
-VITE_LOCAL_MODE="true"
-VITE_LOCAL_API_URL="http://localhost:3001"
-```
-
----
-
-## Development
-
-### Standard Dev (Demo/API Mode)
-
-```bash
-npm run dev
-```
-
-Opens at http://localhost:8080
-
-### Local InfluxDB Mode
-
-```bash
-# 1. Start InfluxDB (from repo root)
-docker compose up -d
-
-# 2. Seed predictions
-npm run predictions:seed
-
-# 3. Start frontend dev server
-cd apps/web
-npm run dev
-```
-
-Access:
-
-- **Dashboard**: http://localhost:8080
-- **Backend API**: http://localhost:8000 (or via proxy at /api)
-- **InfluxDB UI**: http://localhost:8086 (admin / admin12345)
-
-### Verify Local Data
-
-```bash
-npm run predictions:verify
-```
-
----
-
-## Available Scripts
-
-| Script                       | Description                       |
-| ---------------------------- | --------------------------------- |
-| `npm run dev`                | Start Vite dev server             |
-| `npm run build`              | Production build                  |
-| `npm run preview`            | Preview production build          |
-| `npm run lint`               | ESLint check                      |
-| `npm run typecheck`          | TypeScript type check             |
-| `npm run format`             | Format with Prettier              |
-| `npm run format:check`       | Check formatting                  |
-| `npm run predictions:seed`   | Seed InfluxDB with predictions    |
-| `npm run predictions:verify` | Verify InfluxDB data              |
-
----
-
-## Project Structure
+## 3. Architecture & Directory Structure
 
 ```
-src/
-├── components/         # UI components
-│   ├── ui/            # shadcn/ui primitives
-│   ├── nilm/          # NILM-specific components
-│   ├── layout/        # Navigation, sidebar
-│   └── brand/         # Logo, illustrations
-├── contexts/          # React contexts (Auth, Energy, Theme)
-├── hooks/             # Custom hooks
-├── pages/             # Route pages
-│   ├── app/           # Protected app pages
-│   └── auth/          # Auth flow pages
-├── services/          # API service layer
-├── types/             # TypeScript types
-└── lib/               # Utilities
+apps/web/src/
+├── components/
+│   ├── auth/          # ProtectedRoute, AuthGuard components
+│   ├── brand/         # Logos and branding assets
+│   ├── layout/        # LayoutShell, Sidebar, Navbar
+│   ├── nilm/          # Domain visualizations (RealtimeChart, ApplianceList)
+│   └── ui/            # Reusable primitives (Buttons, Cards, Inputs)
+├── contexts/
+│   ├── AuthContext.tsx    # Supabase Session, User, Login/Logout methods
+│   ├── EnergyContext.tsx  # Global energy data, selected building, date range
+│   └── ThemeContext.tsx   # Color theme management
+├── hooks/
+│   ├── useAuth.ts            # Consumes AuthContext
+│   ├── useBuildings.ts       # Fetches user's buildings
+│   ├── useEnergyData.ts      # Fetches readings/predictions
+│   └── useManagedAppliances.ts # Managed appliance state
+├── pages/
+│   ├── app/           # Authenticated routes (Dashboard, Settings)
+│   └── auth/          # Public auth routes (Login, Signup, Verify)
+├── services/
+│   ├── api.ts         # Base Axios instance with Interceptors
+│   └── energy.ts      # Typed API methods (getReadings, getPredictions)
+└── lib/               # Utilities (Dates, Formatters, Env validation)
 ```
 
----
+## 4. State Management Strategy
 
-## Demo Mode
+### AuthContext
+- **Source of Truth**: Supabase `onAuthStateChange` listener.
+- **Behavior**:
+  - Initializes session on mount.
+  - Provides `user`, `session`, `signIn`, `signOut`.
+  - Redirects to `/login` if unauthenticated (via ProtectedRoute).
 
-For presentations, enable demo mode:
+### EnergyContext
+- **Scope**: Data necessary for the NILM dashboard.
+- **State**:
+  - `dateRange`: { start, end }
+  - `selectedBuilding`: Current building ID.
+  - `readings`: Aggregated power data.
+  - `predictions`: Disaggregated appliance data.
+- **Actions**: `refresh()`, `setBuilding()`.
 
-```env
-VITE_DEMO_MODE="true"
+## 5. Environment & Configuration
+
+Environment variables are typed and validated in `src/lib/env.ts`.
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_SUPABASE_URL` | Supabase Project URL. |
+| `VITE_SUPABASE_ANON_KEY` | Public API Key. |
+| `VITE_BACKEND_URL` | Production Backend URL. In Dev, this is empty (proxy used). |
+| `VITE_DEMO_MODE` | `true` bypasses Auth and uses static CSV data. |
+| `VITE_LOCAL_MODE` | *(Deprecated)* Use local InfluxDB directly. |
+
+## 6. Development Workflow
+
+### Proxy Configuration
+In `vite.config.ts`, requests to `/api/*` are proxied to `http://localhost:8000`.
+This avoids CORS issues during local development.
+
+```typescript
+// vite.config.ts
+proxy: {
+  '/api': {
+    target: 'http://localhost:8000',
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/api/, '')
+  }
+}
 ```
 
-Demo credentials:
+### Scripts
+- `npm run dev`: Start dev server (Port 8080).
+- `npm run build`: Production build (Output: `dist/`).
+- `npm run typecheck`: Run `tsc --noEmit`.
+- `npm run test`: Run Vitest suite.
 
-- **Email**: admin@demo.local
-- **Password**: admin123
+## 7. Authentication Flow
+1.  **Login**: User submits credentials to Supabase via `AuthContext`.
+2.  **Session**: Supabase returns a `session` object containing a JWT (`access_token`).
+3.  **API Requests**: `services/api.ts` interceptor attaches `Authorization: Bearer <token>` to every request.
+4.  **Expiry**: Supabase client auto-refreshes the token.
 
----
-
-## Building for Production
-
-```bash
-npm run build
-```
-
-Output is in `dist/`. Deploy to any static host (Azure Static Web Apps, Vercel, Netlify).
-
-For Azure Static Web Apps, see [Archive](../_archive/web-deployment-steps.md).
-
----
-
-## Documentation
-
-- [Local Development Guide](getting-started.md) - Full local setup with InfluxDB
-- [Security Notes](operations/security.md) - Auth and API security
-- [Supabase Setup](supabase.md) - Backend configuration
+## 8. Deployment (Cloudflare Pages)
+- **Build Command**: `npm ci && npm run build`
+- **Output Directory**: `dist`
+- **Routing**: SPA routing is handled by `public/_redirects` file containing `/* /index.html 200`.

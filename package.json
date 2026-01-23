@@ -18,7 +18,8 @@
     "predictions:verify": "tsx scripts/verify-influx.ts"
   },
   "workspaces": [
-    "apps/web"
+    "apps/web",
+    "apps/backend"
   ],
   "devDependencies": {
     "@influxdata/influxdb-client": "^1.35.0",

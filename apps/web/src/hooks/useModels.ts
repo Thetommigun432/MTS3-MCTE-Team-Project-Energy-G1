@@ -119,11 +119,11 @@ export function useModels(buildingId?: string | null): UseModelsResult {
           .map((v) => ({
             id: v.id,
             version: v.version,
-            status: v.status,
+            status: v.status as ModelVersion["status"],
             is_active: v.is_active,
             trained_at: v.trained_at,
-            metrics: v.metrics,
-            training_config: v.training_config,
+            metrics: v.metrics as Record<string, number> | null,
+            training_config: v.training_config as Record<string, unknown> | null,
             created_at: v.created_at,
           }))
           .sort(
@@ -212,8 +212,8 @@ export function useModels(buildingId?: string | null): UseModelsResult {
         if (uploadError || !uploadData?.success) {
           toast.error(
             uploadError?.message ||
-              uploadData?.message ||
-              "Failed to create upload",
+            uploadData?.message ||
+            "Failed to create upload",
           );
           return false;
         }
