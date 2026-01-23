@@ -1,34 +1,16 @@
 {
-  "name": "nilm-energy-monitor",
-  "version": "1.0.0",
+  "name": "nilm-monorepo",
   "private": true,
-  "description": "NILM Energy Monitor - Energy disaggregation with deep learning",
-  "scripts": {
-    "dev": "npm run dev --workspace=apps/web",
-    "build": "npm run build --workspace=apps/web && npm run postbuild",
-    "postbuild": "node -e \"const fs=require('fs');const src='apps/web/dist';const dst='dist';if(fs.existsSync(dst))fs.rmSync(dst,{recursive:true});fs.cpSync(src,dst,{recursive:true});console.log('Copied',src,'to',dst)\"",
-    "preview": "npm run preview --workspace=apps/web",
-    "lint": "npm run lint --workspace=apps/web",
-    "typecheck": "npm run typecheck --workspace=apps/web",
-    "format": "npm run format --workspace=apps/web",
-    "format:check": "npm run format:check --workspace=apps/web",
-    "test": "npm run test --workspace=apps/web",
-    "test:watch": "npm run test:watch --workspace=apps/web",
-    "predictions:seed": "tsx scripts/write-to-influx.ts",
-    "predictions:verify": "tsx scripts/verify-influx.ts"
-  },
   "workspaces": [
-    "apps/web",
-    "apps/backend"
+    "apps/web"
   ],
-  "devDependencies": {
-    "@influxdata/influxdb-client": "^1.35.0",
-    "dotenv": "^17.2.3",
-    "papaparse": "^5.5.3",
-    "tsx": "^4.21.0"
-  },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.11.0"
   },
-  "packageManager": "npm@10.9.2"
+  "scripts": {
+    "build:web": "npm --workspace apps/web run build",
+    "test:web": "npm --workspace apps/web run test",
+    "typecheck:web": "npm --workspace apps/web run typecheck",
+    "lint:web": "npm --workspace apps/web run lint"
+  }
 }
