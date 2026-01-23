@@ -5,7 +5,8 @@
   "description": "NILM Energy Monitor - Energy disaggregation with deep learning",
   "scripts": {
     "dev": "npm run dev --workspace=apps/web",
-    "build": "npm run build --workspace=apps/web",
+    "build": "npm run build --workspace=apps/web && npm run postbuild",
+    "postbuild": "node -e \"const fs=require('fs');const src='apps/web/dist';const dst='dist';if(fs.existsSync(dst))fs.rmSync(dst,{recursive:true});fs.cpSync(src,dst,{recursive:true});console.log('Copied',src,'to',dst)\"",
     "preview": "npm run preview --workspace=apps/web",
     "lint": "npm run lint --workspace=apps/web",
     "typecheck": "npm run typecheck --workspace=apps/web",
@@ -21,7 +22,6 @@
   ],
   "devDependencies": {
     "@influxdata/influxdb-client": "^1.35.0",
-    "@types/papaparse": "^5.5.2",
     "dotenv": "^17.2.3",
     "papaparse": "^5.5.3",
     "tsx": "^4.21.0"
