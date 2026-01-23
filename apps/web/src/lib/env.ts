@@ -69,9 +69,19 @@ function readEnv(): AppEnv {
     const missing: string[] = [];
     if (!supabaseUrl) missing.push("VITE_SUPABASE_URL");
     if (!supabaseAnonKey) missing.push("VITE_SUPABASE_ANON_KEY");
-    const message = `Missing required environment variables: ${missing.join(", ")}. Set VITE_DEMO_MODE=true or VITE_LOCAL_MODE=true to run without Supabase.`;
-    console.error(message);
-    throw new Error(message);
+
+    console.warn(
+      `Missing required environment variables: ${missing.join(", ")}. Defaulting to DEMO MODE to prevent crash.`
+    );
+    // Fallback to demo mode to ensure UI renders
+    return {
+      supabaseUrl: "https://placeholder.supabase.co",
+      supabaseAnonKey: "placeholder-key",
+      backendBaseUrl,
+      demoMode: true,
+      localMode,
+      supabaseEnabled: false,
+    };
   }
 
   return {

@@ -6,7 +6,6 @@
 import { getEnv } from "@/lib/env";
 import { supabase } from "@/integrations/supabase/client";
 
-const { backendBaseUrl: API_BASE_URL } = getEnv();
 
 export class ApiError extends Error {
   constructor(
@@ -31,6 +30,8 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
  * Handles both absolute URLs and relative paths (e.g. /api proxy)
  */
 function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
+  const { backendBaseUrl: API_BASE_URL } = getEnv();
+
   if (!API_BASE_URL) {
     throw new ApiError("API base URL is not configured", 0);
   }
@@ -198,12 +199,12 @@ export const api = {
  * Check if API is configured
  */
 export function isApiConfigured(): boolean {
-  return Boolean(API_BASE_URL);
+  return Boolean(getEnv().backendBaseUrl);
 }
 
 /**
  * Get the configured API base URL
  */
 export function getApiBaseUrl(): string {
-  return API_BASE_URL;
+  return getEnv().backendBaseUrl;
 }
