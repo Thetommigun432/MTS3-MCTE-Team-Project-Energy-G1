@@ -67,15 +67,24 @@ interface Building {
 }
 
 interface Appliance {
-  id: string;
+  id: string; // building_appliance_id
   building_id: string;
+  org_appliance_id: string;
   name: string;
   type: string;
   rated_power_kw: number | null;
-  status: string;
-  notes: string | null;
+  status: string; // derived from is_enabled
+  notes: string | null; // not in schema but kept for interface/state compat if needed
   created_at: string;
   updated_at: string;
+}
+
+interface OrgAppliance {
+  id: string;
+  name: string;
+  type: string;
+  rated_power_kw: number | null;
+  slug: string;
 }
 
 const APPLIANCE_TYPES = [
@@ -95,6 +104,7 @@ export default function Buildings() {
   const { mode, buildings: contextBuildings, appliances: contextAppliances } = useEnergy();
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [appliances, setAppliances] = useState<Record<string, Appliance[]>>({});
+  const [orgAppliances, setOrgAppliances] = useState<OrgAppliance[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(
     new Set(),
@@ -121,14 +131,33 @@ export default function Buildings() {
     null,
   );
   const [applianceForm, setApplianceForm] = useState({
-    name: "",
-    type: "other",
-    rated_power_kw: "",
-    status: "active" as "active" | "inactive" | "unknown",
-    notes: "",
+    org_appliance_id: "",
+    status: "active" as "active" | "inactive",
   });
 
   const [saving, setSaving] = useState(false);
+
+  // Fetch available organization appliances
+  const fetchOrgAppliances = useCallback(async () => {
+    if (!user || mode === "demo") return;
+    try {
+      // Cast supabase to any because org_appliances might be missing/mismatched in types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from("org_appliances")
+        .select("*")
+        .order("name");
+
+      if (error) throw error;
+      setOrgAppliances(data || []);
+    } catch (error) {
+      console.error("Error fetching org appliances:", error);
+    }
+  }, [user, mode]);
+
+  useEffect(() => {
+    fetchOrgAppliances();
+  }, [fetchOrgAppliances]);
 
   const fetchBuildings = useCallback(async () => {
     try {
@@ -180,6 +209,7 @@ export default function Buildings() {
         const demoAppliances = contextAppliances.map((name, index) => ({
           id: `demo-appliance-${index}`,
           building_id: buildingId,
+          org_appliance_id: `demo-org-app-${index}`,
           name: name,
           type: "other",
           rated_power_kw: null as number | null,
@@ -192,15 +222,44 @@ export default function Buildings() {
         return;
       }
 
-      // In API mode, fetch from Supabase
+      // In API mode, fetch from Supabase using new schema
+      // Join building_appliances with org_appliances
       const { data, error } = await supabase
-        .from("appliances")
-        .select("*")
+        .from("building_appliances")
+        .select(`
+          id,
+          building_id,
+          is_enabled,
+          created_at,
+          updated_at,
+          org_appliances!inner (
+            id,
+            name,
+            type,
+            rated_power_kw
+          )
+        `)
         .eq("building_id", buildingId)
-        .order("name");
+        .eq("is_enabled", true);
 
       if (error) throw error;
-      setAppliances((prev) => ({ ...prev, [buildingId]: data || [] }));
+
+      // Transform result
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transformed: Appliance[] = (data || []).map((item: any) => ({
+        id: item.id,
+        building_id: item.building_id,
+        org_appliance_id: item.org_appliances?.id,
+        name: item.org_appliances?.name || "Unknown",
+        type: item.org_appliances?.type || "other",
+        rated_power_kw: item.org_appliances?.rated_power_kw,
+        status: item.is_enabled ? "active" : "inactive",
+        notes: null,
+        created_at: item.created_at,
+        updated_at: item.updated_at
+      })).sort((a, b) => a.name.localeCompare(b.name));
+
+      setAppliances((prev) => ({ ...prev, [buildingId]: transformed }));
     } catch (error) {
       console.error("Error fetching appliances:", error);
     }
@@ -351,42 +410,21 @@ export default function Buildings() {
     });
   };
 
-  // Appliance CRUD
+  // Appliance CRUD (Refactored to select from Org Appliances)
   const handleAddAppliance = async () => {
-    const trimmedName = applianceForm.name.trim();
-    const trimmedNotes = applianceForm.notes.trim();
-    const ratedPower = applianceForm.rated_power_kw
-      ? parseFloat(applianceForm.rated_power_kw)
-      : null;
-
-    // Client-side validation matching database constraints
-    if (!user || !selectedBuildingId || !trimmedName) {
-      toast.error("Appliance name is required");
-      return;
-    }
-    if (trimmedName.length > 200) {
-      toast.error("Appliance name must be 200 characters or less");
-      return;
-    }
-    if (trimmedNotes.length > 1000) {
-      toast.error("Notes must be 1000 characters or less");
-      return;
-    }
-    if (ratedPower !== null && (ratedPower <= 0 || ratedPower > 10000)) {
-      toast.error("Power rating must be between 0 and 10,000 kW");
+    if (!user || !selectedBuildingId || !applianceForm.org_appliance_id) {
+      toast.error("Please select an appliance");
       return;
     }
 
     try {
       setSaving(true);
-      const { error } = await supabase.from("appliances").insert({
-        user_id: user.id,
+      // Insert into building_appliances linking building and org_appliance
+      const { error } = await supabase.from("building_appliances").insert({
         building_id: selectedBuildingId,
-        name: trimmedName,
-        type: applianceForm.type,
-        rated_power_kw: ratedPower,
-        status: applianceForm.status,
-        notes: trimmedNotes || null,
+        org_appliance_id: applianceForm.org_appliance_id,
+        is_enabled: applianceForm.status === "active",
+        user_id: user.id,
       });
 
       if (error) throw error;
@@ -403,40 +441,15 @@ export default function Buildings() {
   };
 
   const handleEditAppliance = async () => {
-    const trimmedName = applianceForm.name.trim();
-    const trimmedNotes = applianceForm.notes.trim();
-    const ratedPower = applianceForm.rated_power_kw
-      ? parseFloat(applianceForm.rated_power_kw)
-      : null;
-
-    // Client-side validation matching database constraints
-    if (!editingAppliance || !trimmedName) {
-      toast.error("Appliance name is required");
-      return;
-    }
-    if (trimmedName.length > 200) {
-      toast.error("Appliance name must be 200 characters or less");
-      return;
-    }
-    if (trimmedNotes.length > 1000) {
-      toast.error("Notes must be 1000 characters or less");
-      return;
-    }
-    if (ratedPower !== null && (ratedPower <= 0 || ratedPower > 10000)) {
-      toast.error("Power rating must be between 0 and 10,000 kW");
-      return;
-    }
+    // Editing only allows changing enablement status now, since properties are on org_appliance
+    if (!editingAppliance) return;
 
     try {
       setSaving(true);
       const { error } = await supabase
-        .from("appliances")
+        .from("building_appliances")
         .update({
-          name: trimmedName,
-          type: applianceForm.type,
-          rated_power_kw: ratedPower,
-          status: applianceForm.status,
-          notes: trimmedNotes || null,
+          is_enabled: applianceForm.status === "active",
         })
         .eq("id", editingAppliance.id);
 
@@ -458,12 +471,13 @@ export default function Buildings() {
 
   const handleDeleteAppliance = async (appliance: Appliance) => {
     try {
+      // Deleting means hard delete from link table
       const { error } = await supabase
-        .from("appliances")
+        .from("building_appliances")
         .delete()
         .eq("id", appliance.id);
       if (error) throw error;
-      toast.success("Appliance deleted");
+      toast.success("Appliance removed");
       fetchAppliances(appliance.building_id);
     } catch (error) {
       console.error("Error deleting appliance:", error);
@@ -479,22 +493,16 @@ export default function Buildings() {
   const openEditApplianceDialog = (appliance: Appliance) => {
     setEditingAppliance(appliance);
     setApplianceForm({
-      name: appliance.name,
-      type: appliance.type,
-      rated_power_kw: appliance.rated_power_kw?.toString() || "",
-      status: appliance.status as "active" | "inactive" | "unknown",
-      notes: appliance.notes || "",
+      org_appliance_id: appliance.org_appliance_id,
+      status: appliance.status as "active" | "inactive",
     });
     setIsEditApplianceOpen(true);
   };
 
   const resetApplianceForm = () => {
     setApplianceForm({
-      name: "",
-      type: "other",
-      rated_power_kw: "",
+      org_appliance_id: "",
       status: "active",
-      notes: "",
     });
     setSelectedBuildingId(null);
   };
@@ -825,6 +833,8 @@ export default function Buildings() {
           <ApplianceFormFields
             form={applianceForm}
             setForm={setApplianceForm}
+            orgAppliances={orgAppliances}
+            mode="add"
           />
           <DialogFooter>
             <Button onClick={handleAddAppliance} disabled={saving}>
@@ -853,6 +863,8 @@ export default function Buildings() {
           <ApplianceFormFields
             form={applianceForm}
             setForm={setApplianceForm}
+            orgAppliances={orgAppliances}
+            mode="edit"
           />
           <DialogFooter>
             <Button onClick={handleEditAppliance} disabled={saving}>
@@ -932,65 +944,45 @@ function BuildingFormFields({
 function ApplianceFormFields({
   form,
   setForm,
+  orgAppliances,
+  mode,
 }: {
   form: {
-    name: string;
-    type: string;
-    rated_power_kw: string;
-    status: "active" | "inactive" | "unknown";
-    notes: string;
+    org_appliance_id: string;
+    status: "active" | "inactive";
   };
   setForm: React.Dispatch<React.SetStateAction<typeof form>>;
+  orgAppliances: OrgAppliance[];
+  mode: "add" | "edit";
 }) {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="appliance-name">Appliance Name *</Label>
-        <Input
-          id="appliance-name"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="e.g., Main HVAC Unit"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
+      {mode === "add" && (
         <div className="space-y-2">
-          <Label htmlFor="appliance-type">Type</Label>
+          <Label htmlFor="appliance-select">Select Appliance *</Label>
           <Select
-            value={form.type}
-            onValueChange={(value) => setForm({ ...form, type: value })}
+            value={form.org_appliance_id}
+            onValueChange={(value) => setForm({ ...form, org_appliance_id: value })}
           >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select an appliance type" />
             </SelectTrigger>
             <SelectContent>
-              {APPLIANCE_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
+              {orgAppliances.map((app) => (
+                <SelectItem key={app.id} value={app.id}>
+                  {app.name} ({app.type})
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="appliance-power">Rated Power (kW)</Label>
-          <Input
-            id="appliance-power"
-            type="number"
-            step="0.001"
-            value={form.rated_power_kw}
-            onChange={(e) =>
-              setForm({ ...form, rated_power_kw: e.target.value })
-            }
-            placeholder="e.g., 2.5"
-          />
-        </div>
-      </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="appliance-status">Status</Label>
         <Select
           value={form.status}
-          onValueChange={(value: "active" | "inactive" | "unknown") =>
+          onValueChange={(value: "active" | "inactive") =>
             setForm({ ...form, status: value })
           }
         >
@@ -1000,18 +992,8 @@ function ApplianceFormFields({
           <SelectContent>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="unknown">Unknown</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="appliance-notes">Notes</Label>
-        <Input
-          id="appliance-notes"
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          placeholder="Optional notes about this appliance"
-        />
       </div>
     </div>
   );

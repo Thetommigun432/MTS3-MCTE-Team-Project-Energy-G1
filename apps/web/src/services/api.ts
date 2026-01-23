@@ -4,6 +4,7 @@
  */
 
 import { getEnv } from "@/lib/env";
+import { supabase } from "@/integrations/supabase/client";
 
 const { backendBaseUrl: API_BASE_URL } = getEnv();
 
@@ -27,23 +28,41 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 
 /**
  * Build URL with query parameters
+ * Handles both absolute URLs and relative paths (e.g. /api proxy)
  */
 function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
   if (!API_BASE_URL) {
     throw new ApiError("API base URL is not configured", 0);
   }
 
-  const url = new URL(endpoint, API_BASE_URL);
+  let urlString: string;
 
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) {
-        url.searchParams.append(key, String(value));
-      }
-    });
+  // Handle relative base URLs (e.g. "/api" for proxying)
+  if (API_BASE_URL.startsWith("http")) {
+    const url = new URL(endpoint, API_BASE_URL);
+    urlString = url.toString();
+  } else {
+    // Clean up slashes for manual concatenation
+    const base = API_BASE_URL.replace(/\/$/, "");
+    const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    urlString = `${base}${path}`;
   }
 
-  return url.toString();
+  // Append query params manually since we might have a relative URL string
+  if (params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    const queryString = searchParams.toString();
+    if (queryString) {
+      urlString += (urlString.includes("?") ? "&" : "?") + queryString;
+    }
+  }
+
+  return urlString;
 }
 
 /**
@@ -71,21 +90,17 @@ async function request<T>(
     ...customHeaders,
   };
 
-  // Add auth token if available - dynamically construct key from Supabase URL
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (supabaseUrl) {
+  // Add auth token from Supabase session
+  if (import.meta.env.VITE_SUPABASE_URL) {
     try {
-      const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
-      const token = localStorage.getItem(`sb-${projectRef}-auth-token`);
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+
       if (token) {
-        const parsed = JSON.parse(token);
-        if (parsed?.access_token) {
-          (headers as Record<string, string>)["Authorization"] =
-            `Bearer ${parsed.access_token}`;
-        }
+        (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
       }
     } catch {
-      // Invalid URL or token format, skip
+      // Session fetch failed, skip auth header
     }
   }
 

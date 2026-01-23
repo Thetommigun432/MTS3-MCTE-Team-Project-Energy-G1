@@ -3,14 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface ManagedAppliance {
-  id: string;
+  id: string; // building_appliance_id
   building_id: string;
   building_name: string;
+  org_appliance_id: string;
   name: string;
   type: string;
   rated_power_kw: number | null;
-  status: string;
-  notes: string | null;
+  status: "active" | "inactive"; // derived from is_enabled
+  notes: null; // Schema doesn't have notes on building_appliances, keeping for interface compat if needed or null
 }
 
 export interface ManagedAppliancesData {
@@ -40,36 +41,38 @@ export function useManagedAppliances(): ManagedAppliancesData {
       setLoading(true);
       setError(null);
 
-      // Fetch appliances with their building names
+      // Fetch enabled appliances via building_appliances join
       const { data, error: fetchError } = await supabase
-        .from("appliances")
+        .from("building_appliances")
         .select(
           `
           id,
           building_id,
-          name,
-          type,
-          rated_power_kw,
-          status,
-          notes,
-          buildings!inner(name)
+          is_enabled,
+          buildings!inner(name),
+          org_appliances!inner(
+            id,
+            name,
+            type,
+            rated_power_kw
+          )
         `,
         )
-        .eq("status", "active")
-        .order("name");
+        .eq("is_enabled", true);
 
       if (fetchError) throw fetchError;
 
-      // Transform the data to flatten building name
+      // Transform the data
       const transformed: ManagedAppliance[] = (data || []).map((item) => ({
         id: item.id,
         building_id: item.building_id,
         building_name: item.buildings?.name || "Unknown Building",
-        name: item.name,
-        type: item.type,
-        rated_power_kw: item.rated_power_kw,
-        status: item.status,
-        notes: item.notes,
+        org_appliance_id: item.org_appliances?.id,
+        name: item.org_appliances?.name || "Unknown Appliance",
+        type: item.org_appliances?.type || "other",
+        rated_power_kw: item.org_appliances?.rated_power_kw,
+        status: item.is_enabled ? "active" : "inactive",
+        notes: null,
       }));
 
       setAppliances(transformed);

@@ -433,7 +433,7 @@ class InfluxClient:
 
         # Build wide point with all predictions as fields
         point = (
-            Point("predictions")  # Note: plural measurement for wide format
+            Point("prediction")  # Singular measurement name
             .tag("building_id", building_id)
             .tag("model_version", model_version)
             .field("user_id", user_id)

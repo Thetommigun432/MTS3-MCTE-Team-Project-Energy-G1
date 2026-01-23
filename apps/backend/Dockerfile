@@ -3,7 +3,7 @@
 # Production-ready Python 3.12 image with Railway support
 # =============================================================================
 
-FROM python:3.12-slim AS base
+FROM python:3.12-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
