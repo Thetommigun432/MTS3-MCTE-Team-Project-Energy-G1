@@ -564,6 +564,119 @@ class InfluxClient:
             details={"last_error": str(last_error) if last_error else None},
         )
 
+
+    async def get_unique_buildings(self) -> list[str]:
+        """
+        Get list of unique building IDs active in the last 30 days.
+
+        Returns:
+            List of building_id strings
+        """
+        settings = get_settings()
+        start = "-30d"
+
+        try:
+            if not self._client:
+                return []
+
+            # Use schema.tagValues for efficient tag discovery
+            # We look in both buckets to ensure we catch all
+            query = f'''
+            import "influxdata/influxdb/schema"
+            
+            // Union of both raw and pred buckets
+            union(tables: [
+                schema.tagValues(bucket: "{settings.influx_bucket_raw}", tag: "building_id", start: {start}),
+                schema.tagValues(bucket: "{settings.influx_bucket_pred}", tag: "building_id", start: {start})
+            ])
+            |> group()
+            |> distinct(column: "_value")
+            |> sort()
+            '''
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(query, org=settings.influx_org)
+
+            buildings = []
+            for table in tables:
+                for record in table.records:
+                    if record.get_value():
+                        buildings.append(str(record.get_value()))
+
+            return buildings
+
+        except Exception as e:
+            logger.error("Failed to list unique buildings", extra={"error": str(e)})
+            return []
+
+
+    async def get_unique_appliances(self, building_id: str) -> list[str]:
+        """
+        Get unique appliance IDs for a building from predictions bucket.
+        """
+        settings = get_settings()
+        start = "-30d"
+
+        try:
+            if not self._client:
+                return []
+
+            # Query appliance_id tag from predictions bucket
+            # We assume appliances are those we generate predictions for
+            query = f'''
+            import "influxdata/influxdb/schema"
+            
+            schema.tagValues(
+                bucket: "{settings.influx_bucket_pred}",
+                tag: "appliance_id",
+                start: {start}
+            )
+            |> filter(fn: (r) => r.building_id == "{building_id}" or r._value != "") 
+            // Note: schema.tagValues doesn't support filtering by other tags easily without full scan.
+            // Better approach: use tagValues but we can't filter by building_id natively in tagValues 
+            // unless we use 'predicate'.
+            // InfluxDB 2.0+ schema.tagValues supports predicate function? No.
+            
+            // AlterNative:
+            from(bucket: "{settings.influx_bucket_pred}")
+              |> range(start: {start})
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> keep(columns: ["appliance_id"])
+              |> group()
+              |> distinct(column: "appliance_id")
+            '''
+            
+            # Optimization: The above from() query is slow if data is huge.
+            # But schema.tagValues is global. 
+            # Compromise: Use schema.tagValues globally for now as building filter is tricky without scan.
+            # OR assume app logic filters later? No.
+            # Let's stick to the range query but keep columns early to minimize data transfer.
+            
+            real_query = f'''
+            from(bucket: "{settings.influx_bucket_pred}")
+              |> range(start: {start})
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> keep(columns: ["appliance_id"])
+              |> group()
+              |> distinct(column: "appliance_id")
+            '''
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(real_query, org=settings.influx_org)
+
+            appliances = []
+            for table in tables:
+                for record in table.records:
+                    val = record.get_value()
+                    if val and val != "":
+                        appliances.append(str(val))
+
+            return sorted(appliances)
+
+        except Exception as e:
+            logger.error("Failed to list unique appliances", extra={"error": str(e)})
+            return []
+
     async def _sleep(self, seconds: float) -> None:
         """Async sleep helper."""
         import asyncio

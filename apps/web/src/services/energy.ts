@@ -176,24 +176,19 @@ export const energyApi = {
   getModels: () => api.get<ModelsListResponse>("/models"),
 
   /**
-   * Get available buildings (from Supabase via frontend logic)
-   * Note: This should query Supabase directly, not via backend
+   * Get available buildings (dynamically discovered from InfluxDB)
+   * Endpoint: GET /analytics/buildings
    */
-  getBuildings: () => {
-    // TODO: Implement Supabase query for buildings
-    // For now, return empty array to prevent breaking existing code
-    return Promise.resolve([]);
-  },
+  getBuildings: () => api.get<{ buildings: string[] }>("/analytics/buildings"),
 
   /**
-   * Get available appliances for a building (from Supabase via frontend logic)
-   * Note: This should query Supabase directly, not via backend
+   * Get available appliances for a building (dynamically discovered from InfluxDB)
+   * Endpoint: GET /analytics/appliances
    */
-  getAppliances: (_building?: string) => {
-    // TODO: Implement Supabase query for appliances
-    // For now, return empty array to prevent breaking existing code
-    return Promise.resolve([]);
-  },
+  getAppliances: (building: string) =>
+    api.get<{ appliances: string[] }>("/analytics/appliances", {
+      params: { building_id: building },
+    }),
 };
 
 /**

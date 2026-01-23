@@ -322,6 +322,19 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, selectedBuildingId, supabaseBuildings]);
 
+  // Fetch API appliances when building changes
+  const [apiAppliances, setApiAppliances] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (mode === "api" && selectedBuildingId && isAuthenticated) {
+      energyApi.getAppliances(selectedBuildingId)
+        .then(res => setApiAppliances(res.appliances || []))
+        .catch(err => console.error("Failed to fetch appliances:", err));
+    } else {
+      setApiAppliances([]);
+    }
+  }, [mode, selectedBuildingId, isAuthenticated]);
+
   // Build a lookup map for managed appliance metadata
   const managedApplianceMap = useMemo(() => {
     const map: Record<string, ManagedAppliance> = {};
@@ -331,15 +344,19 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return map;
   }, [managedAppliances]);
 
-  // Merge demo appliances with managed appliance names
+  // Appliances list: API usage vs Demo/Managed fallback
   const appliances = useMemo(() => {
+    if (mode === "api") {
+      return apiAppliances;
+    }
+
+    // In demo mode, fallback to managed or demo
     const managedNames = managedAppliances.map((a) => a.name);
-    // Use managed names if available, otherwise fall back to demo
     if (managedNames.length > 0) {
       return managedNames;
     }
     return demoAppliances;
-  }, [managedAppliances, demoAppliances]);
+  }, [mode, apiAppliances, managedAppliances, demoAppliances]);
 
   // Buildings from Supabase for API mode, demo building for demo mode
   const buildings = useMemo((): Building[] => {

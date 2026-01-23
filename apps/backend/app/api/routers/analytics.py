@@ -11,6 +11,7 @@ from app.infra.influx import get_influx_client
 from app.schemas.analytics import (
     PredictionsResponse,
     ReadingsResponse,
+    BuildingsListResponse,
     Resolution,
 )
 
@@ -130,3 +131,38 @@ async def get_predictions(
         data=data,
         count=len(data),
     )
+
+
+@router.get("/buildings", response_model=BuildingsListResponse)
+async def list_buildings(
+    current_user: CurrentUserDep,
+    request_id: RequestIdDep,
+) -> BuildingsListResponse:
+    """
+    List unique building IDs found in InfluxDB (last 30 days).
+    """
+    influx = get_influx_client()
+    buildings = await influx.get_unique_buildings()
+    return BuildingsListResponse(buildings=buildings)
+
+
+class AppliancesListResponse(BaseModel):
+    """Response schema for GET /analytics/appliances."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    appliances: list[str] = Field(..., description="List of appliance IDs")
+
+
+@router.get("/appliances", response_model=AppliancesListResponse)
+async def list_appliances(
+    current_user: CurrentUserDep,
+    request_id: RequestIdDep,
+    building_id: str = Query(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$"),
+) -> AppliancesListResponse:
+    """
+    List unique appliance IDs found in InfluxDB (last 30 days) for a building.
+    """
+    influx = get_influx_client()
+    appliances = await influx.get_unique_appliances(building_id=building_id)
+    return AppliancesListResponse(appliances=appliances)
