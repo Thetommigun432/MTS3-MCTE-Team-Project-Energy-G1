@@ -30,7 +30,89 @@
                 "mean": 2.5,
                 "std": 1.5
             },
-            "is_active": true
+            "is_active": false
+        },
+        {
+            "model_id": "transformer_hybrid_v1",
+            "model_version": "2026-01-21",
+            "appliance_id": "multi",
+            "architecture": "hybrid_cnn_transformer",
+            "architecture_params": {
+                "n_features": 7,
+                "d_model": 256,
+                "n_heads": 8,
+                "n_layers": 6,
+                "d_ff": 1024,
+                "dropout": 0.1,
+                "cnn_channels": [
+                    64,
+                    128,
+                    256
+                ],
+                "cnn_kernel_sizes": [
+                    7,
+                    5,
+                    3
+                ],
+                "use_rope": true,
+                "seq2point": true,
+                "use_stationarization": true,
+                "use_pooling_for_state": true,
+                "p_max_kw": 13.5118
+            },
+            "artifact_path": "transformer_hybrid_v1.safetensors",
+            "artifact_sha256": "615b134ad99d89a064a2acfd9b505d6d635eb477521172589d2e16df17252d71",
+            "input_window_size": 1024,
+            "preprocessing": {
+                "type": "identity"
+            },
+            "is_active": true,
+            "heads": [
+                {
+                    "appliance_id": "HeatPump",
+                    "field_key": "heatpump"
+                },
+                {
+                    "appliance_id": "Dishwasher",
+                    "field_key": "dishwasher"
+                },
+                {
+                    "appliance_id": "WashingMachine",
+                    "field_key": "washingmachine"
+                },
+                {
+                    "appliance_id": "Dryer",
+                    "field_key": "dryer"
+                },
+                {
+                    "appliance_id": "Oven",
+                    "field_key": "oven"
+                },
+                {
+                    "appliance_id": "Stove",
+                    "field_key": "stove"
+                },
+                {
+                    "appliance_id": "RangeHood",
+                    "field_key": "rangehood"
+                },
+                {
+                    "appliance_id": "EVCharger",
+                    "field_key": "evcharger"
+                },
+                {
+                    "appliance_id": "EVSocket",
+                    "field_key": "evsocket"
+                },
+                {
+                    "appliance_id": "GarageCabinet",
+                    "field_key": "garagecabinet"
+                },
+                {
+                    "appliance_id": "RainwaterPump",
+                    "field_key": "rainwaterpump"
+                }
+            ]
         }
     ]
 }

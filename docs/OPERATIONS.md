@@ -36,6 +36,21 @@ The easiest way to run the full stack locally is with Docker Compose.
     - Backend API: `http://localhost:8000`
     - InfluxDB: `http://localhost:8086`
 
+### NILM Dataflow Pipeline (Local)
+To demonstrate the end-to-end pipeline with automatic inference:
+
+1.  **Seed Data**:
+    ```bash
+    cd apps/backend
+    python scripts/seed_from_y_test.py --seconds 7200 --building-id demo
+    ```
+    This synthesizes aggregate power from `y_test.npy`, pushes it to the backend ingestion API, which queues it in Redis.
+
+2.  **Verify Pipeline**:
+    - The backend logs will show `Pipeline worker started` and `Persisted inference for demo`.
+    - Check Frontend Dashboard for "demo" building (ensure VITE_DEMO_MODE=false).
+    - Query Disagregation: `GET /analytics/readings?building_id=demo&include_disaggregation=true`
+
 ## 2. Deployment
 
 ### Backend (Railway)

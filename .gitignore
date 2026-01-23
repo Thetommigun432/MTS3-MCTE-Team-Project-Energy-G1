@@ -76,6 +76,16 @@ training/outputs/
 model_exploration/*.pth
 model_highfreq/*.pth
 
+# Transformer model assets (large, not tracked)
+y_test.npy
+transformer-*.zip
+
+# Keep backend model artifacts for deployment
+!apps/backend/models/*.safetensors
+
+# Keep test fixtures (small samples)
+!apps/backend/tests/fixtures/*.npy
+
 # ============================================
 # Logs
 # ============================================

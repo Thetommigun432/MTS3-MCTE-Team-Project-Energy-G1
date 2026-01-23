@@ -20,11 +20,14 @@ export interface AnalyticsParams {
   end: string; // ISO8601 or relative (e.g., "now()", "2024-01-08T00:00:00Z")
   appliance_id?: string;
   resolution?: "1s" | "1m" | "15m";
+  include_disaggregation?: boolean;
 }
 
 export interface ReadingDataPoint {
   time: string; // ISO8601
   value: number;
+  appliances?: Record<string, number>;
+  confidence?: Record<string, number>;
   [key: string]: unknown; // Additional fields allowed
 }
 
@@ -144,7 +147,12 @@ export const energyApi = {
    */
   getReadings: (params: AnalyticsParams) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<ReadingsResponse>("/analytics/readings", { params: params as any }),
+    api.get<ReadingsResponse>("/analytics/readings", {
+      params: {
+        ...params,
+        include_disaggregation: params.include_disaggregation ?? true
+      } as any
+    }),
 
   /**
    * Fetch predictions from InfluxDB

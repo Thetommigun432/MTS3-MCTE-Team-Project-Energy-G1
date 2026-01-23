@@ -17,7 +17,7 @@ from app.api.middleware import (
     RequestIdMiddleware,
     RequestSizeLimitMiddleware,
 )
-from app.api.routers import admin, analytics, health, inference
+from app.api.routers import admin, analytics, health, inference, ingest
 from app.core.config import get_settings, validate_production_settings
 from app.core.errors import AppError, ErrorCode, error_response
 from app.core.logging import get_logger, request_id_ctx, setup_logging
@@ -87,12 +87,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error("Failed to load model registry", extra={"error": str(e)})
 
-    logger.info("NILM Backend started")
+    # Pipeline worker
+    worker = None
+    worker_task = None
+    if settings.pipeline_enabled and settings.redis_url:
+        try:
+            from app.domain.pipeline.redis_inference_worker import RedisInferenceWorker
+            worker = RedisInferenceWorker()
+            worker_task = asyncio.create_task(worker.start())
+            logger.info("Pipeline worker started")
+        except Exception as e:
+            logger.error(f"Failed to start pipeline worker: {e}")
 
     yield
 
     # Shutdown
     logger.info("Shutting down NILM Backend")
+    
+    if worker:
+        await worker.stop()
+        if worker_task:
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
+        logger.info("Pipeline worker stopped")
+
     await close_redis_cache()
     await close_influx_client()
     logger.info("NILM Backend stopped")
@@ -162,6 +183,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(inference.router)
     app.include_router(analytics.router)
+    app.include_router(ingest.router)
     app.include_router(admin.router)
 
     # Metrics endpoint

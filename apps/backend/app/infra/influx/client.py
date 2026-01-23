@@ -19,7 +19,11 @@ from app.core.telemetry import (
     INFLUX_WRITE_COUNT,
     INFLUX_WRITE_LATENCY,
 )
-from app.infra.influx.queries import build_predictions_query, build_readings_query
+from app.infra.influx.queries import (
+    build_predictions_query,
+    build_predictions_wide_query,
+    build_readings_query,
+)
 from app.schemas.analytics import DataPoint, PredictionPoint, Resolution
 
 logger = get_logger(__name__)
@@ -292,6 +296,69 @@ class InfluxClient:
         finally:
             duration = time.time() - start_time
             INFLUX_QUERY_LATENCY.labels(query_type="predictions").observe(duration)
+
+    async def query_predictions_wide(
+        self,
+        building_id: str,
+        start: str,
+        end: str,
+        resolution: Resolution,
+    ) -> list[dict[str, Any]]:
+        """
+        Query wide-format predictions (one row per timestamp with all appliances).
+        Returns raw dictionaries with time + predicted_kw_* + confidence_*.
+        """
+        settings = get_settings()
+        start_time = time.time()
+
+        try:
+            if not self._client:
+                raise InfluxError(
+                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                    message="InfluxDB client not connected",
+                )
+
+            query = build_predictions_wide_query(
+                bucket=settings.influx_bucket_pred,
+                building_id=building_id,
+                start=start,
+                end=end,
+                resolution=resolution,
+            )
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(query, org=settings.influx_org)
+
+            results: list[dict[str, Any]] = []
+            for table in tables:
+                for record in table.records:
+                    # Explicitly convert to dict and handle time
+                    row = record.values.copy()
+                    row["time"] = record.get_time().isoformat() if record.get_time() else ""
+                    # Remove internal Influx fields
+                    row.pop("result", None)
+                    row.pop("table", None)
+                    row.pop("_start", None)
+                    row.pop("_stop", None)
+                    results.append(row)
+
+            logger.debug(
+                "Query wide predictions completed",
+                extra={"building_id": building_id, "count": len(results)},
+            )
+            return results
+
+        except InfluxError:
+            raise
+        except Exception as e:
+            logger.error("Query wide predictions failed", extra={"error": str(e)})
+            raise InfluxError(
+                code=ErrorCode.INFLUX_QUERY_ERROR,
+                message=f"Failed to query wide predictions: {e}",
+            )
+        finally:
+            duration = time.time() - start_time
+            INFLUX_QUERY_LATENCY.labels(query_type="predictions_wide").observe(duration)
 
     async def write_prediction(
         self,
