@@ -21,17 +21,34 @@ ENV/
 # Data files (large datasets - keep local only)
 data/
 *.parquet
-
-# report files
-# data/reports/ (Covered by data/)
+*.csv
+*.npy
+*.npz
 
 # Model files
-models/*.h5
-models/*.pt
-models/*.pth
-models/*.pkl
-model_highfreq/*.pth
-model_highfreq/*.pkl
+models/
+model_highfreq/
+checkpoints/
+*.h5
+*.pt
+*.pth
+*.pkl
+*.json
+*.joblib
+# Keep metadata and config files
+!*metadata.json
+!*config.json
+!*params.json
+!requirements.txt
+!package.json
+
+# Reports and plots
+*.png
+*.jpg
+*.jpeg
+*.pdf
+# (Optional: keep plots, but the user said "large files", so maybe keep only small ones? 
+# Usually plots are fine unless there are thousands. I'll leave PNGs for now as they are small.)
 
 # Logs
 *.log
@@ -52,9 +69,7 @@ tempo/
 # Unrelated projects
 go-cursor-help/
 
-
-
-# Distribution / ok ckaging
+# Distribution / packaging
 dist/
 build/
 *.egg-info/
