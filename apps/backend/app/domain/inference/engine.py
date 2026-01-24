@@ -18,6 +18,7 @@ from app.core.errors import ErrorCode, ModelError, ValidationError
 from app.core.logging import get_logger
 from app.core.telemetry import INFERENCE_COUNT, INFERENCE_LATENCY, MODEL_CACHE_SIZE
 from app.domain.inference.registry import ModelEntry, PreprocessingConfig, get_model_registry
+from app.domain.inference.architectures import HybridCNNTransformerAdapter
 
 logger = get_logger(__name__)
 
@@ -247,6 +248,10 @@ MODEL_CLASSES: dict[str, type[nn.Module]] = {
     "cnn": CNNSeq2Seq,
     "unet": UNet1D,
     "unet1d": UNet1D,
+    # HybridCNNTransformer architecture (NILMFormer-style)
+    "hybrid_cnn_transformer": HybridCNNTransformerAdapter,
+    "hybridcnntransformer": HybridCNNTransformerAdapter,
+    "hybrid": HybridCNNTransformerAdapter,
 }
 
 

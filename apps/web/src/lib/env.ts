@@ -64,21 +64,34 @@ function readEnv(): AppEnv {
   // Supabase is optional in demo/local mode
   const supabaseEnabled = Boolean(supabaseUrl && supabaseAnonKey);
 
-  // Only require Supabase credentials if not in demo/local mode
+  // IMPORTANT: In production, missing credentials is a configuration error.
+  // We allow operation without Supabase, but log clear warnings.
   if (!supabaseEnabled && !demoMode && !localMode) {
     const missing: string[] = [];
     if (!supabaseUrl) missing.push("VITE_SUPABASE_URL");
     if (!supabaseAnonKey) missing.push("VITE_SUPABASE_ANON_KEY");
 
-    console.warn(
-      `Missing required environment variables: ${missing.join(", ")}. Defaulting to DEMO MODE to prevent crash.`
-    );
-    // Fallback to demo mode to ensure UI renders
+    // In production builds, this is likely a deployment configuration error
+    if (import.meta.env.PROD) {
+      console.error(
+        `[PRODUCTION ERROR] Missing required environment variables: ${missing.join(", ")}. ` +
+        `Authentication will not work. Set these in Cloudflare Pages environment settings ` +
+        `or explicitly enable demo mode with VITE_DEMO_MODE=true.`
+      );
+    } else {
+      console.warn(
+        `[DEV] Missing environment variables: ${missing.join(", ")}. ` +
+        `Set VITE_DEMO_MODE=true to run in demo mode, or configure Supabase credentials.`
+      );
+    }
+
+    // Don't silently enable demo mode - let the app run with disabled auth
+    // This makes configuration issues visible rather than masking them
     return {
       supabaseUrl: "https://placeholder.supabase.co",
       supabaseAnonKey: "placeholder-key",
       backendBaseUrl,
-      demoMode: true,
+      demoMode: false, // Don't auto-enable demo mode - let auth fail visibly
       localMode,
       supabaseEnabled: false,
     };

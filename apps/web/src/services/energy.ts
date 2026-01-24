@@ -20,11 +20,14 @@ export interface AnalyticsParams {
   end: string; // ISO8601 or relative (e.g., "now()", "2024-01-08T00:00:00Z")
   appliance_id?: string;
   resolution?: "1s" | "1m" | "15m";
+  include_disaggregation?: boolean;
 }
 
 export interface ReadingDataPoint {
   time: string; // ISO8601
   value: number;
+  appliances?: Record<string, number>;
+  confidence?: Record<string, number>;
   [key: string]: unknown; // Additional fields allowed
 }
 
@@ -62,15 +65,23 @@ export interface PredictionsResponse {
 
 export interface InferRequest {
   building_id: string;
-  appliance_id: string;
-  window: number[]; // Array of 1000 floats (power readings)
+  appliance_id?: string; // Optional for multi-head models
+  window: number[]; // Array of power readings (e.g., 1024 floats for transformer)
   timestamp?: string; // ISO8601, optional
   model_id?: string; // Optional, defaults to active model
 }
 
+/**
+ * Inference response from the backend.
+ *
+ * NOTE: Multi-head models return `predicted_kw` and `confidence` as objects
+ * mapping appliance keys to values. Single-head models return scalar values.
+ */
 export interface InferResponse {
-  predicted_kw: number;
-  confidence: number;
+  // Multi-head: { "heatpump": 0.5, "dishwasher": 0.0 }
+  // Single-head (legacy): number
+  predicted_kw: Record<string, number> | number;
+  confidence: Record<string, number> | number;
   model_version: string;
   request_id: string;
   persisted: boolean;
@@ -80,19 +91,49 @@ export interface InferResponse {
 // Model Registry Types
 // ============================================================================
 
+/**
+ * Output head configuration for multi-head models.
+ * Each head predicts power for one appliance.
+ */
+export interface ModelHead {
+  appliance_id: string;
+  field_key: string;
+}
+
+/**
+ * Model metadata from the backend registry.
+ *
+ * NOTE: Modern NILM models are multi-head (one model predicts all appliances).
+ * The `appliance_id` field is for backward compatibility with single-head models.
+ * For multi-head models, use the `heads` array to get the list of appliances.
+ */
 export interface Model {
   model_id: string;
   model_version: string;
-  appliance_id: string;
+  appliance_id: string; // "multi" for multi-head models, specific appliance for single-head
   architecture: string;
   input_window_size: number;
   is_active: boolean;
   cached: boolean;
+  // Multi-head support
+  heads?: ModelHead[]; // List of appliance heads (empty for single-head models)
 }
 
 export interface ModelsListResponse {
   models: Model[];
   count: number;
+}
+
+/**
+ * Get the list of appliances supported by a model.
+ * For multi-head models, returns the heads. For single-head, returns [appliance_id].
+ */
+export function getModelAppliances(model: Model): string[] {
+  if (model.heads && model.heads.length > 0) {
+    return model.heads.map((h) => h.appliance_id);
+  }
+  // Single-head fallback
+  return model.appliance_id !== "multi" ? [model.appliance_id] : [];
 }
 
 // ============================================================================
@@ -144,7 +185,12 @@ export const energyApi = {
    */
   getReadings: (params: AnalyticsParams) =>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    api.get<ReadingsResponse>("/analytics/readings", { params: params as any }),
+    api.get<ReadingsResponse>("/analytics/readings", {
+      params: {
+        ...params,
+        include_disaggregation: params.include_disaggregation ?? true
+      } as any
+    }),
 
   /**
    * Fetch predictions from InfluxDB
@@ -168,24 +214,19 @@ export const energyApi = {
   getModels: () => api.get<ModelsListResponse>("/models"),
 
   /**
-   * Get available buildings (from Supabase via frontend logic)
-   * Note: This should query Supabase directly, not via backend
+   * Get available buildings (dynamically discovered from InfluxDB)
+   * Endpoint: GET /analytics/buildings
    */
-  getBuildings: () => {
-    // TODO: Implement Supabase query for buildings
-    // For now, return empty array to prevent breaking existing code
-    return Promise.resolve([]);
-  },
+  getBuildings: () => api.get<{ buildings: string[] }>("/analytics/buildings"),
 
   /**
-   * Get available appliances for a building (from Supabase via frontend logic)
-   * Note: This should query Supabase directly, not via backend
+   * Get available appliances for a building (dynamically discovered from InfluxDB)
+   * Endpoint: GET /analytics/appliances
    */
-  getAppliances: (_building?: string) => {
-    // TODO: Implement Supabase query for appliances
-    // For now, return empty array to prevent breaking existing code
-    return Promise.resolve([]);
-  },
+  getAppliances: (building: string) =>
+    api.get<{ appliances: string[] }>("/analytics/appliances", {
+      params: { building_id: building },
+    }),
 };
 
 /**

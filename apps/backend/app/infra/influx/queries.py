@@ -174,3 +174,38 @@ def build_predictions_query(
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
 '''
     return query
+
+
+def build_predictions_wide_query(
+    bucket: str,
+    building_id: str,
+    start: str,
+    end: str,
+    resolution: Resolution,
+) -> str:
+    """
+    Build a safe Flux query for reading wide-format prediction data.
+    """
+    validate_id(building_id, "building_id")
+
+    start_flux = validate_and_convert_time(start, "start")
+    end_flux = validate_and_convert_time(end, "end")
+    resolution_flux = resolution_to_flux(resolution)
+
+    def format_time_param(t: str) -> str:
+        if t == "now()" or RELATIVE_TIME_PATTERN.match(t):
+            return t
+        return f'time(v: "{t}")'
+
+    start_param = format_time_param(start_flux)
+    end_param = format_time_param(end_flux)
+
+    # IMPORTANT: measurement name must match write operations (client.py uses "prediction" singular)
+    query = f'''from(bucket: "{bucket}")
+  |> range(start: {start_param}, stop: {end_param})
+  |> filter(fn: (r) => r._measurement == "prediction")
+  |> filter(fn: (r) => r.building_id == "{building_id}")
+  |> aggregateWindow(every: {resolution_flux}, fn: mean, createEmpty: false)
+  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+'''
+    return query

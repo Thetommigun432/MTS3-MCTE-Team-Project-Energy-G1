@@ -34,7 +34,8 @@
                     "enum": [
                         "CNNTransformer",
                         "CNNSeq2Seq",
-                        "UNet1D"
+                        "UNet1D",
+                        "hybrid_cnn_transformer"
                     ],
                     "description": "Model architecture type"
                 },
@@ -62,6 +63,27 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Whether this is the active model for the appliance"
+                },
+                "heads": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "appliance_id": {
+                                "type": "string",
+                                "description": "Appliance identifier for this head"
+                            },
+                            "field_key": {
+                                "type": "string",
+                                "description": "InfluxDB field key for this head output"
+                            }
+                        },
+                        "required": [
+                            "appliance_id",
+                            "field_key"
+                        ]
+                    },
+                    "description": "Multi-head output configuration (for multi-appliance models)"
                 }
             },
             "required": [

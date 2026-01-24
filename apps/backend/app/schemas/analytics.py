@@ -95,3 +95,11 @@ class PredictionsResponse(BaseModel):
     resolution: str = Field(..., description="Data resolution")
     data: list[PredictionPoint] = Field(..., description="Prediction time series")
     count: int = Field(..., description="Number of data points")
+
+
+class BuildingsListResponse(BaseModel):
+    """Response schema for GET /analytics/buildings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    buildings: list[str] = Field(..., description="List of building IDs")

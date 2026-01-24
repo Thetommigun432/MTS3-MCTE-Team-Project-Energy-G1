@@ -206,6 +206,34 @@ class Settings(BaseSettings):
         default=5000,
         description="Redis connection timeout in milliseconds",
     )
+    redis_stream_key: str = Field(
+        default="nilm:readings",
+        description="Redis stream key for ingestion",
+    )
+    redis_consumer_group: str = Field(
+        default="nilm-infer",
+        description="Redis consumer group name",
+    )
+
+    # ==========================================================================
+    # Pipeline
+    # ==========================================================================
+    pipeline_enabled: bool = Field(
+        default=True,
+        description="Enable background inference pipeline",
+    )
+    pipeline_stride: int = Field(
+        default=30,
+        description="Run inference every N samples",
+    )
+    pipeline_max_buffer: int = Field(
+        default=2048,
+        description="Max per-building buffer size",
+    )
+    ingest_token: str | None = Field(
+        default=None,
+        description="Optional token for server-to-server ingestion auth",
+    )
 
     # ==========================================================================
     # Caching

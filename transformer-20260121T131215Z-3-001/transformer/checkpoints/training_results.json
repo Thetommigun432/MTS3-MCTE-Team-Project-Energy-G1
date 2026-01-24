@@ -1,0 +1,205 @@
+{
+  "appliances": [
+    "HeatPump",
+    "Dishwasher",
+    "WashingMachine",
+    "Dryer",
+    "Oven",
+    "Stove",
+    "RangeHood",
+    "EVCharger",
+    "EVSocket",
+    "GarageCabinet",
+    "RainwaterPump"
+  ],
+  "test_metrics": {
+    "HeatPump": {
+      "MAE": 0.08547628670930862,
+      "RMSE": 0.10529392212629318,
+      "SAE": 4.507408618927002,
+      "F1": 0.316056542225444,
+      "Precision": 0.2768253968253968,
+      "Recall": 0.36824324324324326
+    },
+    "Dishwasher": {
+      "MAE": 0.020360171794891357,
+      "RMSE": 0.03670386224985123,
+      "SAE": 11.489527702331543,
+      "F1": 0.273224043715847,
+      "Precision": 0.37037037037037035,
+      "Recall": 0.21645021645021645
+    },
+    "WashingMachine": {
+      "MAE": 0.06646133214235306,
+      "RMSE": 0.09019067883491516,
+      "SAE": 35.01390838623047,
+      "F1": 0.14603960396039603,
+      "Precision": 0.09833333333333333,
+      "Recall": 0.28365384615384615
+    },
+    "Dryer": {
+      "MAE": 0.051534444093704224,
+      "RMSE": 0.07610908895730972,
+      "SAE": 886.5480346679688,
+      "F1": 0.0,
+      "Precision": 0.0,
+      "Recall": 0.0
+    },
+    "Oven": {
+      "MAE": 0.019396133720874786,
+      "RMSE": 0.04271221533417702,
+      "SAE": 20.1934814453125,
+      "F1": 0.31683168316831684,
+      "Precision": 0.22535211267605634,
+      "Recall": 0.5333333333333333
+    },
+    "Stove": {
+      "MAE": 0.031430281698703766,
+      "RMSE": 0.05676087737083435,
+      "SAE": 57.39780044555664,
+      "F1": 0.0,
+      "Precision": 0.0,
+      "Recall": 0.0
+    },
+    "RangeHood": {
+      "MAE": 0.02340126410126686,
+      "RMSE": 0.04399200901389122,
+      "SAE": 523.719970703125,
+      "F1": 0.0,
+      "Precision": 0.0,
+      "Recall": 0.0
+    },
+    "EVCharger": {
+      "MAE": 0.06314849853515625,
+      "RMSE": 0.09705992788076401,
+      "SAE": 4.118249416351318,
+      "F1": 0.1464307504575961,
+      "Precision": 0.08029441284710606,
+      "Recall": 0.8304498269896193
+    },
+    "EVSocket": {
+      "MAE": 0.08107972145080566,
+      "RMSE": 0.10321006923913956,
+      "SAE": 11.36960220336914,
+      "F1": 0.1206140350877193,
+      "Precision": 0.09060955518945635,
+      "Recall": 0.18032786885245902
+    },
+    "GarageCabinet": {
+      "MAE": 0.05460678040981293,
+      "RMSE": 0.07585882395505905,
+      "SAE": 9.615303039550781,
+      "F1": 0.5235720761559384,
+      "Precision": 0.5684055118110236,
+      "Recall": 0.4852941176470588
+    },
+    "RainwaterPump": {
+      "MAE": 0.03646523877978325,
+      "RMSE": 0.06847108900547028,
+      "SAE": 4694.47412109375,
+      "F1": 0.0,
+      "Precision": 0.0,
+      "Recall": 0.0
+    }
+  },
+  "best_val_loss": 0.21336513368924862,
+  "epochs_trained": 17,
+  "total_time_minutes": 160.2573527097702,
+  "n_parameters": 1988312,
+  "config": {
+    "data_path": "c:\\Users\\gamek\\School\\TeamProject\\MTS3-MCTE-Team-Project-Energy-G1\\data\\processed\\1sec_new",
+    "model_ready_subdir": "model_ready",
+    "save_path": "c:\\Users\\gamek\\School\\TeamProject\\MTS3-MCTE-Team-Project-Energy-G1\\transformer\\checkpoints",
+    "P_MAX_kW": 13.5118,
+    "appliances": [
+      "HeatPump",
+      "Dishwasher",
+      "WashingMachine",
+      "Dryer",
+      "Oven",
+      "Stove",
+      "RangeHood",
+      "EVCharger",
+      "EVSocket",
+      "GarageCabinet",
+      "RainwaterPump"
+    ],
+    "on_thresholds": {
+      "HeatPump": 100,
+      "Dishwasher": 30,
+      "WashingMachine": 50,
+      "Dryer": 50,
+      "Oven": 100,
+      "Stove": 50,
+      "RangeHood": 20,
+      "EVCharger": 100,
+      "EVSocket": 100,
+      "GarageCabinet": 25,
+      "RainwaterPump": 50
+    },
+    "noise_thresholds": {
+      "HeatPump": 8,
+      "Dishwasher": 5,
+      "WashingMachine": 50,
+      "Dryer": 5,
+      "Oven": 100,
+      "Stove": 50,
+      "RangeHood": 5,
+      "EVCharger": 5,
+      "EVSocket": 5,
+      "GarageCabinet": 25,
+      "RainwaterPump": 10
+    },
+    "resolution_sec": 5,
+    "window_size": 1024,
+    "stride": 256,
+    "stride_inference": 512,
+    "cnn_channels": [
+      64,
+      128,
+      256
+    ],
+    "cnn_kernel_sizes": [
+      7,
+      5,
+      3
+    ],
+    "cnn_use_residual": true,
+    "d_model": 128,
+    "n_heads": 4,
+    "n_layers": 4,
+    "d_ff": 512,
+    "dropout": 0.1,
+    "use_rope": true,
+    "use_flash_attention": false,
+    "seq2point": true,
+    "output_length": 1,
+    "batch_size": 32,
+    "epochs": 100,
+    "lr": 0.0001,
+    "weight_decay": 1e-05,
+    "patience": 15,
+    "grad_clip": 1.0,
+    "loss_mse_weight": 1.0,
+    "loss_bce_weight": 0.5,
+    "loss_sdl_weight": 0.1,
+    "energy_loss_weight": 0.1,
+    "energy_warmup_steps": 1000,
+    "use_stationarization": true,
+    "use_pooling_for_state": true,
+    "augment": true,
+    "noise_std": 0.02,
+    "add_derivative_features": true,
+    "device": "cuda",
+    "num_workers": 0,
+    "temporal_features": [
+      "hour_sin",
+      "hour_cos",
+      "dow_sin",
+      "dow_cos",
+      "month_sin",
+      "month_cos"
+    ],
+    "n_features": 10
+  }
+}

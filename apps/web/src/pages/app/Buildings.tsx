@@ -254,7 +254,7 @@ export default function Buildings() {
         type: item.org_appliances?.type || "other",
         rated_power_kw: item.org_appliances?.rated_power_kw,
         status: item.is_enabled ? "active" : "inactive",
-        notes: null,
+        notes: "", // Default to empty string for notes
         created_at: item.created_at,
         updated_at: item.updated_at
       })).sort((a, b) => a.name.localeCompare(b.name));
