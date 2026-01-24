@@ -1,88 +1,47 @@
-# Team Project - NILM (Non-Intrusive Load Monitoring)
+# NILM Energy Monitor
 
-Project for energy consumption recognition and disaggregation using Deep Learning techniques (LSTM).
+Real-time Non-Intrusive Load Monitoring (NILM) web application with deep learning-based energy disaggregation.
 
-## Project Structure
+> **Status**: Active Development
+> **Canonical Branch**: `backend` (merged with `frontend`)
 
-- `clean_excel.py`: Cleaning and preparing raw data from InfluxDB
-- `explore_data.py`: Exploratory data analysis (EDA)
-- `prepare_data.py`: Data preparation for training (temporal alignment, sequence creation)
-- `nilm_model.py`: LSTM model definition for NILM
-- `train_nilm.py`: Script to train models
-- `predict_nilm.py`: Script to make predictions and evaluate models
+## 📚 Documentation
 
-## Installation
+The full documentation is located in the `docs/` directory:
 
-1. Create and activate a virtual environment:
-```bash
-python -m venv venv
-.\venv\Scripts\activate  # Windows
-# or
-source venv/bin/activate  # Linux/Mac
-```
+- [**Start Here**](docs/PROJECT.md) - Project Goals, Architecture, and Repo Structure.
+- [**Operations Guide**](docs/OPERATIONS.md) - Setup, Local Development, Deployment, and Troubleshooting.
+- [**API Reference**](docs/API.md) - Backend API Endpoints and Authentication.
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+## 🚀 Quick Start (Local)
 
-## Workflow
+1.  **Clone & Setup**:
+    ```bash
+    git clone https://github.com/Thetommigun432/MTS3-MCTE-Team-Project-Energy-G1.git repo
+    cd repo
+    ```
 
-### 1. Data Cleaning
-```bash
-python clean_excel.py
-```
+2.  **Run with Docker Compose**:
+    ```bash
+    # Set shared secret
+    cp .env.local.example .env.local
+    
+    # Start Backend + InfluxDB
+    docker compose up -d
+    ```
 
-### 2. Data Exploration
-```bash
-python explore_data.py
-```
+3.  **Start Frontend**:
+    ```bash
+    cd apps/web
+    cp .env.example .env
+    npm install && npm run dev
+    ```
 
-### 3. Data Preparation for Training
-This script:
-- Temporally aligns total consumption with individual appliance consumption
-- Creates sequences using sliding window (default: 60 timesteps)
-- Normalizes data
-- Splits into train/test sets
+4.  **Visit**:
+    - Frontend: `http://localhost:8080`
+    - Backend: `http://localhost:8000`
 
-```bash
-python prepare_data.py
-```
-
-### 4. Model Training
-Trains a separate LSTM model for each appliance:
-
-```bash
-python train_nilm.py
-```
-
-Trained models are saved in `models/`.
-
-### 5. Evaluation and Predictions
-Evaluates models on test set and displays metrics:
-
-```bash
-python predict_nilm.py
-```
-
-## Model Architecture
-
-The project uses a **Sequence-to-Point** approach with LSTM:
-
-- **Input**: Total consumption sequence (60 timesteps)
-- **Output**: Predicted consumption of a single appliance
-- **Strategy**: One separate model for each main appliance
-
-### LSTM Model
-
-The model includes:
-- LSTM layers to capture temporal patterns
-- Dense layers for final regression
-- Dropout for regularization
-- Linear output (regression)
-
-## Notes
-
-- Data must be in `data/influxdb_query_20251020_074134_cleaned.xlsx`
-- The model requires at least 1000 samples per appliance
-- Sequence length can be modified in `prepare_data.py` (default: 60)
+## Tech Stack
+- **Frontend**: React 19, Vite 7, TypeScript
+- **Backend**: FastAPI, Python 3.12, PyTorch
+- **Data**: InfluxDB 2.8, Supabase

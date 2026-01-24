@@ -1,0 +1,142 @@
+# NILM Energy Monitor - Docker Compose
+# Orchestrates all services for local development
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose logs -f        # View logs
+#   docker compose down           # Stop all services
+#   docker compose down -v        # Stop and remove volumes
+#
+# Required environment variables (create .env file):
+#   INFLUX_TOKEN - InfluxDB admin token (required)
+
+services:
+  # ==========================================================================
+  # InfluxDB - Time Series Database
+  # ==========================================================================
+  influxdb:
+    image: influxdb:2.8
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping", "--host", "http://localhost:8086"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================================
+  # InfluxDB Init - Create predictions bucket (robust failure handling)
+  # ==========================================================================
+  influxdb-init:
+    image: influxdb:2.8
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    environment:
+      - INFLUX_HOST=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      set -euo pipefail
+      echo "Waiting for InfluxDB to be ready..."
+      # We rely on depends_on: service_healthy, but a double check doesn't hurt
+      influx ping --host "$INFLUX_HOST"
+
+      echo "----------------------------------------"
+      echo "Ensuring buckets exist..."
+      echo "----------------------------------------"
+
+      # 1. Check/Create INFLUX_BUCKET_RAW
+      # Note: DOCKER_INFLUXDB_INIT_BUCKET usually creates this, but we verify to be sure.
+      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
+        echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
+      else
+        echo "Creating bucket '$INFLUX_BUCKET_RAW'..."
+        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_RAW" --retention 0
+      fi
+
+      # 2. Check/Create INFLUX_BUCKET_PRED
+      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
+        echo "✅ Bucket '$INFLUX_BUCKET_PRED' exists."
+      else
+        echo "Creating bucket '$INFLUX_BUCKET_PRED'..."
+        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
+      fi
+
+      echo "----------------------------------------"
+      echo "Verifying final state..."
+      echo "----------------------------------------"
+      
+      # Final verification - FAIL if either bucket is missing
+      msg=$(influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG")
+      
+      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_RAW "; then
+        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_RAW' missing after init!"
+        exit 1
+      fi
+      
+      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_PRED "; then
+        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_PRED' missing after init!"
+        exit 1
+      fi
+
+      echo "✅ InfluxDB initialization complete. Both buckets ready."
+    restart: "no"
+
+  # ==========================================================================
+  # Unified Backend - Python FastAPI (replaces inference-service + local-server)
+  # ==========================================================================
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./apps/backend/models:/app/models:ro
+    environment:
+      - ENV=dev
+      - PORT=8000
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+    depends_on:
+      influxdb:
+        condition: service_healthy
+      influxdb-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  influxdb-data:
+  influxdb-config:
+
+networks:
+  default:
+    name: nilm-network

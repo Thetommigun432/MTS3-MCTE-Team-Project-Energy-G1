@@ -1,60 +1,117 @@
+# ============================================
+# NILM Energy Monitor - Monorepo .gitignore
+# ============================================
+
+# ============================================
+# Node.js / JavaScript / TypeScript
+# ============================================
+**/node_modules/
+**/dist/
+**/build/
+**/.cache/
+**/.vite/
+**/.wrangler/
+**/.temp/
+*.tsbuildinfo
+
+# ============================================
 # Python
+# ============================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-
-# Virtual Environment
 venv/
 env/
 .venv/
 ENV/
+*.egg-info/
 
-# IDE
+# ============================================
+# Environment Variables (NEVER COMMIT SECRETS)
+# ============================================
+.env
+.env.local
+.env.*.local
+.env.production
+**/.env
+**/.env.local
+**/.env.*.local
+!.env.example
+!**/.env.example
+
+# ============================================
+# Python Testing
+# ============================================
+.pytest_cache/
+
+# ============================================
+# IDE / Editor
+# ============================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# ============================================
 # Data files (large datasets - keep local only)
+# ============================================
 data/
+data/**/*.csv
+data/**/*.xlsx
+data/**/*.json
 *.parquet
 
-# report files
-# data/reports/ (Covered by data/)
-
-# Model files
-models/*.h5
-models/*.pt
-models/*.pth
-models/*.pkl
+# ============================================
+# Model files (large, training outputs)
+# ============================================
+*.h5
+*.pt
+*.pth
+*.pkl
+*.safetensors
+training/outputs/
+model_exploration/*.pth
 model_highfreq/*.pth
-model_highfreq/*.pkl
 
+# ============================================
 # Logs
+# ============================================
 *.log
 logs/
 
+# ============================================
 # OS
+# ============================================
 .DS_Store
 Thumbs.db
 
+# ============================================
 # Temporary files
+# ============================================
 *.tmp
 *.temp
 *.bak
 temp/
 temp_model/
 tempo/
+*.stackdump
 
-# Unrelated projects
+# ============================================
+# Local InfluxDB data and config (Docker volumes)
+# ============================================
+influxdb-data/
+influxdb-config/
+
+# ============================================
+# Supabase local
+# ============================================
+supabase/.temp/
+
+# ============================================
+# Unrelated projects / misc
+# ============================================
 go-cursor-help/
-
-
-
-# Distribution / ok ckaging
-dist/
-build/
-*.egg-info/
+config.json

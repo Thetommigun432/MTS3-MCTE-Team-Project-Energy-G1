@@ -1,0 +1,16 @@
+{
+  "name": "nilm-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.11.0"
+  },
+  "scripts": {
+    "build:web": "npm --workspace apps/web run build",
+    "test:web": "npm --workspace apps/web run test",
+    "typecheck:web": "npm --workspace apps/web run typecheck",
+    "lint:web": "npm --workspace apps/web run lint"
+  }
+}

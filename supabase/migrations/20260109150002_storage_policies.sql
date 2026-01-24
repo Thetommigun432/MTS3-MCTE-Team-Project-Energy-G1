@@ -1,0 +1,36 @@
+-- ============================================
+-- STORAGE POLICIES NOTE
+-- Storage bucket and policies must be created via Supabase Dashboard
+-- This file documents the required configuration
+-- ============================================
+
+-- MANUAL STEPS REQUIRED IN SUPABASE DASHBOARD:
+--
+-- 1. Go to Storage > New bucket
+--    - Name: avatars
+--    - Public: Yes (for profile image display)
+--
+-- 2. Create policies in Storage > avatars > Policies:
+--
+--    Policy: "Users can upload own avatar"
+--    - Operation: INSERT
+--    - Target roles: authenticated
+--    - Definition: (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1])
+--
+--    Policy: "Users can update own avatar"
+--    - Operation: UPDATE  
+--    - Target roles: authenticated
+--    - Definition: (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1])
+--
+--    Policy: "Users can delete own avatar"
+--    - Operation: DELETE
+--    - Target roles: authenticated
+--    - Definition: (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1])
+--
+--    Policy: "Public avatar access"
+--    - Operation: SELECT
+--    - Target roles: public
+--    - Definition: (bucket_id = 'avatars')
+
+-- This is a placeholder migration - no SQL is executed
+SELECT 1;

@@ -1,0 +1,39 @@
+# NILM Energy Monitor - Unified Python Backend
+# Updated: 2026-01-21
+# ================================================
+
+# Core Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Database Clients
+influxdb-client[async]==1.47.0
+supabase==2.11.0
+
+# Authentication
+PyJWT[crypto]==2.10.1
+cryptography==44.0.0
+
+# ML/Inference
+safetensors==0.4.5
+numpy>=1.26.0,<2.0.0
+
+# Observability
+prometheus-client==0.21.1
+python-json-logger==3.2.1
+
+# HTTP Client
+httpx==0.28.1
+
+# Redis (for caching)
+redis[hiredis]==5.2.1
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.2
+pytest-cov==6.0.0
+
+# Note: PyTorch is installed separately via constraints for CPU-only build
+# See constraints.txt for torch installation
