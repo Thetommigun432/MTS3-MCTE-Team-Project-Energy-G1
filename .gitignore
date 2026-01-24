@@ -8,6 +8,7 @@ __pycache__/
 # Virtual Environment
 venv/
 env/
+.venv/
 ENV/
 
 # IDE
@@ -17,13 +18,20 @@ ENV/
 *.swo
 *~
 
+# Data files (large datasets - keep local only)
+data/
+*.parquet
 
+# report files
+# data/reports/ (Covered by data/)
 
 # Model files
 models/*.h5
 models/*.pt
 models/*.pth
 models/*.pkl
+model_highfreq/*.pth
+model_highfreq/*.pkl
 
 # Logs
 *.log
@@ -37,11 +45,16 @@ Thumbs.db
 *.tmp
 *.temp
 *.bak
+temp/
+temp_model/
+tempo/
 
 # Unrelated projects
 go-cursor-help/
 
-# Distribution / packaging
+
+
+# Distribution / ok ckaging
 dist/
 build/
 *.egg-info/
