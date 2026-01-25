@@ -15,15 +15,14 @@ export function getEnv() {
     backendBaseUrl: parseUrl(env.VITE_BACKEND_URL),
 
     // Supabase
-    supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL),
-    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_ANON_KEY),
+    // Supabase
+    // Fallback to hardcoded values for "zero-config" deployment if env vars missing
+    supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL) || "https://bhdcbvruzvhmcogxfkil.supabase.co",
+    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_ANON_KEY) || "sb_publishable_I3L-MhSwOX8vfWt91ppHOg_uu18TByg",
 
-    // Mode
-    isDemoMode: env.VITE_DEMO_MODE === "true",
-    isDev: env.DEV,
+    // Legacy support (check actual values)
+    supabaseEnabled: true, // Always enabled since we have fallbacks
 
-    // Legacy support
-    supabaseEnabled: !!(stripQuotes(env.VITE_SUPABASE_URL) && stripQuotes(env.VITE_SUPABASE_ANON_KEY)),
   };
 }
 
