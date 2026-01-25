@@ -71,6 +71,7 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN}
       - INFLUX_MEASUREMENT_PRED=${INFLUX_MEASUREMENT_PRED:-prediction}
       - E2E_RUN_ID=${E2E_RUN_ID}
+      - BACKEND_URL=http://backend:8000
     # Volumes removed to rely on baked-in code/data (solves sync issues)
     # volumes:
     #   - ./apps/backend/tests:/app/tests
