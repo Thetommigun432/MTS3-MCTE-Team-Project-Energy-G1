@@ -329,14 +329,37 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, selectedBuildingId, supabaseBuildings]);
 
-  // Fetch API appliances when building changes
+  // Fetch API appliances when building changes AND active models to populate available appliances
   const [apiAppliances, setApiAppliances] = useState<string[]>([]);
 
   useEffect(() => {
     if (mode === "api" && selectedBuildingId && isAuthenticated) {
-      energyApi.getAppliances(selectedBuildingId)
-        .then(res => setApiAppliances(res.appliances || []))
-        .catch(err => console.error("Failed to fetch appliances:", err));
+      Promise.all([
+        energyApi.getAppliances(selectedBuildingId),
+        energyApi.getModels()
+      ])
+        .then(([appliancesRes, modelsRes]) => {
+          const historicalAppliances = new Set(appliancesRes.appliances || []);
+
+          // Extract appliance IDs from active models
+          const modelAppliances = new Set<string>();
+          if (modelsRes.models) {
+            modelsRes.models.forEach(model => {
+              if (!model.is_active) return;
+
+              if (model.heads && model.heads.length > 0) {
+                model.heads.forEach(h => modelAppliances.add(h.appliance_id));
+              } else if (model.appliance_id && model.appliance_id !== 'multi') {
+                modelAppliances.add(model.appliance_id);
+              }
+            });
+          }
+
+          // Union the sets
+          const combined = Array.from(new Set([...historicalAppliances, ...modelAppliances])).sort();
+          setApiAppliances(combined);
+        })
+        .catch(err => console.error("Failed to fetch appliances/models:", err));
     } else {
       setApiAppliances([]);
     }
