@@ -199,12 +199,11 @@ export const energyApi = {
    * Endpoint: GET /analytics/readings
    */
   getReadings: (params: AnalyticsParams) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     api.get<ReadingsResponse>("/analytics/readings", {
       params: {
         ...params,
         include_disaggregation: params.include_disaggregation ?? true
-      } as any
+      }
     }),
 
   /**
