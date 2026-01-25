@@ -126,10 +126,44 @@ class InfluxClient:
             True if bucket exists or was created successfully
         """
         settings = get_settings()
-        bucket_name = settings.influx_bucket_pred
+        return await self._ensure_bucket(settings.influx_bucket_pred)
+
+    async def ensure_raw_bucket(self) -> bool:
+        """
+        Ensure the raw sensor data bucket exists, creating it if necessary.
         
+        Returns:
+            True if bucket exists or was created successfully
+        """
+        settings = get_settings()
+        return await self._ensure_bucket(settings.influx_bucket_raw)
+
+    async def ensure_buckets(self) -> dict[str, bool]:
+        """
+        Ensure all required buckets exist.
+        
+        Returns:
+            Dict with bucket names and creation success status
+        """
+        settings = get_settings()
+        results = {
+            settings.influx_bucket_raw: await self._ensure_bucket(settings.influx_bucket_raw),
+            settings.influx_bucket_pred: await self._ensure_bucket(settings.influx_bucket_pred),
+        }
+        return results
+
+    async def _ensure_bucket(self, bucket_name: str) -> bool:
+        """
+        Ensure a bucket exists, creating it if necessary.
+        
+        Args:
+            bucket_name: Name of bucket to ensure exists
+            
+        Returns:
+            True if bucket exists or was created successfully
+        """
         if not self._client:
-            logger.error("Cannot ensure predictions bucket: client not connected")
+            logger.error("Cannot ensure bucket: client not connected", extra={"bucket": bucket_name})
             return False
         
         try:
@@ -138,10 +172,11 @@ class InfluxClient:
             # Check if bucket already exists
             existing = await buckets_api.find_bucket_by_name(bucket_name)
             if existing:
-                logger.debug("Predictions bucket already exists", extra={"bucket": bucket_name})
+                logger.debug("Bucket already exists", extra={"bucket": bucket_name})
                 return True
             
             # Get organization ID
+            settings = get_settings()
             orgs_api = self._client.organizations_api()
             orgs = await orgs_api.find_organizations(org=settings.influx_org)
             if not orgs:
@@ -158,11 +193,11 @@ class InfluxClient:
                 retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
             )
             
-            logger.info("Created predictions bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
+            logger.info("Created bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
             return True
             
         except Exception as e:
-            logger.error("Failed to ensure predictions bucket", extra={"bucket": bucket_name, "error": str(e)})
+            logger.error("Failed to ensure bucket", extra={"bucket": bucket_name, "error": str(e)})
             return False
 
     async def query_readings(

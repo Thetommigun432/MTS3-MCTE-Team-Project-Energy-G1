@@ -57,14 +57,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize InfluxDB client
     try:
         await init_influx_client()
-        # Ensure predictions bucket exists (critical for persistence)
+        # Ensure required buckets exist (creates if missing)
         try:
             influx = get_influx_client()
-            await influx.ensure_predictions_bucket()
+            bucket_results = await influx.ensure_buckets()
+            for bucket_name, success in bucket_results.items():
+                if success:
+                    logger.info(f"InfluxDB bucket ready: {bucket_name}")
+                else:
+                    logger.warning(f"InfluxDB bucket may not exist: {bucket_name}")
         except Exception as e:
-            logger.error("Failed to ensure predictions bucket", extra={"error": str(e)})
+            logger.error("Failed to ensure InfluxDB buckets", extra={"error": str(e)})
     except Exception as e:
         logger.error("Failed to connect to InfluxDB", extra={"error": str(e)})
+
 
     # Initialize Supabase client
     try:
