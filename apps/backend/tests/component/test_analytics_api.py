@@ -83,12 +83,21 @@ def mock_building_access():
 @pytest.fixture
 def test_client(mock_user, mock_influx_client, mock_building_access):
     """Create test client with mocked dependencies."""
-    with patch("app.api.deps.get_current_user", return_value=mock_user), \
-         patch("app.api.routers.analytics.get_influx_client", return_value=mock_influx_client), \
+    from app.main import app
+    from app.api import deps
+    from app.api.routers import analytics
+
+    # 1. Override FastAPI dependency (for Depends())
+    app.dependency_overrides[deps.get_current_user] = lambda: mock_user
+
+    # 2. Patch direct function calls in the router module
+    with patch("app.api.routers.analytics.get_influx_client", return_value=mock_influx_client), \
          patch("app.api.routers.analytics.require_building_access", mock_building_access):
-        from app.main import app
         with TestClient(app) as client:
             yield client
+
+    # Clean up overrides
+    app.dependency_overrides = {}
 
 
 class TestReadingsEndpoint:

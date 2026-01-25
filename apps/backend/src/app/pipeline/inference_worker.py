@@ -358,9 +358,15 @@ if __name__ == "__main__":
     
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
+    window_size = int(os.environ.get("WINDOW_SIZE", 1536))
+    inference_interval = int(os.environ.get("INFERENCE_INTERVAL", 60))
+    building_id = os.environ.get("BUILDING_ID", "building_1")
     
     service = NILMInferenceService(
         redis_host=redis_host,
-        redis_port=redis_port
+        redis_port=redis_port,
+        building_id=building_id,
+        window_size=window_size,
+        inference_interval=inference_interval,
     )
     service.start()

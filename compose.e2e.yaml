@@ -55,6 +55,10 @@ services:
   nilm-inference:
     environment:
       - ENV=test
+      # Reduce window size for fast E2E feedback (64 samples vs 1536)
+      - WINDOW_SIZE=64
+      # Reduce inference interval to 5s (vs 60s)
+      - INFERENCE_INTERVAL=5
 
   # Test Runner (Ephemeral container to run pytest)
   e2e-tests:
