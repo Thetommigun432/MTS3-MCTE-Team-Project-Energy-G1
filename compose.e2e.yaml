@@ -39,6 +39,8 @@ services:
     command: ["python", "-m", "app.pipeline.persister"]
 
   # Override Producer to use our FIXTURE instead of huge parquet
+  # IMPORTANT: Producer must wait for inference worker to be subscribed to Redis
+  # before sending data, otherwise pub/sub messages are lost (race condition).
   nilm-producer:
     build:
       context: .
@@ -46,15 +48,18 @@ services:
       target: production
     depends_on:
       - redis
+      - nilm-inference  # Wait for inference to start subscribing
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
       - ./apps/backend/tests/fixtures/simulation-data.parquet:/app/test_data.parquet
-    # Run faster interval for tests (0.1s)
+    # Add 10s startup delay to ensure inference worker is subscribed before we send
+    # Also use slower interval (0.5s) to give inference worker time to process
     command: >
-      sh -c "python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1 --fast"
+      sh -c "echo 'Waiting 10s for inference worker to subscribe...' && sleep 10 && python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.5"
     profiles: [] # Remove 'testing' profile so it runs by default in e2e
+
 
   # Override Inference Service to use Test Env (activates fallback)
   # NOTE: Docker Compose REPLACES list-based environment sections, doesn't merge!
