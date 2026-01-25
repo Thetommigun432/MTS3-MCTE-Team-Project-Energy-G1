@@ -30,7 +30,10 @@ on:
 env:
   # Retry configuration
   MAX_RETRIES: 3
+  MAX_RETRIES: 3
   RETRY_DELAY: 5
+  # Fallback URL if secret is not configured (from apps/web/.env.production)
+  RAILWAY_BACKEND_URL: "https://energy-monitor.up.railway.app"
 
 jobs:
   smoke-test:
@@ -48,15 +51,14 @@ jobs:
         run: |
           # Use input or default to secret
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
-            URL="${{ secrets.RAILWAY_PRODUCTION_URL || secrets.RAILWAY_BACKEND_URL }}"
+            URL="${{ secrets.RAILWAY_PRODUCTION_URL || secrets.RAILWAY_BACKEND_URL || env.RAILWAY_BACKEND_URL }}"
           else
-            URL="${{ secrets.RAILWAY_BACKEND_URL }}"
+            URL="${{ secrets.RAILWAY_BACKEND_URL || env.RAILWAY_BACKEND_URL }}"
           fi
 
           if [ -z "$URL" ]; then
-            echo "::warning::RAILWAY_BACKEND_URL secret not configured. Skipping smoke tests."
-            echo "Please add RAILWAY_BACKEND_URL to repository secrets to enable this workflow."
-            exit 0
+            echo "ERROR: RAILWAY_BACKEND_URL secret not configured and no fallback found"
+            exit 1
           fi
 
           echo "BACKEND_URL=$URL" >> $GITHUB_OUTPUT
