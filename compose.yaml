@@ -149,7 +149,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - ./apps/backend/tests/fixtures/production_data.parquet:/app/production_data.parquet
+      - ./apps/backend/data/simulation-data.parquet:/app/production_data.parquet
     command: >
       sh -c "python -m app.pipeline.producer --source parquet --file /app/production_data.parquet --interval 1.0"
     profiles:

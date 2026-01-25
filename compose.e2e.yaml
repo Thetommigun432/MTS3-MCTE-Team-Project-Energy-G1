@@ -40,13 +40,17 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: nilm-producer-e2e
     volumes:
-      - ./tests/fixtures/test_data.parquet:/app/test_data.parquet
+      - ./apps/backend/tests/fixtures/test_data.parquet:/app/test_data.parquet
     # Run faster interval for tests (0.1s)
     command: >
       sh -c "python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1 --fast"
     profiles: [] # Remove 'testing' profile so it runs by default in e2e
+
+  # Override Inference Service to use Test Env (activates fallback)
+  nilm-inference:
+    environment:
+      - ENV=test
 
   # Test Runner (Ephemeral container to run pytest)
   e2e-tests:
@@ -62,6 +66,7 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN}
     volumes:
       - ./apps/backend/tests:/app/tests
+      - ./apps/backend/data/simulation-data.parquet:/app/simulation-data.parquet
     working_dir: /app
     # Deps are installed in image. Just run tests.
     command: ["pytest", "tests/integration", "-v"]

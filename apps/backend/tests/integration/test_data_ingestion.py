@@ -8,8 +8,10 @@ def test_production_data_file_exists():
     # Try finding it relative to project root (assuming running from root)
     # or look for it in the known location
     possible_paths = [
-        Path("production_jan2025_building_only.parquet"),
-        Path("data/production_jan2025_building_only.parquet"),
+        Path("simulation-data.parquet"),
+        Path("/app/simulation-data.parquet"),
+        Path("apps/backend/data/simulation-data.parquet"),
+        Path("../data/simulation-data.parquet"),
         # Fixture fallback for CI
         Path("tests/fixtures/test_data.parquet"),
         Path("../fixtures/test_data.parquet"), 
@@ -32,7 +34,7 @@ def test_production_data_schema():
     """Verify the production data has the correct schema and is readable."""
     # Find the file again (or reuse consistent path logic)
     # Ideally use a fixture, but keeping it simple for now
-    file_path = Path("production_jan2025_building_only.parquet")
+    file_path = Path("simulation-data.parquet")
     if not file_path.exists():
          pytest.skip("Production parquet file not found at root, skipping data test")
 
