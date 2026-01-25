@@ -161,7 +161,36 @@ def test_pipeline_produces_predictions(influx_client):
     print(f"Measurement: {INFLUX_MEASUREMENT}")
     print(f"Run ID: {E2E_RUN_ID}")
     print(f"Last Query Error: {last_error}")
-    print("Hint: Check docker compose logs for 'nilm-persister' or 'nilm-inference'.")
+    
+    print("\n--- DIAGNOSTICS ---")
+    try:
+        # 1. List measurements in bucket
+        print(f"1. Measurements in {INFLUX_BUCKET_PRED}:")
+        q_meas = f'import "influxdata/influxdb/schema"\nschema.measurements(bucket: "{INFLUX_BUCKET_PRED}")'
+        tables = query_api.query(q_meas)
+        for t in tables:
+            for r in t.records:
+                print(f"   - {r.get_value()}")
+
+        # 2. List tag keys for measurement
+        print(f"\n2. Tag Keys for {INFLUX_MEASUREMENT}:")
+        q_tags = f'import "influxdata/influxdb/schema"\nschema.measurementTagKeys(bucket: "{INFLUX_BUCKET_PRED}", measurement: "{INFLUX_MEASUREMENT}")'
+        tables = query_api.query(q_tags)
+        for t in tables:
+            for r in t.records:
+                print(f"   - {r.get_value()}")
+
+        # 3. Check for ANY data (ignoring run_id)
+        print(f"\n3. Latest 5 records (ignoring run_id):")
+        q_any = f'from(bucket: "{INFLUX_BUCKET_PRED}") |> range(start: -24h) |> limit(n: 5)'
+        tables = query_api.query(q_any)
+        for t in tables:
+            for r in t.records:
+                print(f"   - {r.values}")
+
+    except Exception as diag_e:
+        print(f"Diagnostics failed: {diag_e}")
+
     print("=======================\n")
         
     pytest.fail(f"Pipeline failed to produce predictions. RunID: {E2E_RUN_ID}")

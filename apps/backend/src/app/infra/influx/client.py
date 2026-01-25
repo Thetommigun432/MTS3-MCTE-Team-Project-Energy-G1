@@ -41,7 +41,11 @@ class InfluxClient:
         settings = get_settings()
 
         if not settings.influx_token:
-            logger.warning("INFLUX_TOKEN not set, InfluxDB operations will fail")
+            logger.error("INFLUX_TOKEN not set")
+            raise InfluxError(
+                code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                message="INFLUX_TOKEN is required but not set",
+            )
 
         self._client = InfluxDBClientAsync(
             url=settings.influx_url,
