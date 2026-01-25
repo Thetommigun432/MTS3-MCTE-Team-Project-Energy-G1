@@ -117,6 +117,71 @@ pytest tests/ -v -m railway
 
 ---
 
+## Frontend Tests
+
+### Structure
+
+```
+apps/web/src/
+├── test/
+│   ├── setup.ts        # Vitest setup + MSW lifecycle
+│   ├── utils.tsx       # renderWithProviders helper
+│   └── mocks/
+│       ├── handlers.ts # MSW request handlers
+│       └── server.ts   # MSW server setup
+├── lib/*.test.ts       # Utility tests
+├── hooks/*.test.ts     # Hook tests
+└── services/*.test.ts  # Service tests
+```
+
+### Running Frontend Tests
+
+```bash
+cd apps/web
+
+# Run all tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# With coverage
+npm run test:coverage
+```
+
+### MSW Mocking
+
+Tests use [MSW](https://mswjs.io/) to mock API requests:
+
+```tsx
+import { server } from '@/test/mocks/server';
+import { http, HttpResponse } from 'msw';
+
+it('handles API error', async () => {
+  // Override handler for this test
+  server.use(
+    http.get('http://localhost:8000/live', () => {
+      return HttpResponse.json({ error: 'fail' }, { status: 500 });
+    })
+  );
+  
+  // ... test error handling
+});
+```
+
+### Test Utilities
+
+```tsx
+import { renderWithProviders } from '@/test/utils';
+
+it('renders with router', () => {
+  renderWithProviders(<MyComponent />, { route: '/dashboard' });
+});
+```
+
+---
+
+
 ## CI Workflows
 
 | Workflow | Trigger | Tests Run | Duration |
