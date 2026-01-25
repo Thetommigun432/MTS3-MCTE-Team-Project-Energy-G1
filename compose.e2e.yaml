@@ -1,0 +1,72 @@
+
+# Docker Compose for E2E Testing
+include:
+  - compose.yaml
+
+services:
+  # Override backend to use testing env if needed
+  # backend:
+  #   environment:
+  #     - ENV=test
+
+  # Add Frontend
+  frontend:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Add Prediction Persister (The bridge we just made)
+  nilm-persister:
+    image: python:3.11-slim
+    depends_on:
+      - redis
+      - influxdb
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED}
+    volumes:
+      - ./production/prediction_persister.py:/app/prediction_persister.py
+      - ./production/requirements-production.txt:/app/requirements.txt
+    working_dir: /app
+    command: >
+      sh -c "pip install -r requirements.txt && python prediction_persister.py"
+
+  # Override Producer to use our FIXTURE instead of huge parquet
+  nilm-producer:
+    volumes:
+      - ./production/data_producer.py:/app/data_producer.py
+      - ./tests/fixtures/test_data.parquet:/app/test_data.parquet
+      - ./production/requirements-production.txt:/app/requirements.txt
+    # Run faster interval for tests (0.1s)
+    command: >
+      sh -c "pip install pandas pyarrow redis && python data_producer.py --source parquet --file test_data.parquet --interval 0.1 --fast"
+    profiles: [] # Remove 'testing' profile so it runs by default in e2e
+
+  # Test Runner (Ephemeral container to run pytest)
+  e2e-tests:
+    image: python:3.11-slim
+    depends_on:
+      - backend
+      - nilm-persister
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    volumes:
+      - ./apps/backend:/app/backend
+      - ./apps/backend/tests:/app/tests
+      - ./production/requirements-production.txt:/app/requirements.txt
+    working_dir: /app
+    # Install test deps + production deps (for redis/influx clients)
+    command: >
+      sh -c "pip install pytest requests influxdb-client redis httpx && pytest tests/integration -v"
+    profiles:
+      - test-runner

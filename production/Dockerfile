@@ -13,13 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements first (for caching)
-COPY requirements-production.txt requirements.txt
+COPY production/requirements-production.txt requirements.txt
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY production/ /app/production/
-COPY nilm/ /app/nilm/
-COPY checkpoints/ /app/checkpoints/
+# COPY nilm/ /app/nilm/ (Not present in repo)
+
+COPY production/checkpoints/ /app/checkpoints/
+
 
 # Environment variables
 ENV REDIS_HOST=redis

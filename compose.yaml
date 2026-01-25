@@ -1,14 +1,6 @@
+
 # NILM Energy Monitor - Docker Compose
 # Orchestrates all services for local development
-#
-# Usage:
-#   docker compose up -d          # Start all services
-#   docker compose logs -f        # View logs
-#   docker compose down           # Stop all services
-#   docker compose down -v        # Stop and remove volumes
-#
-# Required environment variables (create .env file):
-#   INFLUX_TOKEN - InfluxDB admin token (required)
 
 services:
   # ==========================================================================
@@ -53,15 +45,11 @@ services:
     command: |
       set -euo pipefail
       echo "Waiting for InfluxDB to be ready..."
-      # We rely on depends_on: service_healthy, but a double check doesn't hurt
       influx ping --host "$INFLUX_HOST"
 
-      echo "----------------------------------------"
       echo "Ensuring buckets exist..."
-      echo "----------------------------------------"
-
+      
       # 1. Check/Create INFLUX_BUCKET_RAW
-      # Note: DOCKER_INFLUXDB_INIT_BUCKET usually creates this, but we verify to be sure.
       if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
         echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
       else
@@ -77,28 +65,11 @@ services:
         influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
       fi
 
-      echo "----------------------------------------"
-      echo "Verifying final state..."
-      echo "----------------------------------------"
-      
-      # Final verification - FAIL if either bucket is missing
-      msg=$(influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG")
-      
-      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_RAW "; then
-        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_RAW' missing after init!"
-        exit 1
-      fi
-      
-      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_PRED "; then
-        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_PRED' missing after init!"
-        exit 1
-      fi
-
-      echo "✅ InfluxDB initialization complete. Both buckets ready."
+      echo "✅ InfluxDB initialization complete."
     restart: "no"
 
   # ==========================================================================
-  # Unified Backend - Python FastAPI (replaces inference-service + local-server)
+  # Unified Backend
   # ==========================================================================
   backend:
     build:
@@ -133,16 +104,8 @@ services:
       retries: 3
       start_period: 15s
 
-volumes:
-  influxdb-data:
-  influxdb-config:
-
-networks:
-  default:
-    name: nilm-network
-
   # ==========================================================================
-  # NILM Production Inference Service - Real-time Disaggregation
+  # NILM Production Inference Service
   # ==========================================================================
   nilm-inference:
     build:
@@ -150,10 +113,7 @@ networks:
       dockerfile: production/Dockerfile
     container_name: nilm-inference
     depends_on:
-      redis: # Using the backend's redis (via cache/queue) or we need a dedicated one?
-             # The backend uses 'redis' (implied but not in compose? let's check).
-             # Wait, compose.yaml DOES NOT have a 'redis' service defined yet!
-             # Backend code uses 'redis' host. We must add redis service too if missing.
+      redis:
         condition: service_healthy
     environment:
       - REDIS_HOST=redis
@@ -174,7 +134,7 @@ networks:
     restart: unless-stopped
 
   # ==========================================================================
-  # Data Producer - Simulates Sensors
+  # Data Producer
   # ==========================================================================
   nilm-producer:
     image: python:3.11-slim
@@ -189,14 +149,13 @@ networks:
       - ./production/production_jan2025_building_only.parquet:/app/production_jan2025_building_only.parquet
       - ./production/requirements-production.txt:/app/requirements.txt
     working_dir: /app
-    # Install deps and run
     command: >
       sh -c "pip install pandas pyarrow redis && python data_producer.py --source parquet --file production_jan2025_building_only.parquet --interval 1.0"
     profiles:
       - testing
 
   # ==========================================================================
-  # Redis - Shared Message Bus
+  # Redis
   # ==========================================================================
   redis:
     image: redis:7-alpine
@@ -216,3 +175,7 @@ volumes:
   influxdb-data:
   influxdb-config:
   redis-data:
+
+networks:
+  default:
+    name: nilm-network

@@ -28,7 +28,7 @@ RUN groupadd --gid 1000 appgroup && \
 FROM base AS deps
 
 # Copy requirements
-COPY apps/backend/requirements.txt apps/backend/constraints.txt ./
+COPY requirements.txt constraints.txt ./
 
 # Install Python dependencies
 # Install CPU-only PyTorch first, then other requirements
@@ -41,11 +41,11 @@ RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch
 FROM deps AS production
 
 # Copy application code
-COPY apps/backend/app/ ./app/
+COPY app/ ./app/
 
 # Copy models directory (if present - can be mounted as volume)
 # Models should be bundled for Railway or mounted for local dev
-COPY apps/backend/models/ ./models/
+COPY models/ ./models/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
