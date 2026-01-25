@@ -122,7 +122,8 @@ services:
       - WINDOW_SIZE=1536
       - INFERENCE_INTERVAL=60
       - BUILDING_ID=building_1
-      - ENV=production
+      - BUILDING_ID=building_1
+      - ENV=prod
     # GPU requirements disabled for CI compatibility
     # deploy:
     #   resources:
