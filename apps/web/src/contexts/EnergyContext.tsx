@@ -88,12 +88,18 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [apiRows, setApiRows] = useState<NilmDataRow[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
 
-  // Determine initial mode from environment variables
-  // CRITICAL: Production defaults to API mode; Demo mode requires explicit opt-in
+  // Determine initial mode from localStorage or environment
   const [mode, setModeInternal] = useState<DataMode>(() => {
+    // Check localStorage first
+    const savedMode = localStorage.getItem("energy-monitor-mode");
+    if (savedMode === "api" || savedMode === "demo") {
+      return savedMode;
+    }
+    // Fallback to environment default
     if (import.meta.env.VITE_DEMO_MODE === "true") return "demo";
     return "api"; // Default to API mode in production
   });
+
   const [selectedBuilding, setSelectedBuilding] = useState("Demo Building");
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(
     null,
@@ -109,8 +115,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     );
     return { start, end };
   });
-
-  // Local mode removed - unified backend handles all data via API mode
 
   // Check if API is available (user must be authenticated for API mode)
   const isApiAvailable = useMemo(
@@ -140,6 +144,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const setMode = useCallback(
     (newMode: DataMode) => {
       if (newMode === mode) return;
+
+      // Persist to localStorage
+      localStorage.setItem("energy-monitor-mode", newMode);
 
       // Clear API data when switching away from API mode
       if (mode === "api") {
@@ -181,13 +188,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       // Access response.data because response is ReadingsResponse (which has .data field)
       // api.ts already unwraps the fetch response body.
       const transformed: NilmDataRow[] = response.data.map((r: ReadingDataPoint) => {
-        // Backend returns "value", we map to "aggregate"
-        // Backend returns additional fields, we check for appliance breakdowns if available
-        // Note: The backend /readings endpoint currently returns aggregate data.
-        // If appliance breakdowns are needed, we might need to fetch predictions or 
-        // rely on the backend to provide disaggregated data in the same call.
-        // For now, we map the aggregate value.
-
         // Use type assertion for flexible data handling from backend
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const anyRecord = r as any;
@@ -195,8 +195,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
         return {
           time: new Date(r.time),
           aggregate: r.value,
-          // If the API returns appliance estimates in the extra fields, use them
-          // Otherwise default to empty structure (will be filled by predictions if fetched separately)
           appliances: anyRecord.appliances || {},
           confidence: anyRecord.confidence || 0,
         };
@@ -329,42 +327,6 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, selectedBuildingId, supabaseBuildings]);
 
-  // Fetch API appliances when building changes AND active models to populate available appliances
-  const [apiAppliances, setApiAppliances] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (mode === "api" && selectedBuildingId && isAuthenticated) {
-      Promise.all([
-        energyApi.getAppliances(selectedBuildingId),
-        energyApi.getModels()
-      ])
-        .then(([appliancesRes, modelsRes]) => {
-          const historicalAppliances = new Set(appliancesRes.appliances || []);
-
-          // Extract appliance IDs from active models
-          const modelAppliances = new Set<string>();
-          if (modelsRes.models) {
-            modelsRes.models.forEach(model => {
-              if (!model.is_active) return;
-
-              if (model.heads && model.heads.length > 0) {
-                model.heads.forEach(h => modelAppliances.add(h.appliance_id));
-              } else if (model.appliance_id && model.appliance_id !== 'multi') {
-                modelAppliances.add(model.appliance_id);
-              }
-            });
-          }
-
-          // Union the sets
-          const combined = Array.from(new Set([...historicalAppliances, ...modelAppliances])).sort();
-          setApiAppliances(combined);
-        })
-        .catch(err => console.error("Failed to fetch appliances/models:", err));
-    } else {
-      setApiAppliances([]);
-    }
-  }, [mode, selectedBuildingId, isAuthenticated]);
-
   // Build a lookup map for managed appliance metadata
   const managedApplianceMap = useMemo(() => {
     const map: Record<string, ManagedAppliance> = {};
@@ -374,10 +336,11 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return map;
   }, [managedAppliances]);
 
-  // Appliances list: API usage vs Demo/Managed fallback
+  // Appliances list: Use Managed Appliances (Supabase) in API mode
   const appliances = useMemo(() => {
     if (mode === "api") {
-      return apiAppliances;
+      // In API mode, we use the user's managed appliances list from Supabase
+      return managedAppliances.map(a => a.name).sort();
     }
 
     // In demo mode, fallback to managed or demo
@@ -386,7 +349,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       return managedNames;
     }
     return demoAppliances;
-  }, [mode, apiAppliances, managedAppliances, demoAppliances]);
+  }, [mode, managedAppliances, demoAppliances]);
 
   // Buildings from Supabase for API mode, demo building for demo mode
   const buildings = useMemo((): Building[] => {

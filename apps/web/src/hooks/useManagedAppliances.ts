@@ -117,3 +117,78 @@ export function getAppliancePowerMap(
 export function getApplianceNames(appliances: ManagedAppliance[]): string[] {
   return [...new Set(appliances.map((a) => a.name))];
 }
+
+/**
+ * Sync appliances from backend models to Supabase org_appliances
+ */
+/**
+ * Sync appliances from backend models to Supabase org_appliances
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function syncAppliancesFromModels(models: any[]) {
+  if (!models || models.length === 0) return;
+
+  // Get current user for user_id field
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.error("Cannot sync appliances: No authenticated user");
+    return;
+  }
+
+  // Extract unique appliances from models
+  const uniqueAppliances = new Map<string, string>(); // slug -> name
+
+  models.forEach((model) => {
+    if (!model.is_active) return;
+
+    // Handle multi-head models
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (model.heads && model.heads.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      model.heads.forEach((h: any) => {
+        if (h.appliance_id)
+          uniqueAppliances.set(
+            h.appliance_id,
+            formatApplianceName(h.appliance_id),
+          );
+      });
+    }
+    // Handle single-head models
+    else if (model.appliance_id && model.appliance_id !== "multi") {
+      uniqueAppliances.set(
+        model.appliance_id,
+        formatApplianceName(model.appliance_id),
+      );
+    }
+  });
+
+  if (uniqueAppliances.size === 0) return;
+
+  // Upsert into org_appliances
+  const upsertData = Array.from(uniqueAppliances.entries()).map(
+    ([slug, name]) => ({
+      name: name,
+      slug: slug,
+      rated_power_kw: 0,
+      user_id: user.id,
+    }),
+  );
+
+  // NOTE: We rely on the Supabase policy to allow upserts if user owns the record or is admin
+  const { error } = await supabase
+    .from("org_appliances")
+    .upsert(upsertData, { onConflict: "slug", ignoreDuplicates: true });
+
+  if (error) {
+    console.error("Failed to sync appliances:", error);
+  } else {
+    console.log(`Synced ${upsertData.length} appliances to Supabase`);
+  }
+}
+
+function formatApplianceName(slug: string): string {
+  return slug
+    .split(/[-_]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}

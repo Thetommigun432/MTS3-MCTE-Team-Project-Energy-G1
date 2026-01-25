@@ -64,6 +64,21 @@ export default function Model() {
             <Button
               variant="outline"
               size="sm"
+              onClick={async () => {
+                const { syncAppliancesFromModels } = await import("@/hooks/useManagedAppliances");
+                await syncAppliancesFromModels(models);
+                refetch();
+              }}
+              disabled={mode !== 'api'}
+              title={mode !== 'api' ? "Switch to API mode to sync" : "Sync appliance definitions to Supabase"}
+              className="gap-2 hidden sm:flex"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Sync Apps
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => refetch()}
               className="gap-2"
             >
