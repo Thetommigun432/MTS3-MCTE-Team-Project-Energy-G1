@@ -27,9 +27,10 @@ import {
   ManagedAppliance,
 } from "@/hooks/useManagedAppliances";
 import { useBuildings } from "@/hooks/useBuildings";
-import { energyApi, isEnergyApiAvailable, ReadingDataPoint } from "@/services/energy";
+import { energyApi, isEnergyApiAvailable, ReadingDataPoint, ApiError } from "@/services/energy";
 import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
+
 
 interface EnergyContextType {
   mode: DataMode;
@@ -233,9 +234,14 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
           }
         } catch (err) {
           console.warn("API fetch failed:", err);
-          setApiError(
-            "API unreachable — click Refresh to retry or switch to Demo mode",
-          );
+          // Use specific error message if available
+          if (err instanceof ApiError) {
+            setApiError(`${err.getUserMessage()} (${err.errorType})`);
+          } else {
+            setApiError(
+              "API unreachable — click Refresh to retry or switch to Demo mode",
+            );
+          }
         } finally {
           setApiLoading(false);
         }

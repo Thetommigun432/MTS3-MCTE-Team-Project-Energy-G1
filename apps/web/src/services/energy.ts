@@ -8,7 +8,10 @@
  * - Models: listing available ML models
  */
 
-import { api, isApiConfigured } from "./api";
+import { api, isApiConfigured, ApiError, ApiErrorType } from "./api";
+
+// Re-export ApiError for consumers
+export { ApiError, ApiErrorType };
 
 // ============================================================================
 // Analytics Types (readings and predictions from InfluxDB)

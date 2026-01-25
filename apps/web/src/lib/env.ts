@@ -43,6 +43,44 @@ function getEnvVar(
   return "";
 }
 
+/**
+ * Normalize backend URL to ensure it's a valid fetch target.
+ * 
+ * Rules:
+ * 1. If empty or undefined, return empty string (will use defaults later)
+ * 2. If starts with http:// or https://, use as-is (full URL)
+ * 3. If starts with /, use as-is (relative path for proxy setups)
+ * 4. Otherwise, assume it's a bare hostname and prepend https://
+ * 
+ * @example
+ * normalizeBackendUrl("https://api.example.com") => "https://api.example.com"
+ * normalizeBackendUrl("energy-monitor.up.railway.app") => "https://energy-monitor.up.railway.app"
+ * normalizeBackendUrl("/api") => "/api"
+ * normalizeBackendUrl("") => ""
+ */
+export function normalizeBackendUrl(url: string | undefined): string {
+  if (!url) return "";
+
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  // Full URL - use as-is
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    // Remove trailing slash for consistency
+    return trimmed.replace(/\/$/, "");
+  }
+
+  // Relative path (e.g., /api for reverse proxy) - use as-is
+  if (trimmed.startsWith("/")) {
+    return trimmed.replace(/\/$/, "");
+  }
+
+  // Bare hostname (e.g., energy-monitor.up.railway.app) - add https://
+  // This is the common misconfiguration case
+  console.info(`[env] VITE_BACKEND_URL "${trimmed}" appears to be a bare hostname, normalizing to https://${trimmed}`);
+  return `https://${trimmed}`;
+}
+
 function readEnv(): AppEnv {
   const env = import.meta.env as RequiredEnv & Record<string, string | undefined>;
 
@@ -52,11 +90,15 @@ function readEnv(): AppEnv {
     "VITE_SUPABASE_ANON_KEY",
     "VITE_SUPABASE_PUBLISHABLE_KEY"
   );
-  const backendBaseUrl = getEnvVar(
+
+  // Get raw value and normalize it
+  const rawBackendUrl = getEnvVar(
     env,
     "VITE_BACKEND_URL",
     "VITE_API_BASE_URL"
-  ) || (import.meta.env.DEV ? "/api" : "");
+  );
+  const backendBaseUrl = normalizeBackendUrl(rawBackendUrl) || (import.meta.env.DEV ? "/api" : "");
+
 
   const demoMode = env.VITE_DEMO_MODE === "true";
   const localMode = env.VITE_LOCAL_MODE === "true";
