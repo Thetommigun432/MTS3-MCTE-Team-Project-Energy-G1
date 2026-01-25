@@ -9,13 +9,13 @@ client = TestClient(app)
 
 def test_health_endpoint():
     """Verify standard liveness probe."""
-    response = client.get("/health/live")
+    response = client.get("/live")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
-    assert "version" in data
+    assert "request_id" in data
 
-@patch("app.api.routers.health.get_redis_client")
+@patch("app.api.routers.health.get_redis_cache")
 @patch("app.api.routers.health.get_influx_client") 
 def test_ready_endpoint_mocked(mock_get_influx, mock_get_redis):
     """
@@ -24,40 +24,41 @@ def test_ready_endpoint_mocked(mock_get_influx, mock_get_redis):
     """
     # Mock Redis ping
     mock_redis_instance = MagicMock()
-    mock_redis_instance.ping.return_value = True
+    mock_redis_instance.is_using_fallback = False
     mock_get_redis.return_value = mock_redis_instance
 
     # Mock Influx ready
-    mock_influx_instance = MagicMock()
-    mock_influx_instance.ping.return_value = True
+    mock_influx_instance = AsyncMock()
+    # verify_setup returns a dict map of status
+    mock_influx_instance.verify_setup.return_value = {
+        "connected": True,
+        "bucket_raw": True,
+        "bucket_pred": True
+    }
     mock_get_influx.return_value = mock_influx_instance
 
-    response = client.get("/health/ready")
+    response = client.get("/ready")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ready"
-    assert "services" in data
-    assert data["services"]["redis"] == "ok"
-    assert data["services"]["influxdb"] == "ok"
+    assert data["status"] == "ok"
+    assert "checks" in data
+    assert data["checks"]["influxdb_connected"] is True
+    assert data["checks"]["redis_available"] is True
 
-@patch("app.api.routers.health.get_redis_client")
+@patch("app.api.routers.health.get_redis_cache")
 def test_ready_endpoint_redis_failure(mock_get_redis):
     """Verify degradation if Redis fails."""
-    # Mock Redis failure
-    mock_get_redis.side_effect = Exception("Connection refused")
+    # Mock Redis failure (fallback mode)
+    mock_redis_instance = MagicMock()
+    mock_redis_instance.is_using_fallback = True
+    mock_get_redis.return_value = mock_redis_instance
     
-    # We allow /ready to pass even if services fail (partial degradation)?
-    # Or does it return 503?
-    # Based on standard logic, if a critical service is down, ready might fail.
-    # Let's check the actual implementation logic if it fails or just reports error.
-    # Assuming valid implementation returns 503 or 200 with error details.
+    # We allow /ready to pass even if Redis is fallback (graceful degradation)
+    response = client.get("/ready")
+    # Should be 200 OK but check indicates fallback?
+    # Actually ready endpoint checks redis_available = not is_using_fallback
+    # But does not fail readiness if redis is unavailable (lines 83-84 in health.py)
     
-    response = client.get("/health/ready")
-    # Adjust assertion based on actual implementation. 
-    # Usually robust health checks return 503 if critical deps missing.
-    if response.status_code == 503:
-         assert response.json()["status"] != "ready"
-    else:
-         # If it returns 200 but lists error
-         data = response.json()
-         assert data["services"]["redis"] != "ok" 
+    assert response.status_code == 200
+    data = response.json()
+    assert data["checks"]["redis_available"] is False

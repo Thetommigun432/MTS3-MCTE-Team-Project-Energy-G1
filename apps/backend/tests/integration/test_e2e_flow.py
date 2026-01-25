@@ -15,6 +15,17 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8000")
 @pytest.fixture
 def influx_client():
     client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    
+    # Ensure bucket exists (resilience against slow init)
+    try:
+        buckets_api = client.buckets_api()
+        bucket = buckets_api.find_bucket_by_name(INFLUX_BUCKET_PRED)
+        if not bucket:
+            print(f"Creating missing bucket: {INFLUX_BUCKET_PRED}")
+            buckets_api.create_bucket(bucket_name=INFLUX_BUCKET_PRED, org=INFLUX_ORG)
+    except Exception as e:
+        print(f"Warning: Failed to ensure bucket exists: {e}")
+
     yield client
     client.close()
 

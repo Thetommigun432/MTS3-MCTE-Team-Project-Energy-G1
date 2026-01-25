@@ -25,6 +25,8 @@ async def test_end_to_end_inference_flow():
     mock_model_entry = MagicMock()
     mock_model_entry.input_window_size = 100
     mock_model_entry.preprocessing.type = "minmax"
+    mock_model_entry.preprocessing.min_val = 0.0
+    mock_model_entry.preprocessing.max_val = 1.0
     
     # Mock model
     mock_model = MagicMock()
