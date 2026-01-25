@@ -97,7 +97,10 @@ addopts = "-ra -q --import-mode=importlib --strict-markers"
 testpaths = [
     "tests",
 ]
+# Allow tests to import from src/ without sys.path hacks
+pythonpath = ["src"]
 asyncio_mode = "auto"
+
 markers = [
     "unit: Pure unit tests (no network, no docker)",
     "component: Component tests with mocks (FastAPI TestClient)",

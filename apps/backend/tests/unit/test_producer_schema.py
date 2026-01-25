@@ -7,11 +7,7 @@ for downstream Redis consumers and InfluxDB writers.
 
 import json
 import pytest
-from pathlib import Path
 
-# Import producer functions directly
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 
 class TestSimulationPayloadSchema:
