@@ -12,7 +12,7 @@ Configure these in the Railway service settings.
 |----------|-----------------|-------------|
 | `ENV` | `prod` | Enables production validation & security. |
 | `PORT` | `8000` | Railway injects this, app listens on it. |
-| `CORS_ORIGINS` | `https://myapp.pages.dev,https://energy-monitor.com` | **Comma-separated** list of allowed frontend domains. **No spaces**. |
+| `CORS_ORIGINS` | `https://mts3-mcte-team-project-energy-g1.pages.dev` | **Comma-separated** list of allowed frontend domains. **No spaces**. |
 | `HOST` | `0.0.0.0` | Required for Docker networking. |
 
 ### Integrations
