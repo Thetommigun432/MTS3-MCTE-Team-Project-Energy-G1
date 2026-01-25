@@ -1,0 +1,14 @@
+# Production dependencies for NILM Inference Service
+# ==================================================
+
+# Core ML
+torch>=2.0.0
+numpy>=1.24.0
+
+# Redis
+redis>=4.5.0
+
+# Utilities
+scipy>=1.10.0
+pandas>=2.1.0
+pyarrow>=14.0.0

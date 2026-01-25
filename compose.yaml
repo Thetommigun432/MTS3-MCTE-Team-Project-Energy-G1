@@ -140,3 +140,79 @@ volumes:
 networks:
   default:
     name: nilm-network
+
+  # ==========================================================================
+  # NILM Production Inference Service - Real-time Disaggregation
+  # ==========================================================================
+  nilm-inference:
+    build:
+      context: .
+      dockerfile: production/Dockerfile
+    container_name: nilm-inference
+    depends_on:
+      redis: # Using the backend's redis (via cache/queue) or we need a dedicated one?
+             # The backend uses 'redis' (implied but not in compose? let's check).
+             # Wait, compose.yaml DOES NOT have a 'redis' service defined yet!
+             # Backend code uses 'redis' host. We must add redis service too if missing.
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/app/checkpoints
+      - WINDOW_SIZE=1536
+      - INFERENCE_INTERVAL=60
+      - BUILDING_ID=building_1
+    volumes:
+      - ./production/checkpoints:/app/checkpoints:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ==========================================================================
+  # Data Producer - Simulates Sensors
+  # ==========================================================================
+  nilm-producer:
+    image: python:3.11-slim
+    container_name: nilm-producer
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./production/data_producer.py:/app/data_producer.py
+      - ./production/production_jan2025_building_only.parquet:/app/production_jan2025_building_only.parquet
+      - ./production/requirements-production.txt:/app/requirements.txt
+    working_dir: /app
+    # Install deps and run
+    command: >
+      sh -c "pip install pandas pyarrow redis && python data_producer.py --source parquet --file production_jan2025_building_only.parquet --interval 1.0"
+    profiles:
+      - testing
+
+  # ==========================================================================
+  # Redis - Shared Message Bus
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: nilm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  influxdb-data:
+  influxdb-config:
+  redis-data:
