@@ -613,6 +613,11 @@ class InfluxClient:
     async def get_unique_appliances(self, building_id: str) -> list[str]:
         """
         Get unique appliance IDs for a building from predictions bucket.
+        
+        Works with WIDE format predictions where appliances are encoded in field keys
+        (e.g., predicted_kw_HeatPump, predicted_kw_Dishwasher).
+        
+        Falls back to querying appliance_id tag for legacy narrow format data.
         """
         settings = get_settings()
         start = "-30d"
@@ -621,61 +626,59 @@ class InfluxClient:
             if not self._client:
                 return []
 
-            # Query appliance_id tag from predictions bucket
-            # We assume appliances are those we generate predictions for
-            query = f'''
+            # Query field keys from the predictions bucket and parse appliance names
+            # This works with wide format where fields are: predicted_kw_{appliance}
+            field_keys_query = f'''
             import "influxdata/influxdb/schema"
             
-            schema.tagValues(
+            schema.measurementFieldKeys(
                 bucket: "{settings.influx_bucket_pred}",
-                tag: "appliance_id",
+                measurement: "prediction",
                 start: {start}
             )
-            |> filter(fn: (r) => r.building_id == "{building_id}" or r._value != "") 
-            // Note: schema.tagValues doesn't support filtering by other tags easily without full scan.
-            // Better approach: use tagValues but we can't filter by building_id natively in tagValues 
-            // unless we use 'predicate'.
-            // InfluxDB 2.0+ schema.tagValues supports predicate function? No.
-            
-            // AlterNative:
-            from(bucket: "{settings.influx_bucket_pred}")
-              |> range(start: {start})
-              |> filter(fn: (r) => r.building_id == "{building_id}")
-              |> keep(columns: ["appliance_id"])
-              |> group()
-              |> distinct(column: "appliance_id")
-            '''
-            
-            # Optimization: The above from() query is slow if data is huge.
-            # But schema.tagValues is global. 
-            # Compromise: Use schema.tagValues globally for now as building filter is tricky without scan.
-            # OR assume app logic filters later? No.
-            # Let's stick to the range query but keep columns early to minimize data transfer.
-            
-            real_query = f'''
-            from(bucket: "{settings.influx_bucket_pred}")
-              |> range(start: {start})
-              |> filter(fn: (r) => r.building_id == "{building_id}")
-              |> keep(columns: ["appliance_id"])
-              |> group()
-              |> distinct(column: "appliance_id")
+            |> filter(fn: (r) => r._value =~ /^predicted_kw_/)
             '''
 
             query_api = self._client.query_api()
-            tables = await query_api.query(real_query, org=settings.influx_org)
+            tables = await query_api.query(field_keys_query, org=settings.influx_org)
 
-            appliances = []
+            appliances = set()
+            for table in tables:
+                for record in table.records:
+                    field_key = record.get_value()
+                    if field_key and field_key.startswith("predicted_kw_"):
+                        appliance = field_key.replace("predicted_kw_", "")
+                        if appliance:
+                            appliances.add(appliance)
+
+            # If we found appliances from field keys, return them
+            if appliances:
+                return sorted(appliances)
+            
+            # Fallback: try legacy narrow format with appliance_id tag
+            legacy_query = f'''
+            from(bucket: "{settings.influx_bucket_pred}")
+              |> range(start: {start})
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> keep(columns: ["appliance_id"])
+              |> group()
+              |> distinct(column: "appliance_id")
+            '''
+            
+            tables = await query_api.query(legacy_query, org=settings.influx_org)
+            
             for table in tables:
                 for record in table.records:
                     val = record.get_value()
                     if val and val != "":
-                        appliances.append(str(val))
+                        appliances.add(str(val))
 
             return sorted(appliances)
 
         except Exception as e:
             logger.error("Failed to list unique appliances", extra={"error": str(e)})
             return []
+
 
     async def _sleep(self, seconds: float) -> None:
         """Async sleep helper."""

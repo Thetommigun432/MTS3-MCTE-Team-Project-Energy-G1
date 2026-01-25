@@ -101,43 +101,59 @@ export default function Model() {
                 <TableHead>Model ID</TableHead>
                 <TableHead>Version</TableHead>
                 <TableHead>Architecture</TableHead>
-                <TableHead>Window Size</TableHead>
+                <TableHead>Appliances</TableHead>
+                <TableHead>Window</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Cached</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {models.map((model) => (
-                <TableRow key={model.model_id}>
-                  <TableCell className="font-medium">{model.model_id}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {model.model_version}
-                  </TableCell>
-                  <TableCell>{model.architecture}</TableCell>
-                  <TableCell>{model.input_window_size}</TableCell>
-                  <TableCell>
-                    {model.is_active ? (
-                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Inactive</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {model.cached ? (
-                      <Badge variant="outline" className="gap-1">
-                        <CheckCircle2 className="h-3 w-3" /> Yes
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {models.map((model) => {
+                // Get appliances from heads or fallback to appliance_id
+                const appliances = model.heads && model.heads.length > 0
+                  ? model.heads.map(h => h.appliance_id)
+                  : model.appliance_id !== "multi" ? [model.appliance_id] : [];
+
+                return (
+                  <TableRow key={model.model_id}>
+                    <TableCell className="font-medium">{model.model_id}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {model.model_version}
+                    </TableCell>
+                    <TableCell>{model.architecture}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {appliances.slice(0, 3).map((app) => (
+                          <Badge key={app} variant="secondary" className="text-xs">
+                            {app}
+                          </Badge>
+                        ))}
+                        {appliances.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{appliances.length - 3}
+                          </Badge>
+                        )}
+                        {appliances.length === 0 && (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{model.input_window_size}</TableCell>
+                    <TableCell>
+                      {model.is_active ? (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Inactive</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
+
         )}
       </NILMPanel>
 

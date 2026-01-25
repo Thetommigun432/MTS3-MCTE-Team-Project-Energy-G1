@@ -53,7 +53,6 @@ export function useManagedAppliances(): ManagedAppliancesData {
           org_appliances!inner(
             id,
             name,
-            type,
             rated_power_kw
           )
         `,
@@ -66,14 +65,15 @@ export function useManagedAppliances(): ManagedAppliancesData {
       const transformed: ManagedAppliance[] = (data || []).map((item) => ({
         id: item.id,
         building_id: item.building_id,
-        building_name: item.buildings?.name || "Unknown Building",
-        org_appliance_id: item.org_appliances?.id,
-        name: item.org_appliances?.name || "Unknown Appliance",
-        type: item.org_appliances?.type || "other",
-        rated_power_kw: item.org_appliances?.rated_power_kw,
+        building_name: (item.buildings as { name?: string })?.name || "Unknown Building",
+        org_appliance_id: (item.org_appliances as { id?: string })?.id || "",
+        name: (item.org_appliances as { name?: string })?.name || "Unknown Appliance",
+        type: "appliance", // Default type since column doesn't exist
+        rated_power_kw: (item.org_appliances as { rated_power_kw?: number | null })?.rated_power_kw ?? null,
         status: item.is_enabled ? "active" : "inactive",
-        notes: null,
+        notes: null as null,
       }));
+
 
       setAppliances(transformed);
     } catch (err) {

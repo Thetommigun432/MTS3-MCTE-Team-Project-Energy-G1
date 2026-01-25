@@ -53,10 +53,11 @@ export function useModels(mode: DataMode = 'api', _buildingId?: string | null): 
   }, [fetchModels]);
 
   // Stubs for actions not yet supported by Backend API
-  const registerModel = async () => {
+  const registerModel = async (): Promise<null> => {
     toast.info("Model registration is managed via backend configuration.");
     return null;
   };
+
 
   const uploadModelVersion = async () => {
     toast.info("Model uploading is managed via backend configuration.");

@@ -101,6 +101,16 @@ export interface ModelHead {
 }
 
 /**
+ * Model performance metrics (optional).
+ */
+export interface ModelMetrics {
+  mae?: number | null;
+  rmse?: number | null;
+  f1_score?: number | null;
+  accuracy?: number | null;
+}
+
+/**
  * Model metadata from the backend registry.
  *
  * NOTE: Modern NILM models are multi-head (one model predicts all appliances).
@@ -117,7 +127,9 @@ export interface Model {
   cached: boolean;
   // Multi-head support
   heads?: ModelHead[]; // List of appliance heads (empty for single-head models)
+  metrics?: ModelMetrics | null; // Performance metrics (if available)
 }
+
 
 export interface ModelsListResponse {
   models: Model[];

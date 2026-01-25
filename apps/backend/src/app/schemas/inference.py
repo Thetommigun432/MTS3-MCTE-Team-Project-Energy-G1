@@ -86,6 +86,26 @@ class InferResponse(BaseModel):
     persisted: bool = Field(..., description="Whether prediction was persisted to InfluxDB")
 
 
+class HeadInfo(BaseModel):
+    """Output head information for multi-head models."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    appliance_id: str = Field(..., description="Appliance identifier (e.g., 'HeatPump')")
+    field_key: str = Field(..., description="InfluxDB field key (e.g., 'HeatPump')")
+
+
+class ModelMetrics(BaseModel):
+    """Basic model performance metrics."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mae: float | None = Field(None, description="Mean Absolute Error (kW)")
+    rmse: float | None = Field(None, description="Root Mean Square Error (kW)")
+    f1_score: float | None = Field(None, description="F1 score for on/off classification")
+    accuracy: float | None = Field(None, description="Classification accuracy")
+
+
 class ModelInfo(BaseModel):
     """Model information schema."""
 
@@ -93,11 +113,13 @@ class ModelInfo(BaseModel):
 
     model_id: str = Field(..., description="Model ID")
     model_version: str = Field(..., description="Model version")
-    appliance_id: str = Field(..., description="Associated appliance ID")
+    appliance_id: str = Field(..., description="Primary appliance ID (or 'multi' for multi-head)")
     architecture: str = Field(..., description="Model architecture (e.g., CNNTransformer)")
     input_window_size: int = Field(..., description="Required input window size")
     is_active: bool = Field(..., description="Whether this is the active model")
     cached: bool = Field(default=False, description="Whether model is loaded in cache")
+    heads: list[HeadInfo] = Field(default_factory=list, description="Output heads (empty for single-head models)")
+    metrics: ModelMetrics | None = Field(None, description="Performance metrics (if available)")
 
 
 class ModelsListResponse(BaseModel):
