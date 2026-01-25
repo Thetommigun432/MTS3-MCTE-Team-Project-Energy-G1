@@ -23,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-persister-e2e
     depends_on:
       - redis
@@ -40,6 +41,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     volumes:
       - ./apps/backend/tests/fixtures/test_data.parquet:/app/test_data.parquet
     # Run faster interval for tests (0.1s)
