@@ -60,13 +60,14 @@ services:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - PYTHONPATH=/app/backend
     volumes:
       - ./apps/backend:/app/backend
       - ./apps/backend/tests:/app/tests
-      - ./production/requirements-production.txt:/app/requirements.txt
+      - ./apps/backend/requirements.txt:/app/requirements.txt
     working_dir: /app
     # Install test deps + production deps (for redis/influx clients)
     command: >
-      sh -c "pip install pytest requests influxdb-client redis httpx && pytest tests/integration -v"
+      sh -c "pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt && pytest tests/integration -v"
     profiles:
       - test-runner

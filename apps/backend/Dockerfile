@@ -28,7 +28,7 @@ RUN groupadd --gid 1000 appgroup && \
 FROM base AS deps
 
 # Copy requirements
-COPY requirements.txt constraints.txt ./
+COPY apps/backend/requirements.txt apps/backend/constraints.txt ./
 
 # Install Python dependencies
 # Install CPU-only PyTorch first, then other requirements
@@ -41,11 +41,11 @@ RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch
 FROM deps AS production
 
 # Copy application code
-COPY app/ ./app/
+COPY apps/backend/app/ ./app/
 
 # Copy models directory (if present - can be mounted as volume)
 # Models should be bundled for Railway or mounted for local dev
-COPY models/ ./models/
+COPY apps/backend/models/ ./models/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
@@ -62,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Run the application
 # Railway sets PORT, default to 8000 for local dev
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

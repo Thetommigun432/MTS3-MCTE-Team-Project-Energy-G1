@@ -58,3 +58,20 @@ npx playwright test
   docker compose -f compose.e2e.yaml logs influxdb-init
   ```
 - **Pipelines**: Check `nilm-inference` and `nilm-persister` logs for errors in data flow.
+
+## Railway Deployment Verification
+
+To ensure the project is ready for deployment on Railway (or any PaaS), run:
+
+```bash
+./scripts/verify_railway.sh
+```
+
+This script verifies:
+1.  **Build Context**: Ensures `apps/backend/Dockerfile` can be built from the root context (required for shared code).
+2.  **Frontend**: Checks standalone frontend build.
+
+### Deployment Checklist
+- [x] `railway.json` is present.
+- [x] Backend Dockerfile uses root-relative paths (`COPY apps/backend/...`).
+- [x] Backend Docker build succeeds from root (`docker build -f apps/backend/Dockerfile .`).
