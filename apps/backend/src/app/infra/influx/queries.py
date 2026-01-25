@@ -14,8 +14,8 @@ from app.schemas.analytics import Resolution
 # ID validation pattern
 ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
-# Relative time pattern (e.g., -7d, -1h, -30m)
-RELATIVE_TIME_PATTERN = re.compile(r"^-?\d+[smhdw]$")
+# Relative time pattern (e.g., -7d, -1h, -30m) - minus sign required
+RELATIVE_TIME_PATTERN = re.compile(r"^-\d+[smhdw]$")
 
 # ISO8601 datetime pattern (simplified)
 ISO_DATETIME_PATTERN = re.compile(
