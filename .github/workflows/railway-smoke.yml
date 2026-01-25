@@ -80,7 +80,7 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES..."
 
-            response=$(curl -sf --max-time 10 "$URL" 2>&1) || {
+            response=$(curl -sfL --max-time 10 "$URL" 2>&1) || {
               echo "Request failed, retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
@@ -110,7 +110,7 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES..."
 
-            response=$(curl -sf --max-time 15 "$URL" 2>&1) || {
+            response=$(curl -sfL --max-time 15 "$URL" 2>&1) || {
               echo "Request failed, retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
@@ -145,7 +145,7 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES..."
 
-            response=$(curl -sf --max-time 15 "$URL" 2>&1) || {
+            response=$(curl -sfL --max-time 15 "$URL" 2>&1) || {
               echo "Request failed, retrying in ${RETRY_DELAY}s..."
               sleep $RETRY_DELAY
               continue
@@ -172,7 +172,7 @@ jobs:
           URL="${{ steps.set-url.outputs.BACKEND_URL }}/openapi.json"
           echo "Testing: $URL"
 
-          response=$(curl -sf --max-time 10 "$URL" 2>&1) || {
+          response=$(curl -sfL --max-time 10 "$URL" 2>&1) || {
             echo "OpenAPI schema not available (optional)"
             exit 0
           }
@@ -191,7 +191,7 @@ jobs:
           URL="${{ steps.set-url.outputs.BACKEND_URL }}"
 
           for endpoint in /live /ready /models; do
-            time_total=$(curl -o /dev/null -sf --max-time 30 -w "%{time_total}" "$URL$endpoint" 2>/dev/null || echo "failed")
+            time_total=$(curl -o /dev/null -sfL --max-time 30 -w "%{time_total}" "$URL$endpoint" 2>/dev/null || echo "failed")
 
             if [ "$time_total" = "failed" ]; then
               echo "$endpoint: FAILED"
