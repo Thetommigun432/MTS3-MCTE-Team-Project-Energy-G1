@@ -97,3 +97,13 @@ testpaths = [
     "tests",
 ]
 asyncio_mode = "auto"
+markers = [
+    "unit: Pure unit tests",
+    "component: Component tests with mocks",
+    "e2e: End-to-end tests requiring Docker",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:pythonjsonlogger.*:",
+    "ignore::DeprecationWarning:supabase.*:",
+    "ignore::DeprecationWarning:gotrue.*:",
+]

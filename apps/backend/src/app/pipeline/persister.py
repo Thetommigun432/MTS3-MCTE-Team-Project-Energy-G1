@@ -58,6 +58,10 @@ def main():
     influx_token = os.environ.get('INFLUX_TOKEN', 'influx-admin-token-2026-secure')
     influx_org = os.environ.get('INFLUX_ORG', 'energy-monitor')
     influx_bucket = os.environ.get('INFLUX_BUCKET_PRED', 'predictions')
+    influx_measurement = os.environ.get('INFLUX_MEASUREMENT_PRED', 'prediction')
+    
+    # Optional Run ID for E2E isolation
+    e2e_run_id = os.environ.get('E2E_RUN_ID')
     
     channel = f"nilm:{stream_key}:predictions"
     
@@ -81,7 +85,10 @@ def main():
     logger.info("Starting Prediction Persister (CANONICAL WIDE FORMAT)...")
     logger.info(f"Redis Channel: {channel}")
     logger.info(f"Influx Bucket: {influx_bucket}")
+    logger.info(f"Influx Measurement: {influx_measurement}")
     logger.info(f"Building ID (for tags): {building_id}")
+    if e2e_run_id:
+        logger.info(f"E2E Run ID: {e2e_run_id}")
     if stream_key != building_id:
         logger.info(f"Stream Key: {stream_key}")
     
@@ -111,11 +118,15 @@ def main():
             
             # Build WIDE format point - one point with all appliances as fields
             point = (
-                Point("prediction")  # Canonical measurement name (singular)
+                Point(influx_measurement)
                 .tag("building_id", building_id)
                 .tag("model_version", model_version)
                 .time(ts)
             )
+
+            # Add E2E Run ID tag if present
+            if e2e_run_id:
+                point = point.tag("run_id", e2e_run_id)
             
             # Add stream_key tag if different from building_id
             if stream_key and stream_key != building_id:

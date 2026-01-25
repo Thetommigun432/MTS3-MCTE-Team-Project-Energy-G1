@@ -75,6 +75,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     ports:
       - "8000:8000"
     volumes:
@@ -111,6 +112,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-inference
     depends_on:
       redis:
@@ -142,6 +144,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-producer
     depends_on:
       - redis
@@ -162,6 +165,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-persister
     depends_on:
       - redis
