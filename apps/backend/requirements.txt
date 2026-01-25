@@ -37,3 +37,14 @@ pytest-cov==6.0.0
 
 # Note: PyTorch is installed separately via constraints for CPU-only build
 # See constraints.txt for torch installation
+
+# Code Quality
+ruff>=0.1.0
+mypy>=1.8.0
+
+# ML Observability
+tensorboard>=2.15.0
+
+# Data Handling
+pandas>=2.1.0
+pyarrow>=14.0.0

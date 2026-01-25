@@ -1,14 +1,6 @@
+
 # NILM Energy Monitor - Docker Compose
 # Orchestrates all services for local development
-#
-# Usage:
-#   docker compose up -d          # Start all services
-#   docker compose logs -f        # View logs
-#   docker compose down           # Stop all services
-#   docker compose down -v        # Stop and remove volumes
-#
-# Required environment variables (create .env file):
-#   INFLUX_TOKEN - InfluxDB admin token (required)
 
 services:
   # ==========================================================================
@@ -53,15 +45,11 @@ services:
     command: |
       set -euo pipefail
       echo "Waiting for InfluxDB to be ready..."
-      # We rely on depends_on: service_healthy, but a double check doesn't hurt
       influx ping --host "$INFLUX_HOST"
 
-      echo "----------------------------------------"
       echo "Ensuring buckets exist..."
-      echo "----------------------------------------"
-
+      
       # 1. Check/Create INFLUX_BUCKET_RAW
-      # Note: DOCKER_INFLUXDB_INIT_BUCKET usually creates this, but we verify to be sure.
       if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
         echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
       else
@@ -77,33 +65,16 @@ services:
         influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
       fi
 
-      echo "----------------------------------------"
-      echo "Verifying final state..."
-      echo "----------------------------------------"
-      
-      # Final verification - FAIL if either bucket is missing
-      msg=$(influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG")
-      
-      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_RAW "; then
-        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_RAW' missing after init!"
-        exit 1
-      fi
-      
-      if ! echo "$msg" | grep -q " $INFLUX_BUCKET_PRED "; then
-        echo "❌ ERROR: Bucket '$INFLUX_BUCKET_PRED' missing after init!"
-        exit 1
-      fi
-
-      echo "✅ InfluxDB initialization complete. Both buckets ready."
+      echo "✅ InfluxDB initialization complete."
     restart: "no"
 
   # ==========================================================================
-  # Unified Backend - Python FastAPI (replaces inference-service + local-server)
+  # Unified Backend
   # ==========================================================================
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     ports:
       - "8000:8000"
     volumes:
@@ -133,9 +104,98 @@ services:
       retries: 3
       start_period: 15s
 
+  # ==========================================================================
+  # NILM Production Inference Service
+  # ==========================================================================
+  # ==========================================================================
+  # NILM Production Inference Service
+  # ==========================================================================
+  nilm-inference:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-inference
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/app/models
+      - WINDOW_SIZE=1536
+      - INFERENCE_INTERVAL=60
+      - BUILDING_ID=building_1
+      - ENV=production
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    command: ["python", "-m", "app.pipeline.inference_worker"]
+
+  # ==========================================================================
+  # Data Producer
+  # ==========================================================================
+  nilm-producer:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-producer
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./apps/backend/tests/fixtures/production_data.parquet:/app/production_data.parquet
+    command: >
+      sh -c "python -m app.pipeline.producer --source parquet --file /app/production_data.parquet --interval 1.0"
+    profiles:
+      - testing
+
+  # ==========================================================================
+  # Prediction Persister
+  # ==========================================================================
+  nilm-persister:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-persister
+    depends_on:
+      - redis
+      - influxdb
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+    command: ["python", "-m", "app.pipeline.persister"]
+
+  # ==========================================================================
+  # Redis
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: nilm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   influxdb-data:
   influxdb-config:
+  redis-data:
 
 networks:
   default:
