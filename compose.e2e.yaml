@@ -56,7 +56,7 @@ services:
   e2e-tests:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile
+      target: test
     depends_on:
       - backend
       - nilm-persister
@@ -64,9 +64,9 @@ services:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN}
-    volumes:
-      - ./apps/backend/tests:/app/tests
-      - ./apps/backend/data/simulation-data.parquet:/app/simulation-data.parquet
+    # Volumes removed to rely on baked-in code/data (solves sync issues)
+    # volumes:
+    #   - ./apps/backend/tests:/app/tests
     working_dir: /app
     # Deps are installed in image. Just run tests.
     command: ["pytest", "tests/integration", "-v"]
