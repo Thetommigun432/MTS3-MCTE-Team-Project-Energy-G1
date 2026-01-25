@@ -110,31 +110,31 @@ jobs:
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i of $MAX_RETRIES..."
 
-            response=$(curl -sfL --max-time 15 "$URL" 2>&1) || {
-              echo "Request failed, retrying in ${RETRY_DELAY}s..."
-              sleep $RETRY_DELAY
-              continue
-            }
+            # Use -w to get status code, remove -f to capture body on 503
+            response_body=$(curl -sL --max-time 15 "$URL")
+            http_code=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 15 "$URL")
 
-            echo "Response: $response"
+            echo "HTTP Status: $http_code"
+            echo "Response: $response_body"
 
-            if echo "$response" | grep -q '"status"'; then
-              status=$(echo "$response" | jq -r '.status // "unknown"')
-              if [ "$status" = "ok" ]; then
-                echo "Readiness check PASSED (all dependencies healthy)"
-              else
-                echo "Readiness check WARNING - Service may be degraded (status: $status)"
-                # Don't fail on readiness - it may have transient dependency issues
-              fi
+            if [ "$http_code" = "200" ]; then
+              echo "Readiness check PASSED"
               exit 0
+            elif [ "$http_code" = "503" ]; then
+              echo "Service unavailable (dependencies checks failed). Retrying..."
+            else
+               echo "Unexpected status code: $http_code"
             fi
 
             sleep $RETRY_DELAY
           done
 
           echo "Readiness check FAILED after $MAX_RETRIES attempts"
-          # Readiness failure is a warning, not a blocker
-          echo "::warning::Readiness check failed - service may be degraded"
+          # Fail the job if it never becomes ready? Or warn?
+          # If 503 persists, it means dependencies (Redis/Influx) are down.
+          # We should probably fail or at least print a loud warning.
+          echo "::error::Readiness check failed (HTTP $http_code)"
+          exit 1
 
       - name: Models Endpoint Check (/models)
         id: models
