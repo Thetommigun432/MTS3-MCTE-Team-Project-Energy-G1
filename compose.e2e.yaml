@@ -57,8 +57,16 @@ services:
     profiles: [] # Remove 'testing' profile so it runs by default in e2e
 
   # Override Inference Service to use Test Env (activates fallback)
+  # NOTE: Docker Compose REPLACES list-based environment sections, doesn't merge!
+  # So we must include ALL required vars here, not just overrides.
   nilm-inference:
     environment:
+      # From base compose.yaml (required for Docker networking)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/app/models
+      - BUILDING_ID=building_1
+      # E2E-specific overrides
       - ENV=test
       # Reduce window size for fast E2E feedback (64 samples vs 1536)
       - WINDOW_SIZE=64
