@@ -14,10 +14,8 @@ def parquet_file():
             
     # Fallback paths
     possible_paths = [
-        Path("apps/backend/data/simulation-data.parquet"),
-        Path("/app/simulation-data.parquet"),
-        Path("simulation-data.parquet"),
-        Path("../data/simulation-data.parquet"),
+        Path("apps/backend/tests/fixtures/simulation-data.parquet"),
+        Path("tests/fixtures/simulation-data.parquet"),
         # Fixture fallback for CI
         Path("apps/backend/tests/fixtures/test_data.parquet"),
     ]

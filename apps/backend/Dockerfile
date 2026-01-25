@@ -89,11 +89,8 @@ CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 # =============================================================================
 FROM production AS test
 
-# Copy tests
+# Copy tests (includes fixtures/simulation-data.parquet)
 COPY apps/backend/tests/ ./tests/
-
-# Copy simulation data (if available in build context)
-COPY apps/backend/data/simulation-data.parquet ./simulation-data.parquet
 
 # Reset command for testing
 CMD ["pytest", "tests/integration", "-v"]
