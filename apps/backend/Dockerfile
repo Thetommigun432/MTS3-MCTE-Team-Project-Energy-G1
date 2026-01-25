@@ -93,4 +93,4 @@ FROM production AS test
 COPY apps/backend/tests/ ./tests/
 
 # Reset command for testing
-CMD ["pytest", "tests/integration", "-v"]
+CMD ["pytest", "tests", "-v"]

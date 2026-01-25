@@ -77,6 +77,6 @@ services:
     #   - ./apps/backend/tests:/app/tests
     working_dir: /app
     # Deps are installed in image. Just run tests.
-    command: ["pytest", "tests/integration", "-v"]
+    command: ["pytest", "tests/e2e", "-v"]
     profiles:
       - test-runner
