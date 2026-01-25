@@ -90,14 +90,18 @@ class InfluxClient:
             return status
         status["connected"] = True
 
-        # 2. Check buckets
+        # 2. Check buckets using Flux (more robust than buckets_api on async client)
         settings = get_settings()
         try:
-            buckets_api = self._client.buckets_api()
+            query_api = self._client.query_api()
+            tables = await query_api.query("buckets()")
             
-            # Get all buckets once to reduce API calls
-            buckets = await buckets_api.find_buckets()
-            bucket_names = {b.name for b in buckets.buckets}
+            bucket_names = set()
+            for table in tables:
+                for record in table.records:
+                    name = record.values.get("name")
+                    if name:
+                        bucket_names.add(name)
             
             status["bucket_raw"] = settings.influx_bucket_raw in bucket_names
             status["bucket_pred"] = settings.influx_bucket_pred in bucket_names
@@ -108,13 +112,18 @@ class InfluxClient:
         return status
 
     async def bucket_exists(self, bucket_name: str) -> bool:
-        """Check if a bucket exists."""
+        """Check if a bucket exists using Flux."""
         if not self._client:
             return False
         try:
-            buckets_api = self._client.buckets_api()
-            bucket = await buckets_api.find_bucket_by_name(bucket_name)
-            return bucket is not None
+            query_api = self._client.query_api()
+            query = f'buckets() |> filter(fn: (r) => r.name == "{bucket_name}")'
+            tables = await query_api.query(query)
+            
+            for table in tables:
+                if len(table.records) > 0:
+                    return True
+            return False
         except Exception as e:
             logger.error("Bucket check failed", extra={"bucket": bucket_name, "error": str(e)})
             return False
@@ -171,34 +180,51 @@ class InfluxClient:
             return False
         
         try:
-            buckets_api = self._client.buckets_api()
-            
-            # Check if bucket already exists
-            existing = await buckets_api.find_bucket_by_name(bucket_name)
-            if existing:
+            # 1. Check if bucket already exists using internal helper (Flux)
+            if await self.bucket_exists(bucket_name):
                 logger.debug("Bucket already exists", extra={"bucket": bucket_name})
                 return True
             
-            # Get organization ID
-            settings = get_settings()
-            orgs_api = self._client.organizations_api()
-            orgs = await orgs_api.find_organizations(org=settings.influx_org)
-            if not orgs:
-                logger.error("Organization not found", extra={"org": settings.influx_org})
+            # 2. Try to create using buckets_api (Might fail if not implemented in async client)
+            try:
+                # Attempt to access API - catch specific attribute error if missing
+                buckets_api = getattr(self._client, 'buckets_api', None)
+                if callable(buckets_api):
+                     buckets_api = buckets_api()
+                elif not buckets_api:
+                     # Attempt reasonable property name or just fail gracefully
+                     # Some versions might check self._client.api_client... 
+                     # For now, explicit check or just try accessing it normally so we catch AttributeError
+                     buckets_api = self._client.buckets_api()
+
+                # Get organization ID
+                settings = get_settings()
+                orgs_api = self._client.organizations_api()
+                orgs = await orgs_api.find_organizations(org=settings.influx_org)
+                if not orgs:
+                    logger.error("Organization not found", extra={"org": settings.influx_org})
+                    return False
+                
+                org_id = orgs[0].id
+                
+                # Create the bucket with infinite retention (0 = never expire)
+                from influxdb_client import BucketRetentionRules
+                await buckets_api.create_bucket(
+                    bucket_name=bucket_name,
+                    org_id=org_id,
+                    retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
+                )
+                
+                logger.info("Created bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
+                return True
+
+            except AttributeError:
+                logger.warning(
+                    "InfluxDBClientAsync missing buckets_api - cannot create bucket automatically. "
+                    "Ensure 'influxdb-init' service ran successfully.", 
+                    extra={"bucket": bucket_name}
+                )
                 return False
-            
-            org_id = orgs[0].id
-            
-            # Create the bucket with infinite retention (0 = never expire)
-            from influxdb_client import BucketRetentionRules
-            await buckets_api.create_bucket(
-                bucket_name=bucket_name,
-                org_id=org_id,
-                retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
-            )
-            
-            logger.info("Created bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
-            return True
             
         except Exception as e:
             logger.error("Failed to ensure bucket", extra={"bucket": bucket_name, "error": str(e)})
