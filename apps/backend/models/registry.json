@@ -134,7 +134,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": true
+      "is_active": false
     },
     "evcharger-v3-sota": {
       "model_id": "evcharger-v3-sota",
@@ -156,7 +156,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": true
+      "is_active": false
     },
     "heatpump-v3-sota": {
       "model_id": "heatpump-v3-sota",
@@ -178,7 +178,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": true
+      "is_active": false
     },
     "washingmachine-v3-sota": {
       "model_id": "washingmachine-v3-sota",
@@ -200,7 +200,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": true
+      "is_active": false
     }
   }
 }

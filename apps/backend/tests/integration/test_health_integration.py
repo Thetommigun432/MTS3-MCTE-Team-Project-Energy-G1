@@ -1,7 +1,7 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from app.main import app
 
 # Create a test client
@@ -45,9 +45,19 @@ def test_ready_endpoint_mocked(mock_get_influx, mock_get_redis):
     assert data["checks"]["influxdb_connected"] is True
     assert data["checks"]["redis_available"] is True
 
+@patch("app.api.routers.health.get_influx_client")
 @patch("app.api.routers.health.get_redis_cache")
-def test_ready_endpoint_redis_failure(mock_get_redis):
+def test_ready_endpoint_redis_failure(mock_get_redis, mock_get_influx):
     """Verify degradation if Redis fails."""
+    # Mock Influx ready (must stay healthy for 200 OK)
+    mock_influx_instance = AsyncMock()
+    mock_influx_instance.verify_setup.return_value = {
+        "connected": True,
+        "bucket_raw": True,
+        "bucket_pred": True
+    }
+    mock_get_influx.return_value = mock_influx_instance
+
     # Mock Redis failure (fallback mode)
     mock_redis_instance = MagicMock()
     mock_redis_instance.is_using_fallback = True

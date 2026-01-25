@@ -23,6 +23,8 @@ def influx_client():
         if not bucket:
             print(f"Creating missing bucket: {INFLUX_BUCKET_PRED}")
             buckets_api.create_bucket(bucket_name=INFLUX_BUCKET_PRED, org=INFLUX_ORG)
+            print("Bucket created. Waiting for consistency...")
+            time.sleep(2)
     except Exception as e:
         print(f"Warning: Failed to ensure bucket exists: {e}")
 
