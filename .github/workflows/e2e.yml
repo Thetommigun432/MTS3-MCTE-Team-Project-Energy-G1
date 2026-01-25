@@ -24,7 +24,7 @@ jobs:
       - name: Start Stack
         run: docker compose -f compose.yaml -f compose.e2e.yaml up -d --build
         env:
-          INFLUX_TOKEN: admin-token
+          INFLUX_TOKEN: influx-admin-token-2026-secure
           INFLUX_ORG: energy-monitor
           INFLUX_BUCKET_RAW: raw_sensor_data
           INFLUX_BUCKET_PRED: predictions
@@ -37,7 +37,7 @@ jobs:
       - name: Run Backend Integration Tests
         run: docker compose -f compose.yaml -f compose.e2e.yaml run --rm e2e-tests
         env:
-          INFLUX_TOKEN: admin-token
+          INFLUX_TOKEN: influx-admin-token-2026-secure
 
       - name: Teardown
         if: always()

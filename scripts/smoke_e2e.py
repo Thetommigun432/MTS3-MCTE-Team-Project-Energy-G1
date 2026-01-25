@@ -128,7 +128,7 @@ def main():
     # Configuration
     backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000").rstrip("/")
     influx_url = os.environ.get("INFLUX_URL", "http://localhost:8086").rstrip("/")
-    influx_token = os.environ.get("INFLUX_TOKEN", "admin-token")
+    influx_token = os.environ.get("INFLUX_TOKEN", "influx-admin-token-2026-secure")
     influx_org = os.environ.get("INFLUX_ORG", "energy-monitor")
     bucket = os.environ.get("INFLUX_BUCKET_PRED", "predictions")
     auth_token = os.environ.get("AUTH_TOKEN", "")

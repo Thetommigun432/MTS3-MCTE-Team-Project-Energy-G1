@@ -7,7 +7,7 @@ from influxdb_client import InfluxDBClient
 
 # Configuration
 INFLUX_URL = os.environ.get("INFLUX_URL", "http://localhost:8086")
-INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN", "admin-token")
+INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN", "influx-admin-token-2026-secure")
 INFLUX_ORG = os.environ.get("INFLUX_ORG", "energy-monitor")
 INFLUX_BUCKET_PRED = os.environ.get("INFLUX_BUCKET_PRED", "predictions")
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:8000")

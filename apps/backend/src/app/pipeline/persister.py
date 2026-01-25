@@ -55,7 +55,7 @@ def main():
     building_uuid = os.environ.get('BUILDING_UUID')
     
     influx_url = os.environ.get('INFLUX_URL', 'http://localhost:8086')
-    influx_token = os.environ.get('INFLUX_TOKEN', 'admin-token')
+    influx_token = os.environ.get('INFLUX_TOKEN', 'influx-admin-token-2026-secure')
     influx_org = os.environ.get('INFLUX_ORG', 'energy-monitor')
     influx_bucket = os.environ.get('INFLUX_BUCKET_PRED', 'predictions')
     

@@ -19,7 +19,7 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
       - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_RAW:-raw_sensor_data}
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-influx-admin-token-2026-secure}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "influx", "ping", "--host", "http://localhost:8086"]
@@ -37,7 +37,7 @@ services:
         condition: service_healthy
     environment:
       - INFLUX_HOST=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-influx-admin-token-2026-secure}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
@@ -83,7 +83,7 @@ services:
       - ENV=dev
       - PORT=8000
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-influx-admin-token-2026-secure}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
@@ -167,7 +167,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-influx-admin-token-2026-secure}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     command: ["python", "-m", "app.pipeline.persister"]

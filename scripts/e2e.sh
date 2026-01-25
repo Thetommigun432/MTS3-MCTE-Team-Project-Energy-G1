@@ -10,7 +10,7 @@ NC='\033[0m'
 echo -e "${GREEN}Starting E2E Test Suite...${NC}"
 
 # 1. Setup Env
-export INFLUX_TOKEN=admin-token # Dummy token for test
+export INFLUX_TOKEN=influx-admin-token-2026-secure # Dummy token for test
 export INFLUX_ORG=energy-monitor
 export INFLUX_BUCKET_RAW=raw_sensor_data
 export INFLUX_BUCKET_PRED=predictions
