@@ -107,10 +107,13 @@ services:
   # ==========================================================================
   # NILM Production Inference Service
   # ==========================================================================
+  # ==========================================================================
+  # NILM Production Inference Service
+  # ==========================================================================
   nilm-inference:
     build:
       context: .
-      dockerfile: production/Dockerfile
+      dockerfile: apps/backend/Dockerfile
     container_name: nilm-inference
     depends_on:
       redis:
@@ -118,12 +121,11 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - MODEL_DIR=/app/checkpoints
+      - MODEL_DIR=/app/models
       - WINDOW_SIZE=1536
       - INFERENCE_INTERVAL=60
       - BUILDING_ID=building_1
-    volumes:
-      - ./production/checkpoints:/app/checkpoints:ro
+      - ENV=production
     deploy:
       resources:
         reservations:
@@ -132,12 +134,15 @@ services:
               count: 1
               capabilities: [gpu]
     restart: unless-stopped
+    command: ["python", "-m", "app.pipeline.inference_worker"]
 
   # ==========================================================================
   # Data Producer
   # ==========================================================================
   nilm-producer:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: nilm-producer
     depends_on:
       - redis
@@ -145,14 +150,30 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - ./production/data_producer.py:/app/data_producer.py
-      - ./production/production_jan2025_building_only.parquet:/app/production_jan2025_building_only.parquet
-      - ./production/requirements-production.txt:/app/requirements.txt
-    working_dir: /app
+      - ./apps/backend/tests/fixtures/production_data.parquet:/app/production_data.parquet
     command: >
-      sh -c "pip install pandas pyarrow redis && python data_producer.py --source parquet --file production_jan2025_building_only.parquet --interval 1.0"
+      sh -c "python -m app.pipeline.producer --source parquet --file /app/production_data.parquet --interval 1.0"
     profiles:
       - testing
+
+  # ==========================================================================
+  # Prediction Persister
+  # ==========================================================================
+  nilm-persister:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-persister
+    depends_on:
+      - redis
+      - influxdb
+    environment:
+      - REDIS_HOST=redis
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+    command: ["python", "-m", "app.pipeline.persister"]
 
   # ==========================================================================
   # Redis

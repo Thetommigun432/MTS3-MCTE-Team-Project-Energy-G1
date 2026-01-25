@@ -1,3 +1,41 @@
+[project]
+name = "nilm-backend"
+version = "0.1.0"
+description = "NILM Energy Monitor Backend"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.4",
+    "pydantic-settings==2.7.1",
+    "influxdb-client[async]==1.47.0",
+    "supabase==2.11.0",
+    "PyJWT[crypto]==2.10.1",
+    "cryptography==44.0.0",
+    "safetensors==0.4.5",
+    "numpy>=1.26.0,<2.0.0",
+    "prometheus-client==0.21.1",
+    "python-json-logger==3.2.1",
+    "httpx==0.28.1",
+    "redis[hiredis]==5.2.1",
+    "pandas>=2.1.0",
+    "pyarrow>=14.0.0",
+    "tensorboard>=2.15.0",
+    # Development tools (kept here for simplicity or move to [dev-dependencies] if using hatch/poetry)
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.2",
+    "pytest-cov>=6.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 # Enable pycodestyle ('E') and Pyflakes ('F') codes by default.
 select = ["E", "F", "B", "I", "UP"]

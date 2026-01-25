@@ -107,3 +107,23 @@ class ModelsListResponse(BaseModel):
 
     models: list[ModelInfo] = Field(..., description="List of available models")
     count: int = Field(..., description="Total number of models")
+
+
+class ModelMetricsResponse(BaseModel):
+    """Response schema for GET /models/{id}/metrics endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: str = Field(..., description="Model ID")
+    model_version: str = Field(..., description="Model version")
+    appliance_id: str = Field(..., description="Associated appliance ID")
+    architecture: str = Field(..., description="Model architecture")
+    architecture_params: dict[str, Any] = Field(
+        default_factory=dict, description="Architecture parameters (n_blocks, hidden_channels, etc.)"
+    )
+    input_window_size: int = Field(..., description="Required input window size")
+    preprocessing: dict[str, Any] = Field(
+        default_factory=dict, description="Preprocessing config (type, max, etc.)"
+    )
+    is_active: bool = Field(..., description="Whether this is the active model")
+    cached: bool = Field(default=False, description="Whether model is loaded in cache")

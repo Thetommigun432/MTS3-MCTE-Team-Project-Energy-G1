@@ -13,7 +13,7 @@ from app.core.logging import get_logger
 from app.core.telemetry import IDEMPOTENCY_CACHE_HIT, IDEMPOTENCY_CACHE_SIZE
 from app.domain.inference import get_inference_service
 from app.infra.redis import get_redis_cache
-from app.schemas.inference import InferRequest, InferResponse, ModelsListResponse
+from app.schemas.inference import InferRequest, InferResponse, ModelsListResponse, ModelMetricsResponse
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["Inference"])
@@ -100,3 +100,16 @@ async def list_models() -> ModelsListResponse:
         models=models,
         count=len(models),
     )
+
+
+@router.get("/models/{model_id}/metrics", response_model=ModelMetricsResponse)
+async def get_model_metrics(model_id: str) -> ModelMetricsResponse:
+    """
+    Get detailed metrics and configuration for a specific model.
+
+    Returns architecture params, preprocessing config, and thresholds.
+    """
+    service = get_inference_service()
+    entry = await service.get_model_details(model_id)
+    
+    return entry

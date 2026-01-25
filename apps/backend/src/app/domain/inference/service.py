@@ -174,6 +174,44 @@ class InferenceService:
 
         return models
 
+    async def get_model_details(self, model_id: str) -> dict[str, Any]:
+        """Get detailed model information including architecture params."""
+        from dataclasses import asdict
+        
+        registry = get_model_registry()
+        engine = get_inference_engine()
+        
+        entry = registry.get(model_id)
+        if not entry:
+            raise ModelError(
+                code=ErrorCode.MODEL_NOT_FOUND,
+                message=f"Model not found: {model_id}",
+            )
+        
+        loaded_models = set(engine.get_loaded_models())
+        cache_key = f"{entry.model_id}:{entry.model_version}"
+        
+        # Convert preprocessing to dict
+        preprocessing_dict = {
+            "type": entry.preprocessing.type,
+            "mean": entry.preprocessing.mean,
+            "std": entry.preprocessing.std,
+            "min": entry.preprocessing.min_val,
+            "max": entry.preprocessing.max_val,
+        }
+        
+        return {
+            "model_id": entry.model_id,
+            "model_version": entry.model_version,
+            "appliance_id": entry.appliance_id,
+            "architecture": entry.architecture,
+            "architecture_params": entry.architecture_params,
+            "input_window_size": entry.input_window_size,
+            "preprocessing": preprocessing_dict,
+            "is_active": entry.is_active,
+            "cached": cache_key in loaded_models,
+        }
+
     async def reload_models(self) -> dict[str, Any]:
         """Reload model registry and clear cache."""
         registry = get_model_registry()

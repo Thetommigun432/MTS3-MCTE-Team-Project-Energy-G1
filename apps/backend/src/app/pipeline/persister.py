@@ -66,10 +66,11 @@ def main():
                 p = Point("nilm_predictions") \
                     .tag("building_id", building_id) \
                     .tag("appliance", pred['appliance']) \
-                    .tag("model", "dummy-v1") \
+                    .tag("model_version", pred.get('model_version', 'unknown')) \
                     .field("power_watts", float(pred['power_watts'])) \
                     .field("probability", float(pred['probability'])) \
                     .field("confidence", float(pred['confidence'])) \
+                    .field("is_on", bool(pred.get('is_on', False))) \
                     .time(ts)
                 points.append(p)
                 

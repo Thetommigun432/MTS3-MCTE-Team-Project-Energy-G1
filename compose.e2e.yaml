@@ -22,7 +22,10 @@ services:
 
   # Add Prediction Persister (The bridge we just made)
   nilm-persister:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-persister-e2e
     depends_on:
       - redis
       - influxdb
@@ -32,27 +35,26 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN}
       - INFLUX_ORG=${INFLUX_ORG}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED}
-    volumes:
-      - ./production/prediction_persister.py:/app/prediction_persister.py
-      - ./production/requirements-production.txt:/app/requirements.txt
-    working_dir: /app
-    command: >
-      sh -c "pip install -r requirements.txt && python prediction_persister.py"
+    command: ["python", "-m", "app.pipeline.persister"]
 
   # Override Producer to use our FIXTURE instead of huge parquet
   nilm-producer:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: nilm-producer-e2e
     volumes:
-      - ./production/data_producer.py:/app/data_producer.py
       - ./tests/fixtures/test_data.parquet:/app/test_data.parquet
-      - ./production/requirements-production.txt:/app/requirements.txt
     # Run faster interval for tests (0.1s)
     command: >
-      sh -c "pip install pandas pyarrow redis && python data_producer.py --source parquet --file test_data.parquet --interval 0.1 --fast"
+      sh -c "python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1 --fast"
     profiles: [] # Remove 'testing' profile so it runs by default in e2e
 
   # Test Runner (Ephemeral container to run pytest)
   e2e-tests:
-    image: python:3.11-slim
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
     depends_on:
       - backend
       - nilm-persister
@@ -60,14 +62,10 @@ services:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN}
-      - PYTHONPATH=/app/backend
     volumes:
-      - ./apps/backend:/app/backend
       - ./apps/backend/tests:/app/tests
-      - ./apps/backend/requirements.txt:/app/requirements.txt
     working_dir: /app
-    # Install test deps + production deps (for redis/influx clients)
-    command: >
-      sh -c "pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt && pytest tests/integration -v"
+    # Deps are installed in image. Just run tests.
+    command: ["pytest", "tests/integration", "-v"]
     profiles:
       - test-runner

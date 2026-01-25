@@ -1,3 +1,0 @@
-"""
-NILM Production Package
-"""

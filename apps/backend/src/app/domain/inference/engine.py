@@ -18,7 +18,7 @@ from app.core.errors import ErrorCode, ModelError, ValidationError
 from app.core.logging import get_logger
 from app.core.telemetry import INFERENCE_COUNT, INFERENCE_LATENCY, MODEL_CACHE_SIZE
 from app.domain.inference.registry import ModelEntry, PreprocessingConfig, get_model_registry
-from app.domain.inference.architectures import HybridCNNTransformerAdapter
+from app.domain.inference.architectures import HybridCNNTransformerAdapter, WaveNILM_v3
 
 logger = get_logger(__name__)
 
@@ -252,6 +252,9 @@ MODEL_CLASSES: dict[str, type[nn.Module]] = {
     "hybrid_cnn_transformer": HybridCNNTransformerAdapter,
     "hybridcnntransformer": HybridCNNTransformerAdapter,
     "hybrid": HybridCNNTransformerAdapter,
+    # WaveNILM v3
+    "wavenilm_v3": WaveNILM_v3,
+    "wavenilmv3": WaveNILM_v3,
 }
 
 
