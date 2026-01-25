@@ -95,12 +95,20 @@ def test_verify_token_rs256_success(mock_settings, mock_jwks_cache, rsa_keys):
     mock_jwks_cache.get_signing_key.assert_called_once_with(token)
 
 def test_verify_token_unknown_alg(mock_settings):
-    """Should reject unknown algorithms."""
-    # We force 'alg': 'none' in header
-    token = jwt.encode({"sub": "123"}, "secret", algorithm="HS256")
-    # Manually modify header to 'none' if possible, or just use 'none' alg if allowed by library (usually disabled)
-    # Simpler: just pass a garbage token or explicitly check rejection logic
-    pass 
+    """Should reject tokens with 'none' algorithm or malformed headers."""
+    # Create a token with 'none' algorithm (security attack vector)
+    # PyJWT by default doesn't allow 'none', so this should fail
+    import base64
+    import json
+    
+    # Manually craft a token with 'none' algorithm
+    header = base64.urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode()).rstrip(b"=")
+    payload = base64.urlsafe_b64encode(json.dumps({"sub": "123", "exp": 9999999999}).encode()).rstrip(b"=")
+    fake_token = f"{header.decode()}.{payload.decode()}."
+    
+    with pytest.raises(AuthenticationError):
+        verify_token(fake_token)
+
 
 def test_verify_token_missing_claims(mock_settings):
     """Should fail if required claims (sub, exp) are missing."""

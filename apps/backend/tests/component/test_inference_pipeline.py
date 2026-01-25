@@ -3,12 +3,12 @@ import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 from app.domain.inference.engine import InferenceEngine
 
-@pytest.mark.asyncio
-async def test_end_to_end_inference_flow():
+def test_end_to_end_inference_flow():
     """
     Test the complete flow from Ingest -> Worker -> Inference -> Result.
     This uses mocks for external services (Redis, Influx) but exercises the domain logic.
     """
+
     # 1. Setup Data
     reading = {
         "timestamp": "2026-01-25T12:00:00Z",
