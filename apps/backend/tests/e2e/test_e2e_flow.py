@@ -1,15 +1,31 @@
 
+"""
+End-to-end tests for the NILM pipeline.
+
+These tests require a running Docker stack with all services:
+- InfluxDB (time-series database)
+- Redis (message queue)
+- Backend API (FastAPI)
+- Producer (data ingestion)
+- Inference (ML predictions)
+- Persister (write predictions to InfluxDB)
+
+Run with: pytest -m e2e -v
+"""
+
 import pytest
 import os
 import time
 import requests
 from influxdb_client import InfluxDBClient
 
-# Configuration
+# Configuration from environment with sensible defaults
 INFLUX_URL = os.environ.get("INFLUX_URL", "http://localhost:8086")
 INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN", "influx-admin-token-2026-secure")
 INFLUX_ORG = os.environ.get("INFLUX_ORG", "energy-monitor")
+INFLUX_BUCKET_PRED = os.environ.get("INFLUX_BUCKET_PRED", "predictions")
 INFLUX_MEASUREMENT = os.environ.get("INFLUX_MEASUREMENT_PRED", "prediction")
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 E2E_RUN_ID = os.environ.get("E2E_RUN_ID")
 
 @pytest.fixture
@@ -31,12 +47,15 @@ def influx_client():
     yield client
     client.close()
 
+@pytest.mark.e2e
 def test_pipeline_produces_predictions(influx_client):
     """
-    Verifies that:
-    1. Data Producer sends data (implied if predictions exist)
-    2. Inference Service processes data (implied)
+    Verifies the complete NILM pipeline:
+    1. Data Producer sends data to Redis (implied if predictions exist)
+    2. Inference Service processes data and generates predictions (implied)
     3. Prediction Persister writes to InfluxDB (validated here)
+
+    Uses E2E_RUN_ID for test isolation when running in CI.
     """
     print(f"Waiting for pipeline to generate predictions...")
     print(f"Target: Bucket={INFLUX_BUCKET_PRED}, Measurement={INFLUX_MEASUREMENT}, RunID={E2E_RUN_ID}")
@@ -89,10 +108,34 @@ def test_pipeline_produces_predictions(influx_client):
         
     assert found, f"Pipeline failed to produce predictions. RunID: {E2E_RUN_ID}"
 
+@pytest.mark.e2e
 def test_backend_live():
-    """Verify backend is reachable."""
-    try:
-        resp = requests.get(f"{BACKEND_URL}/live")
-        assert resp.status_code == 200
-    except requests.exceptions.ConnectionError:
-        pytest.fail("Backend not reachable")
+    """Verify backend is reachable via /live endpoint."""
+    max_attempts = 10
+    last_error = None
+
+    for attempt in range(max_attempts):
+        try:
+            resp = requests.get(f"{BACKEND_URL}/live", timeout=5)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data.get("status") == "ok", f"Unexpected status: {data}"
+            print(f"Backend live check passed on attempt {attempt + 1}")
+            return
+        except requests.exceptions.ConnectionError as e:
+            last_error = e
+            if attempt < max_attempts - 1:
+                time.sleep(2)
+                continue
+        except requests.exceptions.Timeout as e:
+            last_error = e
+            if attempt < max_attempts - 1:
+                time.sleep(2)
+                continue
+
+    print(f"\n=== BACKEND LIVE CHECK FAILED ===")
+    print(f"Backend URL: {BACKEND_URL}")
+    print(f"Last Error: {last_error}")
+    print("Hint: Check docker compose logs for 'backend' service.")
+    print("==================================\n")
+    pytest.fail(f"Backend not reachable at {BACKEND_URL}/live after {max_attempts} attempts")

@@ -92,15 +92,16 @@ check_untyped_defs = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+addopts = "-ra -q --import-mode=importlib --strict-markers"
 testpaths = [
     "tests",
 ]
 asyncio_mode = "auto"
 markers = [
-    "unit: Pure unit tests",
-    "component: Component tests with mocks",
-    "e2e: End-to-end tests requiring Docker",
+    "unit: Pure unit tests (no network, no docker)",
+    "component: Component tests with mocks (FastAPI TestClient)",
+    "e2e: End-to-end tests requiring Docker stack",
+    "railway: Smoke tests for Railway deployed service",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:pythonjsonlogger.*:",
