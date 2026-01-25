@@ -38,8 +38,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    # Only run if we have the secret configured
-    if: ${{ vars.RAILWAY_BACKEND_URL != '' || secrets.RAILWAY_BACKEND_URL != '' }}
 
     steps:
       - name: Checkout code

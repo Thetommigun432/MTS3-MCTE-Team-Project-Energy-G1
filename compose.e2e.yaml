@@ -60,6 +60,7 @@ services:
   e2e-tests:
     build:
       context: .
+      dockerfile: apps/backend/Dockerfile
       target: test
     depends_on:
       - backend
