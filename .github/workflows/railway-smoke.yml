@@ -30,7 +30,6 @@ on:
 env:
   # Retry configuration
   MAX_RETRIES: 3
-  MAX_RETRIES: 3
   RETRY_DELAY: 5
   # Fallback URL if secret is not configured (from apps/web/.env.production)
   RAILWAY_BACKEND_URL: "https://energy-monitor.up.railway.app"
