@@ -1,7 +1,5 @@
 
 # Docker Compose for E2E Testing
-include:
-  - compose.yaml
 
 services:
   # Override backend to use testing env if needed

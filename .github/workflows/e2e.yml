@@ -22,7 +22,7 @@ jobs:
           docker run --rm -v "${PWD}:/app" -w /app python:3.11-slim sh -c "pip install pandas pyarrow numpy && python scripts/generate_fixtures.py"
 
       - name: Start Stack
-        run: docker compose -f compose.e2e.yaml up -d --build
+        run: docker compose -f compose.yaml -f compose.e2e.yaml up -d --build
         env:
           INFLUX_TOKEN: admin-token
           INFLUX_ORG: energy-monitor
@@ -31,14 +31,14 @@ jobs:
 
       - name: Wait for Services
         run: |
-          timeout 60s bash -c 'until docker compose -f compose.e2e.yaml ps influxdb | grep "healthy"; do sleep 2; done'
+          timeout 60s bash -c 'until docker compose -f compose.yaml -f compose.e2e.yaml ps influxdb | grep "healthy"; do sleep 2; done'
           sleep 10
 
       - name: Run Backend Integration Tests
-        run: docker compose -f compose.e2e.yaml run --rm e2e-tests
+        run: docker compose -f compose.yaml -f compose.e2e.yaml run --rm e2e-tests
         env:
           INFLUX_TOKEN: admin-token
 
       - name: Teardown
         if: always()
-        run: docker compose -f compose.e2e.yaml down -v
+        run: docker compose -f compose.yaml -f compose.e2e.yaml down -v
