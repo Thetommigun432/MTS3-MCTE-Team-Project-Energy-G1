@@ -123,13 +123,14 @@ services:
       - INFERENCE_INTERVAL=60
       - BUILDING_ID=building_1
       - ENV=production
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # GPU requirements disabled for CI compatibility
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
     command: ["python", "-m", "app.pipeline.inference_worker"]
 
