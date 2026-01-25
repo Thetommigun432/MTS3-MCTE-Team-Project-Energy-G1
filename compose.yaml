@@ -107,9 +107,6 @@ services:
   # ==========================================================================
   # NILM Production Inference Service
   # ==========================================================================
-  # ==========================================================================
-  # NILM Production Inference Service
-  # ==========================================================================
   nilm-inference:
     build:
       context: .
@@ -170,7 +167,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     command: ["python", "-m", "app.pipeline.persister"]
