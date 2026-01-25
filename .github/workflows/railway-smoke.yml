@@ -54,9 +54,9 @@ jobs:
           fi
 
           if [ -z "$URL" ]; then
-            echo "ERROR: RAILWAY_BACKEND_URL secret not configured"
-            echo "Please add RAILWAY_BACKEND_URL to repository secrets"
-            exit 1
+            echo "::warning::RAILWAY_BACKEND_URL secret not configured. Skipping smoke tests."
+            echo "Please add RAILWAY_BACKEND_URL to repository secrets to enable this workflow."
+            exit 0
           fi
 
           echo "BACKEND_URL=$URL" >> $GITHUB_OUTPUT
