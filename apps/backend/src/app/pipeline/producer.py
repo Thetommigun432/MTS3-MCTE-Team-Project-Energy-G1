@@ -93,8 +93,9 @@ def simulate_building_power() -> Generator[Dict, None, None]:
             'power_total': round(total_power, 1),
             'voltage': round(230 + random.gauss(0, 2), 1),
             'current': round(total_power / 230, 2),
-            'power_factor': round(0.95 + random.gauss(0, 0.02), 3)
+            'power_factor': round(min(1.0, max(0.8, 0.95 + random.gauss(0, 0.02))), 3)
         }
+
 
 
 def read_csv_file(file_path: str) -> Generator[Dict, None, None]:
