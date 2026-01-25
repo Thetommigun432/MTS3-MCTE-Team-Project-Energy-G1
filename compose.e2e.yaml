@@ -44,6 +44,11 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: production
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
       - ./apps/backend/tests/fixtures/simulation-data.parquet:/app/test_data.parquet
     # Run faster interval for tests (0.1s)
