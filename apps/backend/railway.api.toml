@@ -1,0 +1,40 @@
+# =============================================================================
+# Railway Config: NILM Backend API Service
+# =============================================================================
+# This config is for the PUBLIC API service.
+# Use this by setting the config file path in Railway service settings.
+# 
+# IMPORTANT: Railway config file path does NOT auto-follow root directory setting.
+# You must explicitly set the config file path to: apps/backend/railway.api.toml
+# =============================================================================
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/backend/Dockerfile"
+watchPatterns = [
+    "apps/backend/src/**",
+    "apps/backend/models/**",
+    "apps/backend/pyproject.toml",
+    "apps/backend/Dockerfile"
+]
+
+[deploy]
+# Use /live for healthcheck (not /ready) to avoid deploy deadlock if Influx is slow
+healthcheckPath = "/live"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Railway injects PORT env var - uvicorn binds to it via CMD
+
+# Environment variables to set in Railway dashboard:
+# - SUPABASE_URL
+# - SUPABASE_PUBLISHABLE_KEY
+# - SUPABASE_JWT_SECRET (for legacy HS256 fallback)
+# - INFLUX_URL
+# - INFLUX_TOKEN
+# - INFLUX_ORG
+# - INFLUX_BUCKET_PRED
+# - REDIS_URL (reference: ${{Redis.REDIS_URL}})
+# - CORS_ORIGINS (comma-separated list of allowed origins)
+# - PIPELINE_ENABLED=false (API doesn't run the worker)

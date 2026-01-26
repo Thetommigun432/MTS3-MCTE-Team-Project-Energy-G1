@@ -41,7 +41,11 @@ class InfluxClient:
         settings = get_settings()
 
         if not settings.influx_token:
-            logger.warning("INFLUX_TOKEN not set, InfluxDB operations will fail")
+            logger.error("INFLUX_TOKEN not set")
+            raise InfluxError(
+                code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                message="INFLUX_TOKEN is required but not set",
+            )
 
         self._client = InfluxDBClientAsync(
             url=settings.influx_url,
@@ -77,7 +81,6 @@ class InfluxClient:
         """
         status = {
             "connected": False,
-            "bucket_raw": False,
             "bucket_pred": False
         }
         
@@ -86,16 +89,20 @@ class InfluxClient:
             return status
         status["connected"] = True
 
-        # 2. Check buckets
+        # 2. Check buckets using Flux (more robust than buckets_api on async client)
         settings = get_settings()
         try:
-            buckets_api = self._client.buckets_api()
+            query_api = self._client.query_api()
+            tables = await query_api.query("buckets()")
             
-            # Get all buckets once to reduce API calls
-            buckets = await buckets_api.find_buckets()
-            bucket_names = {b.name for b in buckets.buckets}
+            bucket_names = set()
+            for table in tables:
+                for record in table.records:
+                    name = record.values.get("name")
+                    if name:
+                        bucket_names.add(name)
             
-            status["bucket_raw"] = settings.influx_bucket_raw in bucket_names
+
             status["bucket_pred"] = settings.influx_bucket_pred in bucket_names
             
         except Exception as e:
@@ -104,13 +111,18 @@ class InfluxClient:
         return status
 
     async def bucket_exists(self, bucket_name: str) -> bool:
-        """Check if a bucket exists."""
+        """Check if a bucket exists using Flux."""
         if not self._client:
             return False
         try:
-            buckets_api = self._client.buckets_api()
-            bucket = await buckets_api.find_bucket_by_name(bucket_name)
-            return bucket is not None
+            query_api = self._client.query_api()
+            query = f'buckets() |> filter(fn: (r) => r.name == "{bucket_name}")'
+            tables = await query_api.query(query)
+            
+            for table in tables:
+                if len(table.records) > 0:
+                    return True
+            return False
         except Exception as e:
             logger.error("Bucket check failed", extra={"bucket": bucket_name, "error": str(e)})
             return False
@@ -126,110 +138,89 @@ class InfluxClient:
             True if bucket exists or was created successfully
         """
         settings = get_settings()
-        bucket_name = settings.influx_bucket_pred
-        
-        if not self._client:
-            logger.error("Cannot ensure predictions bucket: client not connected")
-            return False
-        
-        try:
-            buckets_api = self._client.buckets_api()
-            
-            # Check if bucket already exists
-            existing = await buckets_api.find_bucket_by_name(bucket_name)
-            if existing:
-                logger.debug("Predictions bucket already exists", extra={"bucket": bucket_name})
-                return True
-            
-            # Get organization ID
-            orgs_api = self._client.organizations_api()
-            orgs = await orgs_api.find_organizations(org=settings.influx_org)
-            if not orgs:
-                logger.error("Organization not found", extra={"org": settings.influx_org})
-                return False
-            
-            org_id = orgs[0].id
-            
-            # Create the bucket with infinite retention (0 = never expire)
-            from influxdb_client import BucketRetentionRules
-            await buckets_api.create_bucket(
-                bucket_name=bucket_name,
-                org_id=org_id,
-                retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
-            )
-            
-            logger.info("Created predictions bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
-            return True
-            
-        except Exception as e:
-            logger.error("Failed to ensure predictions bucket", extra={"bucket": bucket_name, "error": str(e)})
-            return False
+        return await self._ensure_bucket(settings.influx_bucket_pred)
 
-    async def query_readings(
-        self,
-        building_id: str,
-        appliance_id: str | None,
-        start: str,
-        end: str,
-        resolution: Resolution,
-    ) -> list[DataPoint]:
+
+
+    async def ensure_buckets(self) -> dict[str, bool]:
         """
-        Query sensor readings from InfluxDB.
-
+        Ensure all required buckets exist.
+        
         Returns:
-            List of DataPoint objects
+            Dict with bucket names and creation success status
         """
         settings = get_settings()
-        start_time = time.time()
+        results = {
+            settings.influx_bucket_pred: await self._ensure_bucket(settings.influx_bucket_pred),
+        }
+        return results
 
+    async def _ensure_bucket(self, bucket_name: str) -> bool:
+        """
+        Ensure a bucket exists, creating it if necessary.
+        
+        Args:
+            bucket_name: Name of bucket to ensure exists
+            
+        Returns:
+            True if bucket exists or was created successfully
+        """
+        if not self._client:
+            logger.error("Cannot ensure bucket: client not connected", extra={"bucket": bucket_name})
+            return False
+        
         try:
-            if not self._client:
-                raise InfluxError(
-                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
-                    message="InfluxDB client not connected",
+            # 1. Check if bucket already exists using internal helper (Flux)
+            if await self.bucket_exists(bucket_name):
+                logger.debug("Bucket already exists", extra={"bucket": bucket_name})
+                return True
+            
+            # 2. Try to create using buckets_api (Might fail if not implemented in async client)
+            try:
+                # Attempt to access API - catch specific attribute error if missing
+                buckets_api = getattr(self._client, 'buckets_api', None)
+                if callable(buckets_api):
+                     buckets_api = buckets_api()
+                elif not buckets_api:
+                     # Attempt reasonable property name or just fail gracefully
+                     # Some versions might check self._client.api_client... 
+                     # For now, explicit check or just try accessing it normally so we catch AttributeError
+                     buckets_api = self._client.buckets_api()
+
+                # Get organization ID
+                settings = get_settings()
+                orgs_api = self._client.organizations_api()
+                orgs = await orgs_api.find_organizations(org=settings.influx_org)
+                if not orgs:
+                    logger.error("Organization not found", extra={"org": settings.influx_org})
+                    return False
+                
+                org_id = orgs[0].id
+                
+                # Create the bucket with infinite retention (0 = never expire)
+                from influxdb_client import BucketRetentionRules
+                await buckets_api.create_bucket(
+                    bucket_name=bucket_name,
+                    org_id=org_id,
+                    retention_rules=[BucketRetentionRules(type="expire", every_seconds=0)]
                 )
+                
+                logger.info("Created bucket", extra={"bucket": bucket_name, "org": settings.influx_org})
+                return True
 
-            query = build_readings_query(
-                bucket=settings.influx_bucket_raw,
-                building_id=building_id,
-                appliance_id=appliance_id,
-                start=start,
-                end=end,
-                resolution=resolution,
-            )
-
-            query_api = self._client.query_api()
-            tables = await query_api.query(query, org=settings.influx_org)
-
-            data_points: list[DataPoint] = []
-            for table in tables:
-                for record in table.records:
-                    # Extract value from pivoted data
-                    value = record.values.get("aggregate_kw") or record.values.get("power_kw") or 0.0
-                    data_points.append(
-                        DataPoint(
-                            time=record.get_time().isoformat() if record.get_time() else "",
-                            value=float(value),
-                        )
-                    )
-
-            logger.debug(
-                "Query readings completed",
-                extra={"building_id": building_id, "count": len(data_points)},
-            )
-            return data_points
-
-        except InfluxError:
-            raise
+            except AttributeError:
+                logger.warning(
+                    "InfluxDBClientAsync missing buckets_api - cannot create bucket automatically. "
+                    "Ensure 'influxdb-init' service ran successfully.", 
+                    extra={"bucket": bucket_name}
+                )
+                return False
+            
         except Exception as e:
-            logger.error("Query readings failed", extra={"error": str(e)})
-            raise InfluxError(
-                code=ErrorCode.INFLUX_QUERY_ERROR,
-                message=f"Failed to query readings: {e}",
-            )
-        finally:
-            duration = time.time() - start_time
-            INFLUX_QUERY_LATENCY.labels(query_type="readings").observe(duration)
+            logger.error("Failed to ensure bucket", extra={"bucket": bucket_name, "error": str(e)})
+            return False
+
+
 
     async def query_predictions(
         self,
@@ -584,11 +575,7 @@ class InfluxClient:
             query = f'''
             import "influxdata/influxdb/schema"
             
-            // Union of both raw and pred buckets
-            union(tables: [
-                schema.tagValues(bucket: "{settings.influx_bucket_raw}", tag: "building_id", start: {start}),
-                schema.tagValues(bucket: "{settings.influx_bucket_pred}", tag: "building_id", start: {start})
-            ])
+            schema.tagValues(bucket: "{settings.influx_bucket_pred}", tag: "building_id", start: {start})
             |> group()
             |> distinct(column: "_value")
             |> sort()
@@ -613,6 +600,11 @@ class InfluxClient:
     async def get_unique_appliances(self, building_id: str) -> list[str]:
         """
         Get unique appliance IDs for a building from predictions bucket.
+        
+        Works with WIDE format predictions where appliances are encoded in field keys
+        (e.g., predicted_kw_HeatPump, predicted_kw_Dishwasher).
+        
+        Falls back to querying appliance_id tag for legacy narrow format data.
         """
         settings = get_settings()
         start = "-30d"
@@ -621,61 +613,59 @@ class InfluxClient:
             if not self._client:
                 return []
 
-            # Query appliance_id tag from predictions bucket
-            # We assume appliances are those we generate predictions for
-            query = f'''
+            # Query field keys from the predictions bucket and parse appliance names
+            # This works with wide format where fields are: predicted_kw_{appliance}
+            field_keys_query = f'''
             import "influxdata/influxdb/schema"
             
-            schema.tagValues(
+            schema.measurementFieldKeys(
                 bucket: "{settings.influx_bucket_pred}",
-                tag: "appliance_id",
+                measurement: "prediction",
                 start: {start}
             )
-            |> filter(fn: (r) => r.building_id == "{building_id}" or r._value != "") 
-            // Note: schema.tagValues doesn't support filtering by other tags easily without full scan.
-            // Better approach: use tagValues but we can't filter by building_id natively in tagValues 
-            // unless we use 'predicate'.
-            // InfluxDB 2.0+ schema.tagValues supports predicate function? No.
-            
-            // AlterNative:
-            from(bucket: "{settings.influx_bucket_pred}")
-              |> range(start: {start})
-              |> filter(fn: (r) => r.building_id == "{building_id}")
-              |> keep(columns: ["appliance_id"])
-              |> group()
-              |> distinct(column: "appliance_id")
-            '''
-            
-            # Optimization: The above from() query is slow if data is huge.
-            # But schema.tagValues is global. 
-            # Compromise: Use schema.tagValues globally for now as building filter is tricky without scan.
-            # OR assume app logic filters later? No.
-            # Let's stick to the range query but keep columns early to minimize data transfer.
-            
-            real_query = f'''
-            from(bucket: "{settings.influx_bucket_pred}")
-              |> range(start: {start})
-              |> filter(fn: (r) => r.building_id == "{building_id}")
-              |> keep(columns: ["appliance_id"])
-              |> group()
-              |> distinct(column: "appliance_id")
+            |> filter(fn: (r) => r._value =~ /^predicted_kw_/)
             '''
 
             query_api = self._client.query_api()
-            tables = await query_api.query(real_query, org=settings.influx_org)
+            tables = await query_api.query(field_keys_query, org=settings.influx_org)
 
-            appliances = []
+            appliances = set()
+            for table in tables:
+                for record in table.records:
+                    field_key = record.get_value()
+                    if field_key and field_key.startswith("predicted_kw_"):
+                        appliance = field_key.replace("predicted_kw_", "")
+                        if appliance:
+                            appliances.add(appliance)
+
+            # If we found appliances from field keys, return them
+            if appliances:
+                return sorted(appliances)
+            
+            # Fallback: try legacy narrow format with appliance_id tag
+            legacy_query = f'''
+            from(bucket: "{settings.influx_bucket_pred}")
+              |> range(start: {start})
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> keep(columns: ["appliance_id"])
+              |> group()
+              |> distinct(column: "appliance_id")
+            '''
+            
+            tables = await query_api.query(legacy_query, org=settings.influx_org)
+            
             for table in tables:
                 for record in table.records:
                     val = record.get_value()
                     if val and val != "":
-                        appliances.append(str(val))
+                        appliances.add(str(val))
 
             return sorted(appliances)
 
         except Exception as e:
             logger.error("Failed to list unique appliances", extra={"error": str(e)})
             return []
+
 
     async def _sleep(self, seconds: float) -> None:
         """Async sleep helper."""

@@ -152,7 +152,9 @@ class InferenceService:
         )
 
     async def list_models(self) -> list[ModelInfo]:
-        """List all available models."""
+        """List all available models with heads info."""
+        from app.schemas.inference import HeadInfo
+        
         registry = get_model_registry()
         engine = get_inference_engine()
         loaded_models = set(engine.get_loaded_models())
@@ -160,6 +162,13 @@ class InferenceService:
         models: list[ModelInfo] = []
         for entry in registry.list_all():
             cache_key = f"{entry.model_id}:{entry.model_version}"
+            
+            # Build heads list from registry entry
+            heads = [
+                HeadInfo(appliance_id=h.appliance_id, field_key=h.field_key)
+                for h in entry.heads
+            ] if entry.heads else []
+            
             models.append(
                 ModelInfo(
                     model_id=entry.model_id,
@@ -169,10 +178,13 @@ class InferenceService:
                     input_window_size=entry.input_window_size,
                     is_active=entry.is_active,
                     cached=cache_key in loaded_models,
+                    heads=heads,
+                    metrics=None,  # TODO: load from metrics.json if available
                 )
             )
 
         return models
+
 
     async def get_model_details(self, model_id: str) -> dict[str, Any]:
         """Get detailed model information including architecture params."""

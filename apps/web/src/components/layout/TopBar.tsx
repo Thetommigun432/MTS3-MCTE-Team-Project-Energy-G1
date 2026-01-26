@@ -253,9 +253,9 @@ export function TopBar() {
             onClick={() => setMode("demo")}
             disabled={loading}
             className={cn(
-              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               mode === "demo"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >
@@ -265,9 +265,9 @@ export function TopBar() {
             onClick={() => setMode("api")}
             disabled={loading}
             className={cn(
-              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "rounded-md px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               mode === "api"
-                ? "bg-primary text-primary-foreground shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted",
             )}
           >

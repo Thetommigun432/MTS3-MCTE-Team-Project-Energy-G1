@@ -1,0 +1,38 @@
+# =============================================================================
+# Railway Config: NILM Backend Worker Service
+# =============================================================================
+# This config is for the PRIVATE inference worker.
+# Runs the Redis inference worker that consumes readings and writes predictions.
+#
+# IMPORTANT: Railway config file path does NOT auto-follow root directory setting.
+# You must explicitly set the config file path to: apps/backend/railway.worker.toml
+# =============================================================================
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/backend/Dockerfile.worker"
+watchPatterns = [
+    "apps/backend/src/**",
+    "apps/backend/models/**",
+    "apps/backend/pyproject.toml",
+    "apps/backend/Dockerfile.worker"
+]
+
+[deploy]
+# No healthcheck path - this is a background worker
+restartPolicyType = "ALWAYS"
+
+# Start command - override Dockerfile CMD to run worker instead of API
+startCommand = "python -m app.worker_main"
+
+# Environment variables to set in Railway dashboard:
+# - INFLUX_URL
+# - INFLUX_TOKEN
+# - INFLUX_ORG
+# - INFLUX_BUCKET_PRED
+# - REDIS_URL (reference: ${{Redis.REDIS_URL}})
+# - REDIS_STREAM_KEY (default: readings-stream)
+# - REDIS_CONSUMER_GROUP (default: inference-workers)
+# - PIPELINE_ENABLED=true
+# - PIPELINE_STRIDE (default: 60)
+# - PIPELINE_MAX_BUFFER (default: 2000)

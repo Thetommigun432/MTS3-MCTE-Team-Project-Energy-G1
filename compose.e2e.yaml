@@ -1,7 +1,5 @@
 
 # Docker Compose for E2E Testing
-include:
-  - compose.yaml
 
 services:
   # Override backend to use testing env if needed
@@ -12,8 +10,8 @@ services:
   # Add Frontend
   frontend:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
     ports:
       - "3000:80"
     depends_on:
@@ -25,6 +23,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-persister-e2e
     depends_on:
       - redis
@@ -32,40 +31,87 @@ services:
     environment:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
-      - INFLUX_ORG=${INFLUX_ORG}
-      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
+      - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - INFLUX_MEASUREMENT_PRED=${INFLUX_MEASUREMENT_PRED:-prediction}
+      - E2E_RUN_ID=${E2E_RUN_ID}
     command: ["python", "-m", "app.pipeline.persister"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - test-runner
 
   # Override Producer to use our FIXTURE instead of huge parquet
+  # IMPORTANT: Producer must wait for inference worker to be subscribed to Redis
+  # before sending data, otherwise pub/sub messages are lost (race condition).
   nilm-producer:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: nilm-producer-e2e
+      target: production
+    depends_on:
+      - redis
+      - nilm-inference  # Wait for inference to start subscribing
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     volumes:
-      - ./tests/fixtures/test_data.parquet:/app/test_data.parquet
-    # Run faster interval for tests (0.1s)
+      - ./apps/backend/tests/fixtures/simulation-data.parquet:/app/test_data.parquet
+    # Add 10s startup delay to ensure inference worker is subscribed before we send
+    # Also use slower interval (0.5s) to give inference worker time to process
     command: >
-      sh -c "python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1 --fast"
-    profiles: [] # Remove 'testing' profile so it runs by default in e2e
+      sh -c "echo 'Waiting 5s for inference worker to subscribe...' && sleep 5 && python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1"
+    profiles:
+      - test-runner
+
+
+  # Override Inference Service to use Test Env (activates fallback)
+  # NOTE: Docker Compose REPLACES list-based environment sections, doesn't merge!
+  # So we must include ALL required vars here, not just overrides.
+  nilm-inference:
+    environment:
+      # From base compose.yaml (required for Docker networking)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/app/models
+      - BUILDING_ID=building_1
+      # E2E-specific overrides
+      - ENV=test
+      # Reduce window size for fast E2E feedback (64 samples vs 1536)
+      - WINDOW_SIZE=64
+      # Reduce inference interval to 5s (vs 60s)
+      - INFERENCE_INTERVAL=5
 
   # Test Runner (Ephemeral container to run pytest)
   e2e-tests:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: test
     depends_on:
       - backend
       - nilm-persister
+      - nilm-producer
+    volumes:
+      - ./apps/backend/tests:/app/tests
+      - ./apps/backend/scripts:/app/scripts
     environment:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
-    volumes:
-      - ./apps/backend/tests:/app/tests
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
+      - INFLUX_MEASUREMENT_PRED=${INFLUX_MEASUREMENT_PRED:-prediction}
+      - E2E_RUN_ID=${E2E_RUN_ID}
+      - BACKEND_URL=http://backend:8000
+    # Volumes removed to rely on baked-in code/data (solves sync issues)
+    # volumes:
+    #   - ./apps/backend/tests:/app/tests
     working_dir: /app
     # Deps are installed in image. Just run tests.
-    command: ["pytest", "tests/integration", "-v"]
+    command: ["pytest", "tests/e2e", "-v"]
     profiles:
       - test-runner

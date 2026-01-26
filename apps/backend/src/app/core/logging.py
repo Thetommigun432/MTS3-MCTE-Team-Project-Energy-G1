@@ -37,25 +37,27 @@ class SafeJsonFormatter(jsonlogger.JsonFormatter):
     MAX_ARRAY_LENGTH = 10
     MAX_STRING_LENGTH = 500
 
-    def add_fields(
-        self,
-        log_record: dict[str, Any],
-        record: logging.LogRecord,
-        message_dict: dict[str, Any],
-    ) -> None:
-        super().add_fields(log_record, record, message_dict)
-
+    def process_log_record(self, log_record: dict[str, Any]) -> dict[str, Any]:
+        """
+        Process log record to add fields and sanitize.
+        Replaces add_fields in python-json-logger v3+.
+        """
         # Add standard fields
-        log_record["timestamp"] = self.formatTime(record)
-        log_record["level"] = record.levelname
-        log_record["logger"] = record.name
-
-        # Add request_id if present
-        if hasattr(record, "request_id") and record.request_id:
-            log_record["request_id"] = record.request_id
+        if "timestamp" not in log_record:
+            from datetime import datetime, timezone
+            log_record["timestamp"] = datetime.now(timezone.utc).isoformat()
+        
+        # log_record already has levelname and name from the parent formatter
+        # Just ensure they're present with fallback values
+        if "level" not in log_record:
+            log_record["level"] = log_record.get("levelname", "INFO")
+        if "logger" not in log_record:
+            log_record["logger"] = log_record.get("name", "root")
 
         # Sanitize sensitive data
         self._sanitize_dict(log_record)
+        return log_record
+
 
     def _sanitize_dict(self, d: dict[str, Any]) -> None:
         """Recursively sanitize dictionary, removing sensitive data."""

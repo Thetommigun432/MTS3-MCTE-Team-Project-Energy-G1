@@ -8,7 +8,10 @@
  * - Models: listing available ML models
  */
 
-import { api, isApiConfigured } from "./api";
+import { api, isApiConfigured, ApiError, ApiErrorType } from "./api";
+
+// Re-export ApiError for consumers
+export { ApiError, ApiErrorType };
 
 // ============================================================================
 // Analytics Types (readings and predictions from InfluxDB)
@@ -101,6 +104,16 @@ export interface ModelHead {
 }
 
 /**
+ * Model performance metrics (optional).
+ */
+export interface ModelMetrics {
+  mae?: number | null;
+  rmse?: number | null;
+  f1_score?: number | null;
+  accuracy?: number | null;
+}
+
+/**
  * Model metadata from the backend registry.
  *
  * NOTE: Modern NILM models are multi-head (one model predicts all appliances).
@@ -117,7 +130,9 @@ export interface Model {
   cached: boolean;
   // Multi-head support
   heads?: ModelHead[]; // List of appliance heads (empty for single-head models)
+  metrics?: ModelMetrics | null; // Performance metrics (if available)
 }
+
 
 export interface ModelsListResponse {
   models: Model[];
@@ -184,12 +199,11 @@ export const energyApi = {
    * Endpoint: GET /analytics/readings
    */
   getReadings: (params: AnalyticsParams) =>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     api.get<ReadingsResponse>("/analytics/readings", {
       params: {
         ...params,
         include_disaggregation: params.include_disaggregation ?? true
-      } as any
+      }
     }),
 
   /**

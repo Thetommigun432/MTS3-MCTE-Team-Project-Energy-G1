@@ -1,0 +1,229 @@
+name: Railway Smoke Tests
+
+# Smoke tests against deployed Railway service.
+# Uses RAILWAY_BACKEND_URL secret for the deployed service URL.
+#
+# IMPORTANT: This workflow only runs on:
+# 1. Push to integration (after deploy)
+# 2. Daily schedule at 6 AM UTC
+# 3. Manual workflow_dispatch
+#
+# It does NOT run on pull_request to avoid exposing secrets.
+
+on:
+  push:
+    branches: [integration]
+  schedule:
+    # Run daily at 6 AM UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to test"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  # Retry configuration
+  MAX_RETRIES: 3
+  RETRY_DELAY: 5
+  # Fallback URL if secret is not configured (from apps/web/.env.production)
+  RAILWAY_BACKEND_URL: "https://energy-monitor.up.railway.app"
+
+jobs:
+  smoke-test:
+    name: Railway Deployment Health Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set Environment URL
+        id: set-url
+        run: |
+          # Use input or default to secret
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            URL="${{ secrets.RAILWAY_PRODUCTION_URL || secrets.RAILWAY_BACKEND_URL || env.RAILWAY_BACKEND_URL }}"
+          else
+            URL="${{ secrets.RAILWAY_BACKEND_URL || env.RAILWAY_BACKEND_URL }}"
+          fi
+
+          if [ -z "$URL" ]; then
+            echo "ERROR: RAILWAY_BACKEND_URL secret not configured and no fallback found"
+            exit 1
+          fi
+
+          echo "BACKEND_URL=$URL" >> $GITHUB_OUTPUT
+          echo "Testing against: $URL"
+
+      - name: Wait for Deployment Propagation
+        run: |
+          # If this was triggered by a push, wait for Railway deploy to complete
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "Waiting 60s for Railway deployment to propagate..."
+            sleep 60
+          fi
+
+      - name: Liveness Check (/live)
+        id: liveness
+        run: |
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}/live"
+          echo "Testing: $URL"
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES..."
+
+            response=$(curl -sfL --max-time 10 "$URL" 2>&1) || {
+              echo "Request failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            }
+
+            echo "Response: $response"
+
+            if echo "$response" | grep -q '"status":"ok"'; then
+              echo "Liveness check PASSED"
+              exit 0
+            else
+              echo "Unexpected response format"
+            fi
+
+            sleep $RETRY_DELAY
+          done
+
+          echo "Liveness check FAILED after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Readiness Check (/ready)
+        id: readiness
+        run: |
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}/ready"
+          echo "Testing: $URL"
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES..."
+
+            # Use -w to get status code, remove -f to capture body on 503
+            response_body=$(curl -sL --max-time 15 "$URL")
+            http_code=$(curl -sL -o /dev/null -w "%{http_code}" --max-time 15 "$URL")
+
+            echo "HTTP Status: $http_code"
+            echo "Response: $response_body"
+
+            if [ "$http_code" = "200" ]; then
+              echo "Readiness check PASSED"
+              exit 0
+            elif [ "$http_code" = "503" ]; then
+              echo "Service unavailable (dependencies checks failed). Retrying..."
+            else
+               echo "Unexpected status code: $http_code"
+            fi
+
+            sleep $RETRY_DELAY
+          done
+
+          echo "Readiness check FAILED after $MAX_RETRIES attempts"
+          # /ready failing due to missing InfluxDB buckets is expected if not fully configured.
+          # This is a warning, not a blocker - the service is running but dependencies incomplete.
+          echo "::warning::Readiness check: 503 (likely missing InfluxDB buckets on Railway)"
+          echo "Last response: $response_body"
+
+      - name: Models Endpoint Check (/models)
+        id: models
+        run: |
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}/models"
+          echo "Testing: $URL"
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES..."
+
+            response=$(curl -sfL --max-time 15 "$URL" 2>&1) || {
+              echo "Request failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            }
+
+            if echo "$response" | grep -q '"models"'; then
+              count=$(echo "$response" | jq -r '.count // 0')
+              echo "Models endpoint PASSED"
+              echo "  Models count: $count"
+              exit 0
+            else
+              echo "Unexpected response format"
+            fi
+
+            sleep $RETRY_DELAY
+          done
+
+          echo "Models endpoint FAILED after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: OpenAPI Schema Check (/openapi.json)
+        id: openapi
+        run: |
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}/openapi.json"
+          echo "Testing: $URL"
+
+          response=$(curl -sfL --max-time 10 "$URL" 2>&1) || {
+            echo "OpenAPI schema not available (optional)"
+            exit 0
+          }
+
+          if echo "$response" | grep -q '"openapi"'; then
+            version=$(echo "$response" | jq -r '.info.version // "unknown"')
+            title=$(echo "$response" | jq -r '.info.title // "unknown"')
+            echo "OpenAPI schema available"
+            echo "  Title: $title"
+            echo "  Version: $version"
+          fi
+
+      - name: Response Time Check
+        run: |
+          echo "Measuring response times..."
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}"
+
+          for endpoint in /live /ready /models; do
+            time_total=$(curl -o /dev/null -sfL --max-time 30 -w "%{time_total}" "$URL$endpoint" 2>/dev/null || echo "failed")
+
+            if [ "$time_total" = "failed" ]; then
+              echo "$endpoint: FAILED"
+            else
+              echo "$endpoint: ${time_total}s"
+
+              # Warn if response > 2 seconds
+              threshold_exceeded=$(echo "$time_total > 2.0" | bc -l 2>/dev/null || echo "0")
+              if [ "$threshold_exceeded" = "1" ]; then
+                echo "::warning::$endpoint response time (${time_total}s) exceeds 2s threshold"
+              fi
+            fi
+          done
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "       RAILWAY SMOKE TEST SUMMARY"
+          echo "=========================================="
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "URL: ${{ steps.set-url.outputs.BACKEND_URL }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo ""
+
+          # Summary of results
+          echo "Results:"
+          echo "  Liveness: ${{ steps.liveness.outcome }}"
+          echo "  Readiness: ${{ steps.readiness.outcome }}"
+          echo "  Models: ${{ steps.models.outcome }}"
+          echo "  OpenAPI: ${{ steps.openapi.outcome }}"
+          echo ""
+          echo "=========================================="

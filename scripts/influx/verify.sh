@@ -13,7 +13,6 @@ fi
 # Defaults
 INFLUX_URL="${INFLUX_URL:-http://localhost:8086}"
 INFLUX_ORG="${INFLUX_ORG:-energy-monitor}"
-INFLUX_BUCKET_RAW="${INFLUX_BUCKET_RAW:-raw_sensor_data}"
 INFLUX_BUCKET_PRED="${INFLUX_BUCKET_PRED:-predictions}"
 INFLUX_TOKEN="${INFLUX_TOKEN:-}"
 
@@ -22,7 +21,7 @@ echo "  InfluxDB Setup Verification"
 echo "========================================"
 echo "URL:    $INFLUX_URL"
 echo "ORG:    $INFLUX_ORG"
-echo "Ref Buckets: $INFLUX_BUCKET_RAW, $INFLUX_BUCKET_PRED"
+echo "Bucket: $INFLUX_BUCKET_PRED"
 echo "----------------------------------------"
 
 if [ -z "$INFLUX_TOKEN" ]; then
@@ -67,7 +66,6 @@ check_bucket() {
     fi
 }
 
-check_bucket "$INFLUX_BUCKET_RAW"
 check_bucket "$INFLUX_BUCKET_PRED"
 
 # 4. Minimal Write/Read Test (Predictions)

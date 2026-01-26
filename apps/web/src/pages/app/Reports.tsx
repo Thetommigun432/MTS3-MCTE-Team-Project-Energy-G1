@@ -331,10 +331,6 @@ export default function Reports() {
       }
     }, 400);
   }, [
-    mode,
-    selectedBuilding,
-    selectedAppliance,
-    dateRange,
     generateReportFromData,
   ]);
 

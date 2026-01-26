@@ -1,141 +1,6 @@
 {
   "$schema": "./registry.schema.json",
   "models": {
-    "heatpump-cnntr-v1": {
-      "model_id": "heatpump-cnntr-v1",
-      "model_version": "v1.0.0",
-      "appliance_id": "heatpump",
-      "architecture": "CNNTransformer",
-      "architecture_params": {
-        "input_channels": 1,
-        "cnn_channels": [
-          32,
-          64
-        ],
-        "cnn_kernel_sizes": [
-          5,
-          5
-        ],
-        "d_model": 64,
-        "n_heads": 4,
-        "n_layers": 2,
-        "dim_feedforward": 256,
-        "dropout": 0.1
-      },
-      "artifact_path": "heatpump_cnntr.safetensors",
-      "artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "input_window_size": 1000,
-      "preprocessing": {
-        "type": "standard",
-        "mean": 2.5,
-        "std": 1.5
-      },
-      "is_active": false
-    },
-    "transformer_hybrid_v1": {
-      "model_id": "transformer_hybrid_v1",
-      "model_version": "2026-01-21",
-      "appliance_id": "multi",
-      "architecture": "hybrid_cnn_transformer",
-      "architecture_params": {
-        "n_features": 7,
-        "d_model": 256,
-        "n_heads": 8,
-        "n_layers": 6,
-        "d_ff": 1024,
-        "dropout": 0.1,
-        "cnn_channels": [
-          64,
-          128,
-          256
-        ],
-        "cnn_kernel_sizes": [
-          7,
-          5,
-          3
-        ],
-        "use_rope": true,
-        "seq2point": true,
-        "use_stationarization": true,
-        "use_pooling_for_state": true,
-        "p_max_kw": 13.5118
-      },
-      "artifact_path": "transformer_hybrid_v1.safetensors",
-      "artifact_sha256": "615b134ad99d89a064a2acfd9b505d6d635eb477521172589d2e16df17252d71",
-      "input_window_size": 1024,
-      "preprocessing": {
-        "type": "identity"
-      },
-      "is_active": true,
-      "heads": [
-        {
-          "appliance_id": "HeatPump",
-          "field_key": "heatpump"
-        },
-        {
-          "appliance_id": "Dishwasher",
-          "field_key": "dishwasher"
-        },
-        {
-          "appliance_id": "WashingMachine",
-          "field_key": "washingmachine"
-        },
-        {
-          "appliance_id": "Dryer",
-          "field_key": "dryer"
-        },
-        {
-          "appliance_id": "Oven",
-          "field_key": "oven"
-        },
-        {
-          "appliance_id": "Stove",
-          "field_key": "stove"
-        },
-        {
-          "appliance_id": "RangeHood",
-          "field_key": "rangehood"
-        },
-        {
-          "appliance_id": "EVCharger",
-          "field_key": "evcharger"
-        },
-        {
-          "appliance_id": "EVSocket",
-          "field_key": "evsocket"
-        },
-        {
-          "appliance_id": "GarageCabinet",
-          "field_key": "garagecabinet"
-        },
-        {
-          "appliance_id": "RainwaterPump",
-          "field_key": "rainwaterpump"
-        }
-      ]
-    },
-    "dishwasher-v3-sota": {
-      "model_id": "dishwasher-v3-sota",
-      "model_version": "v3-sota",
-      "appliance_id": "Dishwasher",
-      "architecture": "wavenilm_v3",
-      "architecture_params": {
-        "n_blocks": 9,
-        "hidden_channels": 64,
-        "n_stacks": 2,
-        "window": 1536,
-        "p_max_kw": 15.0,
-        "optimal_threshold": 0.5
-      },
-      "artifact_path": "wavenilm_v3\\dishwasher\\v3-sota\\model.safetensors",
-      "artifact_sha256": "6109d954c5c1a72f804547e488b009cf61df2b9d78d9e4acbddf8c6dcd953f20",
-      "input_window_size": 1536,
-      "preprocessing": {
-        "type": "standard",
-        "max": 15.0
-      },
-      "is_active": true
-    },
     "evcharger-v3-sota": {
       "model_id": "evcharger-v3-sota",
       "model_version": "v3-sota",
@@ -149,7 +14,7 @@
         "p_max_kw": 15.0,
         "optimal_threshold": 0.5
       },
-      "artifact_path": "wavenilm_v3\\evcharger\\v3-sota\\model.safetensors",
+      "artifact_path": "wavenilm_v3/evcharger/v3-sota/model.safetensors",
       "artifact_sha256": "48e31f7ea81f29331173bb8a0629b4a2fcf503266e89eb763b8aebc85090c089",
       "input_window_size": 1536,
       "preprocessing": {
@@ -171,7 +36,7 @@
         "p_max_kw": 15.0,
         "optimal_threshold": 0.5
       },
-      "artifact_path": "wavenilm_v3\\heatpump\\v3-sota\\model.safetensors",
+      "artifact_path": "wavenilm_v3/heatpump/v3-sota/model.safetensors",
       "artifact_sha256": "9c4c47e6c3589ef947dc11a510d2aa79a5fa9bb8e66a32c7c0c30c727caf121a",
       "input_window_size": 1536,
       "preprocessing": {
@@ -193,7 +58,7 @@
         "p_max_kw": 15.0,
         "optimal_threshold": 0.5
       },
-      "artifact_path": "wavenilm_v3\\washingmachine\\v3-sota\\model.safetensors",
+      "artifact_path": "wavenilm_v3/washingmachine/v3-sota/model.safetensors",
       "artifact_sha256": "e54b3975927a2fe034ef1fac0ce59f6a06b602608bcf4aa6aba0ffd10c092e4f",
       "input_window_size": 1536,
       "preprocessing": {

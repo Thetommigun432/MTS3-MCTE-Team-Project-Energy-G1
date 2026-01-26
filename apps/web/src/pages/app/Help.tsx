@@ -446,6 +446,35 @@ export default function Help() {
           </div>
         </CardContent>
       </Card>
+      {/* Debug Information */}
+      <Card className="border-dashed border-muted-foreground/20 bg-muted/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm text-muted-foreground">
+            <AlertTriangle className="h-4 w-4" />
+            Debug Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-xs font-mono space-y-2 text-muted-foreground">
+            <div className="flex justify-between border-b pb-1">
+              <span>App Mode:</span>
+              <span className="text-foreground">{import.meta.env.VITE_DEMO_MODE === "true" ? "Demo (Forced)" : "Production"}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1">
+              <span>API URL:</span>
+              <span className="text-foreground">{import.meta.env.VITE_BACKEND_URL || "Not configured"}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1">
+              <span>Frontend Build:</span>
+              <span className="text-foreground">{new Date().toISOString().split('T')[0]}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Supabase URL:</span>
+              <span className="text-foreground">{import.meta.env.VITE_SUPABASE_URL ? "Configured" : "Missing"}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

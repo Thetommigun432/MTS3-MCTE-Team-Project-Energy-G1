@@ -101,19 +101,22 @@ class WaveNILM_v3(nn.Module):
         self.use_mtl = use_mtl
         
         # Initial convolution
-        self.first_conv = nn.Conv1d(
-            n_input_features, 
-            hidden_channels, 
-            kernel_size=1
+        # Matches key: input_conv.0.conv.weight
+        self.input_conv = nn.Sequential(
+             CausalConv1d(
+                 n_input_features, 
+                 hidden_channels, 
+                 kernel_size=1
+             )
         )
         
         # Residual blocks
         self.blocks = nn.ModuleList()
-        # Assumed flat list of blocks based on "blocks.0", "blocks.1"...
-        for i in range(n_blocks):
-            dilation = 2 ** (i % 9) # Reset dilation every 9 blocks if multiple stacks? 
-            # Or just standard wavenet exp growth.
-            # Checkpoint had block 0..8, likely 9 blocks total.
+        # Create blocks for all stacks
+        total_blocks = n_blocks * n_stacks
+        
+        for i in range(total_blocks):
+            dilation = 2 ** (i % n_blocks) 
             
             self.blocks.append(
                 ResidualBlock(
@@ -125,21 +128,36 @@ class WaveNILM_v3(nn.Module):
             )
             
         # Output layers
-        self.post_conv = nn.Conv1d(hidden_channels, hidden_channels * 2, kernel_size=1)
-        # Checkpoint inspection needed for post_conv size. 
-        # Usually it's relu -> 1x1 -> relu -> 1x1.
-        # If "post_conv" key exists. 
+        self.skip_conv = nn.Conv1d(hidden_channels, hidden_channels, kernel_size=1)
         
         # MTL Heads
-        self.power_out = nn.Conv1d(hidden_channels * 2, 1, kernel_size=1)
-        self.prob_out = nn.Conv1d(hidden_channels * 2, 1, kernel_size=1)
+        # Matches keys: "regression_head.0.weight", "classification_head.0.weight"...
+        # Assuming simple convolution if keys are just weight/bias, or Sequential if numbered.
+        # Logs showed "regression_head.4.weight", implies Sequential.
+        # Standard: Conv(128->64) -> ReLU -> Conv(64->1)
+        
+        self.regression_head = nn.Sequential(
+            nn.Conv1d(hidden_channels, hidden_channels, 1),
+            nn.ReLU(),
+            nn.Conv1d(hidden_channels, hidden_channels // 2, 1), # Guessing layers based on .4 index
+            nn.ReLU(),
+            nn.Conv1d(hidden_channels // 2, 1, 1)
+        )
+        
+        self.classification_head = nn.Sequential(
+            nn.Conv1d(hidden_channels, hidden_channels, 1),
+            nn.ReLU(),
+            nn.Conv1d(hidden_channels, hidden_channels // 2, 1),
+            nn.ReLU(),
+            nn.Conv1d(hidden_channels // 2, 1, 1)
+        )
         
     def forward(self, x):
         # Permute (B, T, C) -> (B, C, T)
         if x.shape[-1] == self.n_input_features and x.shape[1] != self.n_input_features:
             x = x.transpose(1, 2)
             
-        x = self.first_conv(x)
+        x = self.input_conv(x)
         
         # Accumulate skips
         skips = 0
@@ -148,16 +166,11 @@ class WaveNILM_v3(nn.Module):
             skips = skips + skip
             
         # Output processing
-        # Typically: ReLU -> 1x1 -> ReLU -> 1x1
-        # Reconstruct based on standard patterns if keys strictly match "post_conv"
-        
         x = F.relu(skips)
-        # Note: If post_conv weight is [128, 64, 1], then output is 128.
-        # This matches hidden*2 intermediate expansion often used.
-        x = self.post_conv(x) 
+        x = self.skip_conv(x) 
         x = F.relu(x)
         
-        power = self.power_out(x)
-        prob = self.prob_out(x)
+        power = self.regression_head(x)
+        prob = self.classification_head(x)
         
         return power.transpose(1, 2), torch.sigmoid(prob.transpose(1, 2))

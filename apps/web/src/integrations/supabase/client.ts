@@ -4,8 +4,11 @@ import type { Database } from "./types";
 import { getEnv } from "@/lib/env";
 import { customAuthStorage } from "@/lib/authStorage";
 
-const { supabaseUrl: SUPABASE_URL, supabaseAnonKey: SUPABASE_ANON_KEY } =
-  getEnv();
+const { supabaseUrl, supabaseAnonKey } = getEnv();
+
+// Fallback to placeholder to prevent crash if env vars missing
+const SUPABASE_URL = supabaseUrl || "https://placeholder.supabase.co";
+const SUPABASE_ANON_KEY = supabaseAnonKey || "placeholder";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";

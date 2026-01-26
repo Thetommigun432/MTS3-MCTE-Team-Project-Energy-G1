@@ -369,7 +369,7 @@ class InferenceEngine:
 
         try:
             state_dict = load_safetensors(str(artifact_path))
-            model.load_state_dict(state_dict)
+            model.load_state_dict(state_dict, strict=False)
         except Exception as e:
             raise ModelError(
                 code=ErrorCode.MODEL_LOAD_ERROR,

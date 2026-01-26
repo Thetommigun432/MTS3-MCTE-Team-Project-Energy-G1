@@ -11,22 +11,22 @@ describe('env utilities', () => {
   });
 
   describe('isSupabaseEnabled', () => {
-    it('should return false when in demo mode without Supabase credentials', async () => {
+    it('should stay enabled (zero-config) even without credentials', async () => {
       vi.stubEnv('VITE_DEMO_MODE', 'true');
       vi.stubEnv('VITE_SUPABASE_URL', '');
       vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
 
       const { isSupabaseEnabled } = await import('./env');
-      expect(isSupabaseEnabled()).toBe(false);
+      expect(isSupabaseEnabled()).toBe(true);
     });
 
-    it('should return false when in local mode without Supabase credentials', async () => {
+    it('should stay enabled in local mode without credentials', async () => {
       vi.stubEnv('VITE_LOCAL_MODE', 'true');
       vi.stubEnv('VITE_SUPABASE_URL', '');
       vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
 
       const { isSupabaseEnabled } = await import('./env');
-      expect(isSupabaseEnabled()).toBe(false);
+      expect(isSupabaseEnabled()).toBe(true);
     });
 
     it('should support deprecated VITE_SUPABASE_PUBLISHABLE_KEY', async () => {

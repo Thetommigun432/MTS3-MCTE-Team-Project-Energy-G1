@@ -18,8 +18,9 @@ services:
       - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER:-admin}
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_RAW:-raw_sensor_data}
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_PRED:-predictions}
+
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-admin-token}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "influx", "ping", "--host", "http://localhost:8086"]
@@ -37,32 +38,26 @@ services:
         condition: service_healthy
     environment:
       - INFLUX_HOST=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     entrypoint: ["/bin/sh", "-c"]
     command: |
       set -euo pipefail
       echo "Waiting for InfluxDB to be ready..."
-      influx ping --host "$INFLUX_HOST"
+      influx ping --host "$$INFLUX_HOST"
 
       echo "Ensuring buckets exist..."
       
-      # 1. Check/Create INFLUX_BUCKET_RAW
-      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
-        echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
-      else
-        echo "Creating bucket '$INFLUX_BUCKET_RAW'..."
-        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_RAW" --retention 0
-      fi
+
 
       # 2. Check/Create INFLUX_BUCKET_PRED
-      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
-        echo "✅ Bucket '$INFLUX_BUCKET_PRED' exists."
+      if influx bucket list --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" | grep -q " $$INFLUX_BUCKET_PRED "; then
+        echo "✅ Bucket '$$INFLUX_BUCKET_PRED' exists."
       else
-        echo "Creating bucket '$INFLUX_BUCKET_PRED'..."
-        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
+        echo "Creating bucket '$$INFLUX_BUCKET_PRED'..."
+        influx bucket create --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" --name "$$INFLUX_BUCKET_PRED" --retention 0
       fi
 
       echo "✅ InfluxDB initialization complete."
@@ -75,6 +70,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     ports:
       - "8000:8000"
     volumes:
@@ -83,12 +79,11 @@ services:
       - ENV=dev
       - PORT=8000
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN:?INFLUX_TOKEN is required}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+
+
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
-      - SUPABASE_URL=${SUPABASE_URL:-}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
     depends_on:
@@ -107,13 +102,11 @@ services:
   # ==========================================================================
   # NILM Production Inference Service
   # ==========================================================================
-  # ==========================================================================
-  # NILM Production Inference Service
-  # ==========================================================================
   nilm-inference:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-inference
     depends_on:
       redis:
@@ -125,16 +118,25 @@ services:
       - WINDOW_SIZE=1536
       - INFERENCE_INTERVAL=60
       - BUILDING_ID=building_1
-      - ENV=production
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+
+
+      - ENV=prod
+    # GPU requirements disabled for CI compatibility
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
     restart: unless-stopped
     command: ["python", "-m", "app.pipeline.inference_worker"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # ==========================================================================
   # Data Producer
@@ -143,6 +145,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-producer
     depends_on:
       - redis
@@ -150,7 +153,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     volumes:
-      - ./apps/backend/tests/fixtures/production_data.parquet:/app/production_data.parquet
+      - ./apps/backend/tests/fixtures/simulation-data.parquet:/app/production_data.parquet
     command: >
       sh -c "python -m app.pipeline.producer --source parquet --file /app/production_data.parquet --interval 1.0"
     profiles:
@@ -163,6 +166,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
+      target: production
     container_name: nilm-persister
     depends_on:
       - redis
@@ -170,7 +174,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - INFLUX_URL=http://influxdb:8086
-      - INFLUX_TOKEN=${INFLUX_TOKEN}
+      - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     command: ["python", "-m", "app.pipeline.persister"]

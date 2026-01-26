@@ -15,6 +15,7 @@ class IngestReading(BaseModel):
         ...,
         min_length=1,
         max_length=64,
+        pattern=r"^[a-zA-Z0-9_-]+$",
         description="Building identifier",
     )
     ts: datetime = Field(
@@ -41,7 +42,7 @@ class IngestBatchRequest(BaseModel):
 
     readings: List[IngestReading] = Field(
         ...,
-        min_length=1,
+        min_length=0,
         max_length=10000,
         description="List of readings to ingest (max 10,000 per batch)",
     )
