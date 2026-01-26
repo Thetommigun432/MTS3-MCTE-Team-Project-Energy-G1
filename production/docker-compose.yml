@@ -1,0 +1,77 @@
+# Docker Compose for NILM Production Stack
+# =========================================
+# 
+# Usage:
+#   docker-compose up -d
+#
+# Services:
+#   - redis: Data buffer and pub/sub
+#   - inference: NILM inference service
+#   - data-producer: (Optional) simulates sensor data
+
+version: '3.8'
+
+services:
+  # Redis for data buffering and pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: nilm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NILM Inference Service
+  inference:
+    build:
+      context: ..
+      dockerfile: production/Dockerfile
+    container_name: nilm-inference
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/app/checkpoints
+      - WINDOW_SIZE=1536
+      - INFERENCE_INTERVAL=60
+      - BUILDING_ID=building_1
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # Optional: Data Producer for testing
+  data-producer:
+    image: python:3.11-slim
+    container_name: nilm-producer
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./data_producer.py:/app/data_producer.py
+    command: python /app/data_producer.py
+    profiles:
+      - testing  # Only starts with: docker-compose --profile testing up
+
+volumes:
+  redis-data:
+
+networks:
+  default:
+    name: nilm-network

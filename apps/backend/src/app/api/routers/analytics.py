@@ -42,13 +42,10 @@ async def get_readings(
 
     # Query InfluxDB
     influx = get_influx_client()
-    data = await influx.query_readings(
-        building_id=building_id,
-        appliance_id=appliance_id,
-        start=start,
-        end=end,
-        resolution=resolution,
-    )
+    data: list[DataPoint] = []
+    # Raw readings are no longer stored in InfluxDB. 
+    # TODO: Implement Redis query for recent raw data if needed.
+    # For now, we return empty data to prevent errors.
 
     # If disaggregation is requested and no specific appliance filter
     if include_disaggregation and not appliance_id:

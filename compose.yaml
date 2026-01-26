@@ -18,7 +18,7 @@ services:
       - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUX_ADMIN_USER:-admin}
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
-      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-admin-token}
     restart: unless-stopped
     healthcheck:
@@ -39,7 +39,7 @@ services:
       - INFLUX_HOST=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     entrypoint: ["/bin/sh", "-c"]
     command: |
@@ -49,13 +49,7 @@ services:
 
       echo "Ensuring buckets exist..."
       
-      # 1. Check/Create INFLUX_BUCKET_RAW
-      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_RAW "; then
-        echo "✅ Bucket '$INFLUX_BUCKET_RAW' exists."
-      else
-        echo "Creating bucket '$INFLUX_BUCKET_RAW'..."
-        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_RAW" --retention 0
-      fi
+
 
       # 2. Check/Create INFLUX_BUCKET_PRED
       if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
@@ -86,7 +80,7 @@ services:
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_sensor_data}
+
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}

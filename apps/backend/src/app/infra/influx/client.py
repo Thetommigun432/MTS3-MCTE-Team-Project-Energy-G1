@@ -81,7 +81,7 @@ class InfluxClient:
         """
         status = {
             "connected": False,
-            "bucket_raw": False,
+            "connected": False,
             "bucket_pred": False
         }
         
@@ -103,7 +103,7 @@ class InfluxClient:
                     if name:
                         bucket_names.add(name)
             
-            status["bucket_raw"] = settings.influx_bucket_raw in bucket_names
+
             status["bucket_pred"] = settings.influx_bucket_pred in bucket_names
             
         except Exception as e:
@@ -141,15 +141,7 @@ class InfluxClient:
         settings = get_settings()
         return await self._ensure_bucket(settings.influx_bucket_pred)
 
-    async def ensure_raw_bucket(self) -> bool:
-        """
-        Ensure the raw sensor data bucket exists, creating it if necessary.
-        
-        Returns:
-            True if bucket exists or was created successfully
-        """
-        settings = get_settings()
-        return await self._ensure_bucket(settings.influx_bucket_raw)
+
 
     async def ensure_buckets(self) -> dict[str, bool]:
         """
@@ -160,7 +152,6 @@ class InfluxClient:
         """
         settings = get_settings()
         results = {
-            settings.influx_bucket_raw: await self._ensure_bucket(settings.influx_bucket_raw),
             settings.influx_bucket_pred: await self._ensure_bucket(settings.influx_bucket_pred),
         }
         return results
@@ -230,71 +221,7 @@ class InfluxClient:
             logger.error("Failed to ensure bucket", extra={"bucket": bucket_name, "error": str(e)})
             return False
 
-    async def query_readings(
-        self,
-        building_id: str,
-        appliance_id: str | None,
-        start: str,
-        end: str,
-        resolution: Resolution,
-    ) -> list[DataPoint]:
-        """
-        Query sensor readings from InfluxDB.
 
-        Returns:
-            List of DataPoint objects
-        """
-        settings = get_settings()
-        start_time = time.time()
-
-        try:
-            if not self._client:
-                raise InfluxError(
-                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
-                    message="InfluxDB client not connected",
-                )
-
-            query = build_readings_query(
-                bucket=settings.influx_bucket_raw,
-                building_id=building_id,
-                appliance_id=appliance_id,
-                start=start,
-                end=end,
-                resolution=resolution,
-            )
-
-            query_api = self._client.query_api()
-            tables = await query_api.query(query, org=settings.influx_org)
-
-            data_points: list[DataPoint] = []
-            for table in tables:
-                for record in table.records:
-                    # Extract value from pivoted data
-                    value = record.values.get("aggregate_kw") or record.values.get("power_kw") or 0.0
-                    data_points.append(
-                        DataPoint(
-                            time=record.get_time().isoformat() if record.get_time() else "",
-                            value=float(value),
-                        )
-                    )
-
-            logger.debug(
-                "Query readings completed",
-                extra={"building_id": building_id, "count": len(data_points)},
-            )
-            return data_points
-
-        except InfluxError:
-            raise
-        except Exception as e:
-            logger.error("Query readings failed", extra={"error": str(e)})
-            raise InfluxError(
-                code=ErrorCode.INFLUX_QUERY_ERROR,
-                message=f"Failed to query readings: {e}",
-            )
-        finally:
-            duration = time.time() - start_time
-            INFLUX_QUERY_LATENCY.labels(query_type="readings").observe(duration)
 
     async def query_predictions(
         self,
@@ -649,11 +576,7 @@ class InfluxClient:
             query = f'''
             import "influxdata/influxdb/schema"
             
-            // Union of both raw and pred buckets
-            union(tables: [
-                schema.tagValues(bucket: "{settings.influx_bucket_raw}", tag: "building_id", start: {start}),
-                schema.tagValues(bucket: "{settings.influx_bucket_pred}", tag: "building_id", start: {start})
-            ])
+            schema.tagValues(bucket: "{settings.influx_bucket_pred}", tag: "building_id", start: {start})
             |> group()
             |> distinct(column: "_value")
             |> sort()

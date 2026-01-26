@@ -57,9 +57,9 @@ services:
     # Add 10s startup delay to ensure inference worker is subscribed before we send
     # Also use slower interval (0.5s) to give inference worker time to process
     command: >
-      sh -c "echo 'Waiting 10s for inference worker to subscribe...' && sleep 10 && python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.5"
-    profiles:
-      - test-runner
+      sh -c "echo 'Waiting 5s for inference worker to subscribe...' && sleep 5 && python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1"
+    # profiles:
+    #   - test-runner
 
 
   # Override Inference Service to use Test Env (activates fallback)

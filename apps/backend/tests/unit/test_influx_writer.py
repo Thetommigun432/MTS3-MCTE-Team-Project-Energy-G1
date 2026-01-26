@@ -23,7 +23,7 @@ class TestWritePredictionsWide:
         mock_settings_obj.influx_token = "test-token"
         mock_settings_obj.influx_org = "test-org"
         mock_settings_obj.influx_bucket_pred = "predictions"
-        mock_settings_obj.influx_bucket_raw = "raw_sensor_data"
+
         mock_settings_obj.influx_timeout_ms = 10000
         return mock_settings_obj
 

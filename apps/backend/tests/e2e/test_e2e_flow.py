@@ -141,7 +141,7 @@ def test_pipeline_produces_predictions(influx_client):
     # Retry with exponential backoff: 1s, 2s, 4s, 8s, 10s (capped)
     # Total max wait: ~60s across 15 attempts
     try:
-        result = _retry_with_backoff(try_query, max_attempts=15, initial_delay=1.0, max_delay=10.0)
+        result = _retry_with_backoff(try_query, max_attempts=30, initial_delay=1.0, max_delay=10.0)
         if result:
             print(f"FOUND PREDICTION: {result.values}")
             

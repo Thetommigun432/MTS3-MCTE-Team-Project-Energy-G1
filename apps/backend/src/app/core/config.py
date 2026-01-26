@@ -63,10 +63,7 @@ class Settings(BaseSettings):
         default="energy-monitor",
         description="InfluxDB organization",
     )
-    influx_bucket_raw: str = Field(
-        default="raw_sensor_data",
-        description="InfluxDB bucket for raw sensor data",
-    )
+
     influx_bucket_pred: str = Field(
         default="predictions",
         description="InfluxDB bucket for predictions",
