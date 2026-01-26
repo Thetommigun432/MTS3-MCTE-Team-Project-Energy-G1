@@ -39,7 +39,7 @@ Configure these in the Railway service settings.
 | `INFLUX_URL`     | `INFLUXDB_HTTP_PORT` (default 8086) | Use Private Networking URL (e.g. `http://influxdb.railway.internal:8086`) |
 | `INFLUX_TOKEN`   | `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN` | **SECRET**. Connection token (admin or read/write) |
 | `INFLUX_ORG`     | `DOCKER_INFLUXDB_INIT_ORG` | Organization name (default `energy-monitor`) |
-| `INFLUX_BUCKET_RAW` | `DOCKER_INFLUXDB_INIT_BUCKET` | Primary bucket created on init (default `raw_sensor_data`) |
+| `INFLUX_BUCKET_PRED` | `DOCKER_INFLUXDB_INIT_BUCKET` | Primary bucket created on init (default `predictions`) |
 | `INFLUX_BUCKET_PRED` | N/A (Created by Backend) | Secondary bucket for predictions (default `predictions`) |
 
 ### Private vs Public Networking

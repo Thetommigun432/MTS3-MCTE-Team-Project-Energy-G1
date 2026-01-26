@@ -1,37 +1,6 @@
 {
   "$schema": "./registry.schema.json",
   "models": {
-    "heatpump-cnntr-v1": {
-      "model_id": "heatpump-cnntr-v1",
-      "model_version": "v1.0.0",
-      "appliance_id": "heatpump",
-      "architecture": "CNNTransformer",
-      "architecture_params": {
-        "input_channels": 1,
-        "cnn_channels": [
-          32,
-          64
-        ],
-        "cnn_kernel_sizes": [
-          5,
-          5
-        ],
-        "d_model": 64,
-        "n_heads": 4,
-        "n_layers": 2,
-        "dim_feedforward": 256,
-        "dropout": 0.1
-      },
-      "artifact_path": "heatpump_cnntr.safetensors",
-      "artifact_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "input_window_size": 1000,
-      "preprocessing": {
-        "type": "standard",
-        "mean": 2.5,
-        "std": 1.5
-      },
-      "is_active": false
-    },
     "evcharger-v3-sota": {
       "model_id": "evcharger-v3-sota",
       "model_version": "v3-sota",
@@ -74,7 +43,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": false
+      "is_active": true
     },
     "washingmachine-v3-sota": {
       "model_id": "washingmachine-v3-sota",
@@ -96,7 +65,7 @@
         "type": "standard",
         "max": 15.0
       },
-      "is_active": false
+      "is_active": true
     }
   }
 }

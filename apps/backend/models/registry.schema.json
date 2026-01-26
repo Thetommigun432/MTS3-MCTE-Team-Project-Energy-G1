@@ -4,10 +4,22 @@
     "type": "object",
     "properties": {
         "models": {
-            "type": "array",
-            "items": {
-                "$ref": "#/$defs/ModelEntry"
-            }
+            "oneOf": [
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/ModelEntry"
+                    }
+                },
+                {
+                    "type": "object",
+                    "patternProperties": {
+                        "^.*$": {
+                            "$ref": "#/$defs/ModelEntry"
+                        }
+                    }
+                }
+            ]
         }
     },
     "required": [
@@ -35,7 +47,8 @@
                         "CNNTransformer",
                         "CNNSeq2Seq",
                         "UNet1D",
-                        "hybrid_cnn_transformer"
+                        "hybrid_cnn_transformer",
+                        "wavenilm_v3"
                     ],
                     "description": "Model architecture type"
                 },

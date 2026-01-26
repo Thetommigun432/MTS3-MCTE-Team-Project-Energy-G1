@@ -41,7 +41,8 @@
       "Bash(py -c:*)",
       "Bash(du:*)",
       "Bash(xargs:*)",
-      "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" log --oneline --all)"
+      "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" log --oneline --all)",
+      "Bash(grep:*)"
     ]
   }
 }

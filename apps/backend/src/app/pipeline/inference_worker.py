@@ -221,34 +221,7 @@ class NILMInferenceService:
         # Iterate over registry entries
         active_entries = [e for e in self.registry.list_all() if e.is_active]
         
-        # Force mock mode for E2E tests irrespective of registry state
-        env = os.environ.get("ENV", "dev")
-        if env == "test":
-            logger.warning("E2E Test Mode: Forcing mock predictions")
-            mock_appliances = ["HeatPump", "Dishwasher", "WashingMachine", "EVCharger"]
-            for appliance in mock_appliances:
-                result_preds.append(Prediction(
-                    appliance=appliance,
-                    power_watts=100.0 + (hash(appliance) % 200),
-                    probability=0.95,
-                    is_on=True,
-                    confidence=0.9,
-                    model_version="mock-e2e-v1"
-                ))
-            
-            inference_time = (time.time() - t0) * 1000
-            total_p = sum(powers[-60:]) / 60.0 if powers else 0
-            res = InferenceResult(
-                timestamp=timestamp,
-                window_start=timestamps[0],
-                window_end=timestamps[-1],
-                total_power=total_p,
-                predictions=result_preds,
-                inference_time_ms=inference_time
-            )
-            self._publish(res)
-            self._log_summary(res)
-            return
+
 
         if not active_entries:
             env = os.environ.get("ENV", "dev")
