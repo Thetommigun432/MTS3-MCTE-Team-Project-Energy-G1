@@ -81,7 +81,6 @@ class InfluxClient:
         """
         status = {
             "connected": False,
-            "connected": False,
             "bucket_pred": False
         }
         

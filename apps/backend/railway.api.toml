@@ -34,7 +34,6 @@ restartPolicyMaxRetries = 5
 # - INFLUX_URL
 # - INFLUX_TOKEN
 # - INFLUX_ORG
-# - INFLUX_BUCKET_RAW
 # - INFLUX_BUCKET_PRED
 # - REDIS_URL (reference: ${{Redis.REDIS_URL}})
 # - CORS_ORIGINS (comma-separated list of allowed origins)

@@ -29,7 +29,6 @@ startCommand = "python -m app.worker_main"
 # - INFLUX_URL
 # - INFLUX_TOKEN
 # - INFLUX_ORG
-# - INFLUX_BUCKET_RAW
 # - INFLUX_BUCKET_PRED
 # - REDIS_URL (reference: ${{Redis.REDIS_URL}})
 # - REDIS_STREAM_KEY (default: readings-stream)

@@ -62,7 +62,6 @@ async def readiness(request_id: RequestIdDep, response: Response):
     influx_status = await influx.verify_setup()
     
     checks["influxdb_connected"] = influx_status["connected"]
-    checks["influx_bucket_raw"] = influx_status["bucket_raw"]
     checks["influx_bucket_pred"] = influx_status["bucket_pred"]
 
     if not all(influx_status.values()):
