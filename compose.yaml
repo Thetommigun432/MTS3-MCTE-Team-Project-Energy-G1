@@ -46,18 +46,18 @@ services:
     command: |
       set -euo pipefail
       echo "Waiting for InfluxDB to be ready..."
-      influx ping --host "$INFLUX_HOST"
+      influx ping --host "$$INFLUX_HOST"
 
       echo "Ensuring buckets exist..."
       
 
 
       # 2. Check/Create INFLUX_BUCKET_PRED
-      if influx bucket list --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" | grep -q " $INFLUX_BUCKET_PRED "; then
-        echo "✅ Bucket '$INFLUX_BUCKET_PRED' exists."
+      if influx bucket list --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" | grep -q " $$INFLUX_BUCKET_PRED "; then
+        echo "✅ Bucket '$$INFLUX_BUCKET_PRED' exists."
       else
-        echo "Creating bucket '$INFLUX_BUCKET_PRED'..."
-        influx bucket create --host "$INFLUX_HOST" --token "$INFLUX_TOKEN" --org "$INFLUX_ORG" --name "$INFLUX_BUCKET_PRED" --retention 0
+        echo "Creating bucket '$$INFLUX_BUCKET_PRED'..."
+        influx bucket create --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" --name "$$INFLUX_BUCKET_PRED" --retention 0
       fi
 
       echo "✅ InfluxDB initialization complete."

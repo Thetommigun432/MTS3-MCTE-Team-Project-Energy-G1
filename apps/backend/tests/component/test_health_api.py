@@ -38,7 +38,6 @@ def test_ready_endpoint_mocked(mock_get_influx, mock_get_redis, mock_get_registr
     mock_influx_instance = AsyncMock()
     mock_influx_instance.verify_setup.return_value = {
         "connected": True,
-        "bucket_raw": True,
         "bucket_pred": True
     }
     mock_get_influx.return_value = mock_influx_instance
@@ -67,7 +66,6 @@ def test_ready_endpoint_redis_failure(mock_get_redis, mock_get_influx, mock_get_
     mock_influx_instance = AsyncMock()
     mock_influx_instance.verify_setup.return_value = {
         "connected": True,
-        "bucket_raw": True,
         "bucket_pred": True
     }
     mock_get_influx.return_value = mock_influx_instance

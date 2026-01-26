@@ -51,7 +51,6 @@ export const handlers = [
             status: 'ready',
             checks: {
                 influxdb_connected: true,
-                influx_bucket_raw: true,
                 influx_bucket_pred: true,
                 registry_loaded: true,
                 models_count: mockModels.filter(m => m.is_active).length,
@@ -101,7 +100,6 @@ export const errorHandlers = {
                 status: 'unavailable',
                 checks: {
                     influxdb_connected: false,
-                    influx_bucket_raw: false,
                     influx_bucket_pred: false,
                     registry_loaded: true,
                     models_count: 0,

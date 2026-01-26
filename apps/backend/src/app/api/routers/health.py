@@ -40,7 +40,7 @@ async def readiness(request_id: RequestIdDep, response: Response):
 
     Checks:
     - InfluxDB reachable
-    - Both buckets exist (raw + predictions)
+    - Predictions bucket exists
     - Model registry valid
     """
     checks = {}
