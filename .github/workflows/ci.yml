@@ -63,9 +63,7 @@ jobs:
   frontend-checks:
     name: Frontend Lint & Typecheck
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
+
 
     steps:
       - name: Checkout code
@@ -74,7 +72,7 @@ jobs:
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: ".nvmrc"
           cache: "npm"
           cache-dependency-path: package-lock.json
 
@@ -82,13 +80,13 @@ jobs:
         run: npm ci
 
       - name: Run TypeScript check
-        run: npm run typecheck || echo "Typecheck not configured"
+        run: npm run typecheck:web || echo "Typecheck not configured"
 
       - name: Run lint
-        run: npm run lint || echo "Lint not configured"
+        run: npm run lint:web || echo "Lint not configured"
 
       - name: Build
-        run: npm run build
+        run: npm run build:web
         env:
           # Use placeholder values for build (not secrets)
           VITE_SUPABASE_URL: "https://placeholder.supabase.co"

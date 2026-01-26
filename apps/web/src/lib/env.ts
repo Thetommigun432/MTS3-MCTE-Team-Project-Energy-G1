@@ -16,12 +16,12 @@ export function getEnv() {
 
     // Supabase
     // Supabase
-    // Fallback to hardcoded values for "zero-config" deployment if env vars missing
-    supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL) || "https://bhdcbvruzvhmcogxfkil.supabase.co",
-    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_ANON_KEY) || "sb_publishable_I3L-MhSwOX8vfWt91ppHOg_uu18TByg",
+    // Fallback to empty string if env vars missing
+    supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL),
+    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_ANON_KEY),
 
-    // Legacy support (check actual values)
-    supabaseEnabled: true, // Always enabled since we have fallbacks
+    // Enabled only if keys are present
+    supabaseEnabled: !!env.VITE_SUPABASE_URL && !!env.VITE_SUPABASE_ANON_KEY,
 
   };
 }

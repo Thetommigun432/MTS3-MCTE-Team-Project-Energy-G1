@@ -2,6 +2,9 @@
 
 The backend is a FastAPI application running in a Docker container.
 
+> [!NOTE]
+> **Configuration Source of Truth**: The `railway.json` file at the repository root is the primary configuration file used by Railway for the backend service. Other files like `apps/backend/railway.*.toml` are secondary or legacy service definitions.
+
 ## Environment Variables
 
 Configure these in the Railway service settings.
