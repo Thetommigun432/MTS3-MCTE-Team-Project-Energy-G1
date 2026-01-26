@@ -26,6 +26,6 @@ apps/web/dist/
 apps/web/.turbo/
 
 # Backend (exclude specific)
-apps/backend/models/*.safetensors
+# apps/backend/models/*.safetensors
 !apps/backend/models/registry.json
 !apps/backend/models/registry.schema.json

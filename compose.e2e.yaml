@@ -10,8 +10,8 @@ services:
   # Add Frontend
   frontend:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
     ports:
       - "3000:80"
     depends_on:
