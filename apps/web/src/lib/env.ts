@@ -12,7 +12,7 @@ export function getEnv() {
 
   return {
     // Backend URL: Strip quotes, trim whitespace, ensure protocol
-    backendBaseUrl: parseUrl(env.VITE_BACKEND_URL),
+    backendBaseUrl: parseUrl(env.VITE_BACKEND_URL || env.VITE_API_BASE_URL),
 
     // Supabase
     // Supabase

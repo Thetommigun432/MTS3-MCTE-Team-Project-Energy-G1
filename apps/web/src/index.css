@@ -1,166 +1,187 @@
-/* Fonts are loaded asynchronously via index.html for better performance */
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+:root {
+  /* NILM Dark-First Design System: Gruvbox-Inspired Industrial Energy Palette */
+  /* Dark mode is default - these are dark theme values */
 
-@layer base {
-  :root {
-    /* NILM Dark-First Design System: Gruvbox-Inspired Industrial Energy Palette */
-    /* Dark mode is default - these are dark theme values */
+  /* Background & Surfaces - Warm dark neutrals */
+  --background: 20 10% 12%;
+  /* #1d2021 */
+  --foreground: 43 38% 87%;
+  /* #ebdbb2 */
 
-    /* Background & Surfaces - Warm dark neutrals */
-    --background: 20 10% 12%; /* #1d2021 */
-    --foreground: 43 38% 87%; /* #ebdbb2 */
+  --card: 20 8% 22%;
+  /* #3c3836 */
+  --card-foreground: 43 38% 87%;
 
-    --card: 20 8% 22%; /* #3c3836 */
-    --card-foreground: 43 38% 87%;
+  --popover: 20 7% 16%;
+  /* #282828 */
+  --popover-foreground: 43 38% 87%;
 
-    --popover: 20 7% 16%; /* #282828 */
-    --popover-foreground: 43 38% 87%;
+  /* Primary: Energy Amber/Orange #fe8019 */
+  --primary: 27 99% 55%;
+  --primary-foreground: 20 10% 12%;
 
-    /* Primary: Energy Amber/Orange #fe8019 */
-    --primary: 27 99% 55%;
-    --primary-foreground: 20 10% 12%;
+  /* Secondary: Warm neutral */
+  --secondary: 20 6% 20%;
+  /* #32302f */
+  --secondary-foreground: 43 38% 87%;
 
-    /* Secondary: Warm neutral */
-    --secondary: 20 6% 20%; /* #32302f */
-    --secondary-foreground: 43 38% 87%;
+  /* Muted & Accent */
+  --muted: 20 6% 20%;
+  --muted-foreground: 40 15% 68%;
+  /* warmer, higher contrast #b5a68a */
 
-    /* Muted & Accent */
-    --muted: 20 6% 20%;
-    --muted-foreground: 40 15% 68%; /* warmer, higher contrast #b5a68a */
+  /* Accent: AI/Prediction Purple #b16286 */
+  --accent: 330 35% 54%;
+  --accent-foreground: 0 0% 100%;
 
-    /* Accent: AI/Prediction Purple #b16286 */
-    --accent: 330 35% 54%;
-    --accent-foreground: 0 0% 100%;
+  /* Destructive */
+  --destructive: 1 76% 59%;
+  /* #fb4934 */
+  --destructive-foreground: 0 0% 100%;
 
-    /* Destructive */
-    --destructive: 1 76% 59%; /* #fb4934 */
-    --destructive-foreground: 0 0% 100%;
+  /* Borders & Inputs */
+  --border: 20 7% 29%;
+  /* #504945 */
+  --input: 20 7% 29%;
+  --ring: 27 99% 55%;
 
-    /* Borders & Inputs */
-    --border: 20 7% 29%; /* #504945 */
-    --input: 20 7% 29%;
-    --ring: 27 99% 55%;
+  --radius: 0.5rem;
 
-    --radius: 0.5rem;
+  /* Energy-specific semantic colors */
+  --energy-success: 83 47% 62%;
+  /* #8ec07c Gruvbox green */
+  --energy-success-foreground: 20 10% 12%;
+  --energy-warning: 42 96% 58%;
+  /* #fabd2f Gruvbox yellow */
+  --energy-warning-foreground: 20 10% 12%;
+  --energy-warning-bg: 42 40% 18%;
+  --energy-error: 1 76% 59%;
+  /* #fb4934 Gruvbox red */
+  --energy-error-foreground: 0 0% 100%;
+  --energy-error-bg: 1 40% 18%;
+  --energy-info: 340 45% 68%;
+  /* #d3869b */
+  --energy-info-foreground: 20 10% 12%;
 
-    /* Energy-specific semantic colors */
-    --energy-success: 83 47% 62%; /* #8ec07c Gruvbox green */
-    --energy-success-foreground: 20 10% 12%;
-    --energy-warning: 42 96% 58%; /* #fabd2f Gruvbox yellow */
-    --energy-warning-foreground: 20 10% 12%;
-    --energy-warning-bg: 42 40% 18%;
-    --energy-error: 1 76% 59%; /* #fb4934 Gruvbox red */
-    --energy-error-foreground: 0 0% 100%;
-    --energy-error-bg: 1 40% 18%;
-    --energy-info: 340 45% 68%; /* #d3869b */
-    --energy-info-foreground: 20 10% 12%;
+  /* Colorblind-safe chart palette for dark mode */
+  --chart-1: 40 100% 45%;
+  /* #E69F00 Orange */
+  --chart-2: 199 100% 62%;
+  /* #56B4E9 Sky */
+  --chart-3: 160 100% 31%;
+  /* #009E73 Green */
+  --chart-4: 201 100% 35%;
+  /* #0072B2 Blue */
+  --chart-5: 24 100% 42%;
+  /* #D55E00 Vermillion */
+  --chart-6: 326 47% 64%;
+  /* #CC79A7 Purple */
+  --chart-other: 0 0% 60%;
+  /* #999999 Gray */
 
-    /* Colorblind-safe chart palette for dark mode */
-    --chart-1: 40 100% 45%; /* #E69F00 Orange */
-    --chart-2: 199 100% 62%; /* #56B4E9 Sky */
-    --chart-3: 160 100% 31%; /* #009E73 Green */
-    --chart-4: 201 100% 35%; /* #0072B2 Blue */
-    --chart-5: 24 100% 42%; /* #D55E00 Vermillion */
-    --chart-6: 326 47% 64%; /* #CC79A7 Purple */
-    --chart-other: 0 0% 60%; /* #999999 Gray */
+  /* Sidebar - darker surface */
+  --sidebar-background: 20 10% 10%;
+  --sidebar-foreground: 43 38% 87%;
+  --sidebar-primary: 27 99% 55%;
+  --sidebar-primary-foreground: 20 10% 12%;
+  --sidebar-accent: 20 7% 18%;
+  --sidebar-accent-foreground: 43 38% 87%;
+  --sidebar-border: 20 7% 24%;
+  --sidebar-ring: 27 99% 55%;
 
-    /* Sidebar - darker surface */
-    --sidebar-background: 20 10% 10%;
-    --sidebar-foreground: 43 38% 87%;
-    --sidebar-primary: 27 99% 55%;
-    --sidebar-primary-foreground: 20 10% 12%;
-    --sidebar-accent: 20 7% 18%;
-    --sidebar-accent-foreground: 43 38% 87%;
-    --sidebar-border: 20 7% 24%;
-    --sidebar-ring: 27 99% 55%;
+  /* NILM-specific tokens */
+  --confidence-high: 83 47% 62%;
+  /* green */
+  --confidence-medium: 42 96% 58%;
+  /* yellow */
+  --confidence-low: 1 76% 59%;
+  /* red */
+  --state-on: 27 99% 55%;
+  /* primary amber */
+  --state-off: 20 7% 35%;
+  --teal-highlight: 27 99% 55%;
 
-    /* NILM-specific tokens */
-    --confidence-high: 83 47% 62%; /* green */
-    --confidence-medium: 42 96% 58%; /* yellow */
-    --confidence-low: 1 76% 59%; /* red */
-    --state-on: 27 99% 55%; /* primary amber */
-    --state-off: 20 7% 35%;
-    --teal-highlight: 27 99% 55%;
-
-    /* Prediction/AI accent glow */
-    --prediction-glow: 330 35% 54%;
-  }
-
-  .light {
-    /* Light theme - inverted for readability */
-    --background: 43 30% 96%; /* warm off-white */
-    --foreground: 20 10% 15%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 20 10% 15%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 10% 15%;
-
-    /* Primary stays consistent */
-    --primary: 24 95% 45%; /* slightly darker for light bg */
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 43 20% 92%;
-    --secondary-foreground: 20 10% 15%;
-
-    --muted: 43 20% 92%;
-    --muted-foreground: 20 8% 45%;
-
-    --accent: 330 35% 50%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 1 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 43 15% 85%;
-    --input: 43 15% 85%;
-    --ring: 24 95% 45%;
-
-    /* Energy semantics - light mode */
-    --energy-success: 160 84% 39%;
-    --energy-success-foreground: 0 0% 100%;
-    --energy-warning: 45 93% 47%;
-    --energy-warning-foreground: 26 90% 25%;
-    --energy-warning-bg: 48 96% 92%;
-    --energy-error: 0 72% 51%;
-    --energy-error-foreground: 0 0% 100%;
-    --energy-error-bg: 0 93% 94%;
-    --energy-info: 340 45% 55%;
-    --energy-info-foreground: 0 0% 100%;
-
-    /* Chart colors - adjust for light backgrounds */
-    --chart-1: 40 100% 40%;
-    --chart-2: 199 90% 45%;
-    --chart-3: 160 100% 28%;
-    --chart-4: 201 100% 32%;
-    --chart-5: 24 100% 38%;
-    --chart-6: 326 47% 55%;
-    --chart-other: 0 0% 50%;
-
-    /* Sidebar - keep dark for contrast */
-    --sidebar-background: 20 10% 15%;
-    --sidebar-foreground: 43 38% 92%;
-    --sidebar-primary: 27 99% 55%;
-    --sidebar-primary-foreground: 20 10% 12%;
-    --sidebar-accent: 20 10% 22%;
-    --sidebar-accent-foreground: 43 38% 92%;
-    --sidebar-border: 20 7% 25%;
-    --sidebar-ring: 27 99% 55%;
-
-    /* NILM tokens - light mode */
-    --confidence-high: 160 84% 39%;
-    --confidence-medium: 45 93% 47%;
-    --confidence-low: 0 72% 51%;
-    --state-on: 24 95% 45%;
-    --state-off: 43 15% 80%;
-    --teal-highlight: 24 95% 45%;
-    --prediction-glow: 330 35% 50%;
-  }
+  /* Prediction/AI accent glow */
+  --prediction-glow: 330 35% 54%;
 }
+
+.light {
+  /* Light theme - inverted for readability */
+  --background: 43 30% 96%;
+  /* warm off-white */
+  --foreground: 20 10% 15%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 20 10% 15%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 10% 15%;
+
+  /* Primary stays consistent */
+  --primary: 24 95% 45%;
+  /* slightly darker for light bg */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 43 20% 92%;
+  --secondary-foreground: 20 10% 15%;
+
+  --muted: 43 20% 92%;
+  --muted-foreground: 20 8% 45%;
+
+  --accent: 330 35% 50%;
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 1 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 43 15% 85%;
+  --input: 43 15% 85%;
+  --ring: 24 95% 45%;
+
+  /* Energy semantics - light mode */
+  --energy-success: 160 84% 39%;
+  --energy-success-foreground: 0 0% 100%;
+  --energy-warning: 45 93% 47%;
+  --energy-warning-foreground: 26 90% 25%;
+  --energy-warning-bg: 48 96% 92%;
+  --energy-error: 0 72% 51%;
+  --energy-error-foreground: 0 0% 100%;
+  --energy-error-bg: 0 93% 94%;
+  --energy-info: 340 45% 55%;
+  --energy-info-foreground: 0 0% 100%;
+
+  /* Chart colors - adjust for light backgrounds */
+  --chart-1: 40 100% 40%;
+  --chart-2: 199 90% 45%;
+  --chart-3: 160 100% 28%;
+  --chart-4: 201 100% 32%;
+  --chart-5: 24 100% 38%;
+  --chart-6: 326 47% 55%;
+  --chart-other: 0 0% 50%;
+
+  /* Sidebar - keep dark for contrast */
+  --sidebar-background: 20 10% 15%;
+  --sidebar-foreground: 43 38% 92%;
+  --sidebar-primary: 27 99% 55%;
+  --sidebar-primary-foreground: 20 10% 12%;
+  --sidebar-accent: 20 10% 22%;
+  --sidebar-accent-foreground: 43 38% 92%;
+  --sidebar-border: 20 7% 25%;
+  --sidebar-ring: 27 99% 55%;
+
+  /* NILM tokens - light mode */
+  --confidence-high: 160 84% 39%;
+  --confidence-medium: 45 93% 47%;
+  --confidence-low: 0 72% 51%;
+  --state-on: 24 95% 45%;
+  --state-off: 43 15% 80%;
+  --teal-highlight: 24 95% 45%;
+  --prediction-glow: 330 35% 50%;
+}
+
 
 /* High Contrast Mode */
 .high-contrast {
@@ -263,7 +284,7 @@
 
   /* Focus rings for accessibility */
   :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    @apply outline-hidden ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 }
 
@@ -274,6 +295,7 @@
 }
 
 @layer components {
+
   /* NILM Panel Card - reduced border noise */
   .nilm-panel {
     @apply bg-card rounded-lg shadow-md;
@@ -311,11 +333,9 @@
   .prediction-indicator::after {
     content: "";
     @apply absolute -inset-0.5 rounded-lg opacity-0 transition-opacity;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--prediction-glow) / 0.2),
-      transparent
-    );
+    background: linear-gradient(135deg,
+        hsl(var(--prediction-glow) / 0.2),
+        transparent);
   }
 
   .prediction-indicator:hover::after {
@@ -345,6 +365,7 @@
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -352,10 +373,12 @@
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }

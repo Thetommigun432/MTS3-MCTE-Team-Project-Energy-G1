@@ -448,11 +448,10 @@ export default function Dashboard() {
       {/* API Mode Status Banner */}
       {mode === "api" && (
         <div
-          className={`rounded-lg px-4 py-3 text-sm text-foreground flex items-center gap-2 ${
-            error || !filteredRows.length
+          className={`rounded-lg px-4 py-3 text-sm text-foreground flex items-center gap-2 ${error || !filteredRows.length
               ? "bg-destructive/10 border border-destructive/30"
               : "bg-energy-warning-bg/50 border border-energy-warning/30"
-          }`}
+            }`}
         >
           <AlertCircle
             className={`h-4 w-4 shrink-0 ${error || !filteredRows.length ? "text-destructive" : "text-energy-warning"}`}
@@ -729,63 +728,63 @@ export default function Dashboard() {
                 </tr>
               ) : (
                 activeAppliances.map((a) => (
-                <tr
-                  key={a.name}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-                  onClick={() => setSelectedAppliance(a.name)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedAppliance(a.name);
-                    }
-                  }}
-                  aria-label={`View details for ${a.name.replace(/_/g, " ")}`}
-                >
-                  <td className="py-3">
-                    <div>
-                      <span className="font-medium text-foreground hover:text-primary">
-                        {a.name.replace(/_/g, " ")}
-                      </span>
-                      {a.type && a.type !== "other" && (
-                        <span className="block text-xs text-muted-foreground capitalize">
-                          {a.type.replace(/_/g, " ")}
+                  <tr
+                    key={a.name}
+                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-hidden"
+                    onClick={() => setSelectedAppliance(a.name)}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedAppliance(a.name);
+                      }
+                    }}
+                    aria-label={`View details for ${a.name.replace(/_/g, " ")}`}
+                  >
+                    <td className="py-3">
+                      <div>
+                        <span className="font-medium text-foreground hover:text-primary">
+                          {a.name.replace(/_/g, " ")}
                         </span>
-                      )}
-                      {a.building_name && (
-                        <span className="block text-xs text-muted-foreground/70">
-                          {a.building_name}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3">
-                    <ApplianceStateBadge
-                      on={a.on}
-                      confidence={a.confidence}
-                      size="sm"
-                    />
-                  </td>
-                  <td className="py-3">
-                    <ConfidenceIndicator confidence={a.confidence} size="sm" />
-                  </td>
-                  <td className="py-3 text-right">
-                    <span className="metric-value text-foreground">
-                      {a.est_kW.toFixed(3)}
-                    </span>
-                  </td>
-                  {managedAppliances.length > 0 && (
-                    <td className="py-3 text-right hidden sm:table-cell">
-                      {a.rated_kW ? (
-                        <span className="text-muted-foreground">
-                          {a.rated_kW} kW
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground/50">—</span>
-                      )}
+                        {a.type && a.type !== "other" && (
+                          <span className="block text-xs text-muted-foreground capitalize">
+                            {a.type.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        {a.building_name && (
+                          <span className="block text-xs text-muted-foreground/70">
+                            {a.building_name}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                  )}
-                </tr>
+                    <td className="py-3">
+                      <ApplianceStateBadge
+                        on={a.on}
+                        confidence={a.confidence}
+                        size="sm"
+                      />
+                    </td>
+                    <td className="py-3">
+                      <ConfidenceIndicator confidence={a.confidence} size="sm" />
+                    </td>
+                    <td className="py-3 text-right">
+                      <span className="metric-value text-foreground">
+                        {a.est_kW.toFixed(3)}
+                      </span>
+                    </td>
+                    {managedAppliances.length > 0 && (
+                      <td className="py-3 text-right hidden sm:table-cell">
+                        {a.rated_kW ? (
+                          <span className="text-muted-foreground">
+                            {a.rated_kW} kW
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
                 ))
               )}
             </tbody>
