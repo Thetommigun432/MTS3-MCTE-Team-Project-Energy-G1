@@ -46,17 +46,18 @@ class SafeJsonFormatter(jsonlogger.JsonFormatter):
         if "timestamp" not in log_record:
             from datetime import datetime, timezone
             log_record["timestamp"] = datetime.now(timezone.utc).isoformat()
-            
-        log_record["level"] = record.levelname
-        log_record["logger"] = record.name
-
-        # Add request_id if present
-        if hasattr(record, "request_id") and record.request_id:
-            log_record["request_id"] = record.request_id
+        
+        # log_record already has levelname and name from the parent formatter
+        # Just ensure they're present with fallback values
+        if "level" not in log_record:
+            log_record["level"] = log_record.get("levelname", "INFO")
+        if "logger" not in log_record:
+            log_record["logger"] = log_record.get("name", "root")
 
         # Sanitize sensitive data
         self._sanitize_dict(log_record)
         return log_record
+
 
     def _sanitize_dict(self, d: dict[str, Any]) -> None:
         """Recursively sanitize dictionary, removing sensitive data."""
