@@ -61,6 +61,22 @@ jobs:
           docker run --rm -v "${PWD}:/app" -w /app python:3.12-slim sh -c \
             "pip install pandas pyarrow numpy && python scripts/generate_fixtures.py --output apps/backend/tests/fixtures/simulation-data.parquet"
 
+      - name: Verify Model Files Exist
+        run: |
+          echo "Checking model artifacts..."
+          for model in evcharger heatpump washingmachine dishwasher; do
+            # Note: dishwasher paths might vary, checking standard pattern
+            # The Registry implies wavenilm_v3/{appliance}/v3-sota/model.safetensors
+            FILE="apps/backend/models/wavenilm_v3/${model}/v3-sota/model.safetensors"
+            if [ ! -f "$FILE" ]; then
+              echo "ERROR: Missing model: $FILE"
+              # Allow failure for now if testing locally without full weights, but for CI strictness:
+              ls -R apps/backend/models
+              exit 1
+            fi
+            echo "✓ Found: $FILE"
+          done
+
       - name: Start Docker Stack
         run: |
           echo "Starting Docker stack..."

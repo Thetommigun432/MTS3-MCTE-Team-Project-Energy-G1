@@ -82,7 +82,7 @@ y_test.npy
 transformer-*.zip
 
 # Keep backend model artifacts for deployment
-!apps/backend/models/*.safetensors
+!apps/backend/models/**/*.safetensors
 
 # Keep test fixtures (small samples)
 !apps/backend/tests/fixtures/*.npy

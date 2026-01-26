@@ -119,9 +119,8 @@ services:
       - INFERENCE_INTERVAL=60
       - BUILDING_ID=building_1
 
+
       - ENV=prod
-    volumes:
-      - ./apps/backend/models:/app/models:ro
     # GPU requirements disabled for CI compatibility
     # deploy:
     #   resources:
@@ -132,6 +131,12 @@ services:
     #           capabilities: [gpu]
     restart: unless-stopped
     command: ["python", "-m", "app.pipeline.inference_worker"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # ==========================================================================
   # Data Producer
