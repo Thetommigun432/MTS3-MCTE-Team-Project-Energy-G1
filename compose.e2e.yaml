@@ -37,6 +37,14 @@ services:
       - INFLUX_MEASUREMENT_PRED=${INFLUX_MEASUREMENT_PRED:-prediction}
       - E2E_RUN_ID=${E2E_RUN_ID}
     command: ["python", "-m", "app.pipeline.persister"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - test-runner
 
   # Override Producer to use our FIXTURE instead of huge parquet
   # IMPORTANT: Producer must wait for inference worker to be subscribed to Redis
@@ -58,8 +66,8 @@ services:
     # Also use slower interval (0.5s) to give inference worker time to process
     command: >
       sh -c "echo 'Waiting 5s for inference worker to subscribe...' && sleep 5 && python -m app.pipeline.producer --source parquet --file /app/test_data.parquet --interval 0.1"
-    # profiles:
-    #   - test-runner
+    profiles:
+      - test-runner
 
 
   # Override Inference Service to use Test Env (activates fallback)
