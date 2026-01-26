@@ -83,14 +83,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Run the application
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
-
-# =============================================================================
-# Test Stage
-# =============================================================================
-FROM production AS test
-
-# Copy tests (includes fixtures/simulation-data.parquet)
-COPY apps/backend/tests/ ./tests/
-
-# Reset command for testing
-CMD ["pytest", "tests", "-v"]
