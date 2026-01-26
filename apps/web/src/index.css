@@ -284,7 +284,7 @@
 
   /* Focus rings for accessibility */
   :focus-visible {
-    @apply outline-hidden ring-2 ring-ring ring-offset-2 ring-offset-background;
+    @apply outline-2 outline-ring outline-offset-2;
   }
 }
 
