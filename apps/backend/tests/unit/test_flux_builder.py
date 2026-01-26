@@ -90,21 +90,21 @@ class TestBuildQueries:
     def test_readings_query_basic(self):
         """Test basic readings query."""
         query = build_readings_query(
-            bucket="raw_sensor_data",
+            bucket="predictions",
             building_id="bldg_123",
             appliance_id=None,
             start="-7d",
             end="now()",
             resolution=Resolution.ONE_MINUTE,
         )
-        assert 'bucket: "raw_sensor_data"' in query
+        assert 'bucket: "predictions"' in query
         assert 'building_id == "bldg_123"' in query
         assert "aggregateWindow(every: 1m" in query
 
     def test_readings_query_with_appliance(self):
         """Test readings query with appliance filter."""
         query = build_readings_query(
-            bucket="raw_sensor_data",
+            bucket="predictions",
             building_id="bldg_123",
             appliance_id="heatpump",
             start="-7d",

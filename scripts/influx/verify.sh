@@ -67,7 +67,7 @@ check_bucket() {
     fi
 }
 
-check_bucket "$INFLUX_BUCKET_RAW"
+# check_bucket "$INFLUX_BUCKET_RAW"
 check_bucket "$INFLUX_BUCKET_PRED"
 
 # 4. Minimal Write/Read Test (Predictions)

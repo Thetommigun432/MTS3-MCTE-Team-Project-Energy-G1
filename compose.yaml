@@ -120,6 +120,8 @@ services:
       - BUILDING_ID=building_1
       - BUILDING_ID=building_1
       - ENV=prod
+    volumes:
+      - ./apps/backend/models:/app/models:ro
     # GPU requirements disabled for CI compatibility
     # deploy:
     #   resources:
