@@ -1,6 +1,6 @@
 
 # NILM Energy Monitor - Docker Compose
-# Orchestrates all services for local development
+# Orchestrates services for local development
 
 services:
   # ==========================================================================
@@ -19,7 +19,6 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUX_ADMIN_PASSWORD:-admin12345}
       - DOCKER_INFLUXDB_INIT_ORG=${INFLUX_ORG:-energy-monitor}
       - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUX_BUCKET_PRED:-predictions}
-
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUX_TOKEN:-admin-token}
     restart: unless-stopped
     healthcheck:
@@ -29,7 +28,7 @@ services:
       retries: 5
 
   # ==========================================================================
-  # InfluxDB Init - Create predictions bucket (robust failure handling)
+  # InfluxDB Init - Create predictions bucket
   # ==========================================================================
   influxdb-init:
     image: influxdb:2.8
@@ -40,7 +39,6 @@ services:
       - INFLUX_HOST=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
     entrypoint: ["/bin/sh", "-c"]
     command: |
@@ -49,10 +47,6 @@ services:
       influx ping --host "$$INFLUX_HOST"
 
       echo "Ensuring buckets exist..."
-      
-
-
-      # 2. Check/Create INFLUX_BUCKET_PRED
       if influx bucket list --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" | grep -q " $$INFLUX_BUCKET_PRED "; then
         echo "✅ Bucket '$$INFLUX_BUCKET_PRED' exists."
       else
@@ -64,7 +58,7 @@ services:
     restart: "no"
 
   # ==========================================================================
-  # Unified Backend
+  # Unified Backend API (Ingestion & Query)
   # ==========================================================================
   backend:
     build:
@@ -78,16 +72,22 @@ services:
     environment:
       - ENV=dev
       - PORT=8000
+      # Redis Config (Required for Ingestion)
+      - REDIS_URL=redis://redis:6379/0
+      # InfluxDB Config
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
-
-
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      # Supabase Config
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
+      # Pipeline: Disabled in API (handled by worker service)
+      - PIPELINE_ENABLED=false
     depends_on:
       influxdb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       influxdb-init:
         condition: service_completed_successfully
@@ -100,84 +100,35 @@ services:
       start_period: 15s
 
   # ==========================================================================
-  # NILM Production Inference Service
+  # Inference Worker (Redis Streams Consumer)
   # ==========================================================================
-  nilm-inference:
+  worker:
     build:
       context: .
-      dockerfile: apps/backend/Dockerfile
-      target: production
-    container_name: nilm-inference
-    depends_on:
-      redis:
-        condition: service_healthy
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MODEL_DIR=/app/models
-      - WINDOW_SIZE=1536
-      - INFERENCE_INTERVAL=60
-      - BUILDING_ID=building_1
-
-
-      - ENV=prod
-    # GPU requirements disabled for CI compatibility
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    restart: unless-stopped
-    command: ["python", "-m", "app.pipeline.inference_worker"]
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  # ==========================================================================
-  # Data Producer
-  # ==========================================================================
-  nilm-producer:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: production
-    container_name: nilm-producer
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      dockerfile: apps/backend/Dockerfile.worker
     volumes:
-      - ./apps/backend/tests/fixtures/simulation-data.parquet:/app/production_data.parquet
-    command: >
-      sh -c "python -m app.pipeline.producer --source parquet --file /app/production_data.parquet --interval 1.0"
-    profiles:
-      - testing
-
-  # ==========================================================================
-  # Prediction Persister
-  # ==========================================================================
-  nilm-persister:
-    build:
-      context: .
-      dockerfile: apps/backend/Dockerfile
-      target: production
-    container_name: nilm-persister
-    depends_on:
-      - redis
-      - influxdb
+      - ./apps/backend/models:/app/models:ro
     environment:
-      - REDIS_HOST=redis
+      - ENV=dev
+      # Redis Config
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_STREAM_KEY=nilm:readings
+      - REDIS_CONSUMER_GROUP=nilm-infer-dev
+      # InfluxDB config
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
-    command: ["python", "-m", "app.pipeline.persister"]
+      # Model Config
+      - MODEL_REGISTRY_PATH=/app/models/registry.json
+      - MODELS_DIR=/app/models
+    depends_on:
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    restart: unless-stopped
+    # Worker does not need exposed ports or HTTP healthchecks
 
   # ==========================================================================
   # Redis

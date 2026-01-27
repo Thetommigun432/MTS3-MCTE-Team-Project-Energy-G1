@@ -110,12 +110,17 @@ def main():
             
             ts_float = payload['timestamp']
             ts = datetime.fromtimestamp(ts_float, tz=timezone.utc)
-            
+
+            # Get run_id from message (priority) or environment variable (fallback)
+            # This allows E2E tests to inject samples with specific run_id for correlation
+            message_run_id = payload.get('run_id')
+            effective_run_id = message_run_id or e2e_run_id
+
             # Get model version (all predictions should have same version)
             model_version = "unknown"
             if payload.get('predictions'):
                 model_version = payload['predictions'][0].get('model_version', 'unknown')
-            
+
             # Build WIDE format point - one point with all appliances as fields
             point = (
                 Point(influx_measurement)
@@ -124,9 +129,9 @@ def main():
                 .time(ts)
             )
 
-            # Add E2E Run ID tag if present
-            if e2e_run_id:
-                point = point.tag("run_id", e2e_run_id)
+            # Add E2E Run ID tag if present (from message or env)
+            if effective_run_id:
+                point = point.tag("run_id", effective_run_id)
             
             # Add stream_key tag if different from building_id
             if stream_key and stream_key != building_id:

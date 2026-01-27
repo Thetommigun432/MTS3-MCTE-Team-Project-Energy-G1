@@ -40,6 +40,7 @@ class RawSample:
     power_total: float
     voltage: Optional[float] = None
     current: Optional[float] = None
+    run_id: Optional[str] = None  # For E2E test correlation
     
 @dataclass 
 class Prediction:
@@ -75,7 +76,7 @@ class RedisBufferManager:
         self,
         redis_client: redis.Redis,
         building_id: str = "building_1",
-        window_size: int = 1536,
+        window_size: int = 3600,  # 1 hour at 1 Hz
         key_prefix: str = "nilm"
     ):
         self.redis = redis_client
@@ -147,8 +148,8 @@ class NILMInferenceService:
         redis_host: str = "localhost",
         redis_port: int = 6379,
         building_id: str = "building_1",
-        window_size: int = 1536,
-        inference_interval: int = 60,
+        window_size: int = 3600,  # 1 hour at 1 Hz
+        inference_interval: int = 1,  # 1 Hz output
         P_MAX: float = 15000.0,
     ):
         self.redis = redis.Redis(host=redis_host, port=redis_port, decode_responses=False)
@@ -167,7 +168,8 @@ class NILMInferenceService:
         self.last_inference_time = 0
         self.input_channel = f"nilm:{building_id}:input"
         self.output_channel = f"nilm:{building_id}:predictions"
-        
+        self._current_run_id: Optional[str] = None  # Track run_id for E2E tests
+
         logger.info(f"Service initialized for {building_id}")
 
     def start(self):
@@ -194,23 +196,30 @@ class NILMInferenceService:
     def process_sample(self, sample: RawSample):
         # 1. Preprocess
         features = self.preprocessor.process_sample(sample.timestamp, sample.power_total)
-        
+
         # 2. Buffer (store features directly)
         self.buffer.add_sample(features, sample.timestamp, sample.power_total)
-        
-        # 3. Check timing
+
+        # 3. Track run_id for E2E correlation (last received run_id is used)
+        if sample.run_id:
+            self._current_run_id = sample.run_id
+
+        # 4. Log buffer status periodically
+        self._log_buffer_status()
+
+        # 5. Check timing
         now = time.time()
         if now - self.last_inference_time < self.inference_interval:
             return
-            
-        # 4. Get Window
+
+        # 6. Get Window
         window_data = self.buffer.get_window()
         if window_data is None:
             return
-            
+
         features_array, timestamps, powers = window_data
-            
-        # 5. Run Inference for ALL active models
+
+        # 7. Run Inference for ALL active models
         self.run_inference_cycle(features_array, timestamps, powers, now)
         self.last_inference_time = now
 
@@ -325,6 +334,9 @@ class NILMInferenceService:
 
     def _publish(self, res: InferenceResult):
         data = asdict(res)
+        # Include run_id if present (for E2E test correlation)
+        if self._current_run_id:
+            data['run_id'] = self._current_run_id
         self.redis.publish(self.output_channel, json.dumps(data))
         
     def _log_summary(self, res: InferenceResult):
@@ -333,18 +345,47 @@ class NILMInferenceService:
             if p.is_on:
                 logger.info(f"  🟢 {p.appliance}: {p.power_watts:.0f}W ({p.probability:.2f})")
 
+    def _log_buffer_status(self):
+        """Log buffer status periodically (every 60 samples)."""
+        if not hasattr(self, '_sample_count'):
+            self._sample_count = 0
+        self._sample_count += 1
+
+        if self._sample_count % 60 != 0:
+            return
+
+        length = self.redis.llen(self.buffer.features_key)
+        oldest_ts = newest_ts = None
+
+        if length > 0:
+            try:
+                oldest_bytes = self.redis.lindex(self.buffer.timestamps_key, 0)
+                newest_bytes = self.redis.lindex(self.buffer.timestamps_key, -1)
+                oldest_ts = float(oldest_bytes) if oldest_bytes else None
+                newest_ts = float(newest_bytes) if newest_bytes else None
+            except Exception:
+                pass
+
+        oldest_str = datetime.fromtimestamp(oldest_ts, timezone.utc).isoformat() if oldest_ts else "N/A"
+        newest_str = datetime.fromtimestamp(newest_ts, timezone.utc).isoformat() if newest_ts else "N/A"
+
+        logger.info(f"Buffer: {length}/{self.window_size} | oldest={oldest_str} | newest={newest_str}")
+
     def run_subscriber(self):
         pubsub = self.redis.pubsub()
         pubsub.subscribe(self.input_channel)
         logger.info(f"Subscribed to {self.input_channel}")
-        
+
         for msg in pubsub.listen():
             if msg['type'] == 'message':
                 try:
                     data = json.loads(msg['data'])
+                    # Extract run_id if present (for E2E test correlation)
+                    run_id = data.get('run_id')
                     sample = RawSample(
                         timestamp=data['timestamp'],
-                        power_total=data['power_total']
+                        power_total=data['power_total'],
+                        run_id=run_id,
                     )
                     self.process_sample(sample)
                 except Exception as e:
@@ -355,8 +396,8 @@ if __name__ == "__main__":
     
     redis_host = os.environ.get("REDIS_HOST", "localhost")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
-    window_size = int(os.environ.get("WINDOW_SIZE", 1536))
-    inference_interval = int(os.environ.get("INFERENCE_INTERVAL", 60))
+    window_size = int(os.environ.get("WINDOW_SIZE", 3600))
+    inference_interval = int(os.environ.get("INFERENCE_INTERVAL", 1))
     building_id = os.environ.get("BUILDING_ID", "building_1")
     
     service = NILMInferenceService(

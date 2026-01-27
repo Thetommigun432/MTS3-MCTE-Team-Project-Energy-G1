@@ -4,7 +4,7 @@ FastAPI dependencies for route handlers.
 
 from typing import Annotated
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AuthenticationError, ErrorCode
@@ -70,6 +70,44 @@ async def require_admin_token(
                 code=ErrorCode.AUTH_MISSING_TOKEN,
                 message="Admin token required",
             )
+
+
+async def require_e2e_token(
+    x_e2e_token: Annotated[str | None, Header(alias="X-E2E-Token")] = None,
+) -> None:
+    """
+    Dependency to require E2E token for probe endpoints.
+
+    E2E probe endpoints are protected by:
+    1. E2E_PROBES_ENABLED=true environment flag
+    2. Valid X-E2E-Token header matching E2E_TOKEN
+
+    Returns 404 if probes are disabled (hides endpoint existence).
+    Returns 503 if token not configured.
+    Returns 401 if token is invalid.
+    """
+    settings = get_settings()
+
+    # Check if probes are enabled (return 404 to hide endpoint)
+    if not settings.e2e_probes_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not found",
+        )
+
+    # Check if token is configured
+    if not settings.e2e_token:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="E2E probes not configured",
+        )
+
+    # Validate token
+    if x_e2e_token != settings.e2e_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid E2E token",
+        )
 
 
 # Type aliases for dependency injection

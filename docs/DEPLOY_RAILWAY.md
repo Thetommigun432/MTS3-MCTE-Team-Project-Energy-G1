@@ -82,6 +82,16 @@ curl https://energy-monitor.up.railway.app/live
 If `/live` returns 200, the backend is up.
 If `/ready` returns 200, all dependencies (Influx, Redis) are connected.
 
+## Pipeline Limitations
+
+Railway currently runs **API service only**. The full NILM pipeline
+(producer → inference → persister) requires local Docker Compose or
+dedicated infrastructure.
+
+The Worker service (`railway.worker.toml`) uses the streams-based pipeline
+which has no corresponding producer on Railway. For real-time inference,
+deploy the full pipeline locally or on dedicated servers.
+
 ## Troubleshooting
 
 - **CORS Errors**: Check `CORS_ORIGINS`. Must match the frontend URL exactly (protocol + domain).

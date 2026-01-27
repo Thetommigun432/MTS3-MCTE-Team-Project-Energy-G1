@@ -193,6 +193,13 @@ def create_app() -> FastAPI:
     app.include_router(ingest.router)
     app.include_router(admin.router)
 
+    # Conditionally register E2E router (Railway testing)
+    if settings.e2e_probes_enabled:
+        from app.api.routers import e2e
+
+        app.include_router(e2e.router)
+        logger.info("E2E probe endpoints enabled")
+
     # Metrics endpoint
     @app.get("/metrics", tags=["Metrics"])
     async def metrics() -> PlainTextResponse:

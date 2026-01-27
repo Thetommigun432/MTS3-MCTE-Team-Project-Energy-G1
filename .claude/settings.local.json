@@ -44,7 +44,8 @@
       "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" log --oneline --all)",
       "Bash(grep:*)",
       "Bash(docker compose:*)",
-      "Bash(dir /s /b \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\\\\apps\\\\backend\\\\models\\\\*.safetensors\")"
+      "Bash(dir /s /b \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\\\\apps\\\\backend\\\\models\\\\*.safetensors\")",
+      "Bash(railway --version:*)"
     ]
   }
 }

@@ -225,3 +225,52 @@ def test_backend_live():
     print("Hint: Check docker compose logs for 'backend' service.")
     print("==================================\n")
     pytest.fail(f"Backend not reachable at {BACKEND_URL}/live")
+
+
+@pytest.mark.e2e
+def test_pipeline_cadence_approximately_1hz(influx_client):
+    """
+    Verify predictions arrive at approximately 1 Hz after warmup.
+
+    This test:
+    1. Waits for warmup period (WINDOW_SIZE samples)
+    2. Collects predictions over a ~15-20 second window
+    3. Validates that we got approximately the expected number of predictions
+    """
+    window_size = int(os.environ.get("WINDOW_SIZE", "64"))
+
+    # Wait for warmup + buffer
+    warmup_time = window_size + 15
+    print(f"Waiting {warmup_time}s for warmup ({window_size} samples + 15s buffer)...")
+    time.sleep(warmup_time)
+
+    query_api = influx_client.query_api()
+
+    # Query predictions from last 20 seconds
+    query = f'''
+        from(bucket: "{INFLUX_BUCKET_PRED}")
+        |> range(start: -20s)
+        |> filter(fn: (r) => r["_measurement"] == "{INFLUX_MEASUREMENT}")
+    '''
+
+    if E2E_RUN_ID:
+        query += f'\n        |> filter(fn: (r) => r["run_id"] == "{E2E_RUN_ID}")'
+
+    query += '\n        |> distinct(column: "_time")'
+
+    tables = query_api.query(query)
+    timestamps = set()
+    for table in tables:
+        for record in table.records:
+            timestamps.add(record.get_time())
+
+    count = len(timestamps)
+    print(f"Found {count} unique prediction timestamps in 20s window")
+
+    # At 1 Hz with INFERENCE_INTERVAL=1, expect ~15-20 predictions
+    # Allow tolerance for startup jitter and timing variations
+    assert count >= 10, f"Expected >=10 predictions at 1 Hz, got {count}"
+    # Upper bound is generous since we query 20s but might catch edge cases
+    assert count <= 25, f"Expected <=25 predictions in 20s, got {count} (possible burst?)"
+
+    print(f"✅ Cadence test passed: {count} predictions in 20s window (~{count/20:.1f} Hz)")

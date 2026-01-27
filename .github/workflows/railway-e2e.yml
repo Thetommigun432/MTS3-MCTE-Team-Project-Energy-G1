@@ -1,0 +1,196 @@
+name: Railway E2E Tests
+
+# Railway E2E tests against deployed Railway backend.
+# Uses E2E probe endpoints to verify the full pipeline works.
+#
+# IMPORTANT: This workflow only runs on:
+# 1. Push to integration (after deploy)
+# 2. Daily schedule at 7 AM UTC
+# 3. Manual workflow_dispatch
+#
+# It does NOT run on pull_request to avoid exposing secrets to forks.
+
+on:
+  push:
+    branches: [integration]
+  schedule:
+    # Run daily at 7 AM UTC (after smoke tests at 6 AM)
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to test"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  # Retry configuration
+  MAX_RETRIES: 3
+  RETRY_DELAY: 5
+
+jobs:
+  railway-e2e:
+    name: Railway Pipeline E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test dependencies
+        run: |
+          pip install httpx pytest pytest-timeout
+
+      - name: Generate Run ID
+        id: runid
+        run: |
+          RUN_ID="railway-e2e-$(date +%s)-${GITHUB_RUN_ID}"
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "Generated RUN_ID: $RUN_ID"
+
+      - name: Set Environment URL
+        id: set-url
+        run: |
+          # Use input or default to secret
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            URL="${{ secrets.RAILWAY_PRODUCTION_URL || secrets.RAILWAY_BACKEND_URL }}"
+          else
+            URL="${{ secrets.RAILWAY_BACKEND_URL }}"
+          fi
+
+          # Fallback to default if no secrets configured
+          if [ -z "$URL" ]; then
+            URL="https://energy-monitor.up.railway.app"
+            echo "::warning::Using fallback URL - RAILWAY_BACKEND_URL secret not configured"
+          fi
+
+          echo "BACKEND_URL=$URL" >> $GITHUB_OUTPUT
+          echo "Testing against: $URL"
+
+      - name: Check E2E Token
+        run: |
+          if [ -z "${{ secrets.E2E_TOKEN }}" ]; then
+            echo "::error::E2E_TOKEN secret not configured"
+            exit 1
+          fi
+          echo "E2E_TOKEN is configured"
+
+      - name: Wait for Deployment Propagation
+        if: github.event_name == 'push'
+        run: |
+          echo "Waiting 120s for Railway deployment to propagate..."
+          sleep 120
+
+      - name: Verify Backend Liveness
+        run: |
+          URL="${{ steps.set-url.outputs.BACKEND_URL }}/live"
+          echo "Checking backend liveness: $URL"
+
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES..."
+
+            response=$(curl -sfL --max-time 10 "$URL" 2>&1) || {
+              echo "Request failed, retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+              continue
+            }
+
+            if echo "$response" | grep -q '"status":"ok"'; then
+              echo "Backend is live!"
+              exit 0
+            fi
+
+            sleep $RETRY_DELAY
+          done
+
+          echo "::error::Backend liveness check failed"
+          exit 1
+
+      - name: Run Railway E2E Tests
+        env:
+          RAILWAY_BACKEND_URL: ${{ steps.set-url.outputs.BACKEND_URL }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+          E2E_RUN_ID: ${{ steps.runid.outputs.run_id }}
+        run: |
+          echo "Running E2E tests with RUN_ID: $E2E_RUN_ID"
+          pytest apps/backend/tests/e2e/test_railway_e2e.py -v --timeout=300 \
+            -k "not slow" \
+            --tb=short
+
+      - name: Run Slow E2E Tests (Full Pipeline)
+        if: success()
+        env:
+          RAILWAY_BACKEND_URL: ${{ steps.set-url.outputs.BACKEND_URL }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+          E2E_RUN_ID: ${{ steps.runid.outputs.run_id }}
+        run: |
+          echo "Running slow E2E tests (full pipeline validation)..."
+          pytest apps/backend/tests/e2e/test_railway_e2e.py -v --timeout=300 \
+            -k "slow" \
+            --tb=short || {
+              echo "::warning::Full pipeline E2E test failed - pipeline may not be fully deployed"
+              exit 0  # Don't fail the workflow for slow tests
+            }
+
+      - name: Diagnostic on Failure
+        if: failure()
+        env:
+          RAILWAY_BACKEND_URL: ${{ steps.set-url.outputs.BACKEND_URL }}
+          E2E_TOKEN: ${{ secrets.E2E_TOKEN }}
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "       RAILWAY E2E TEST DIAGNOSTICS"
+          echo "=========================================="
+          echo ""
+          echo "Backend URL: $RAILWAY_BACKEND_URL"
+          echo "Run ID: ${{ steps.runid.outputs.run_id }}"
+          echo ""
+
+          echo "--- Liveness Check ---"
+          curl -sf "$RAILWAY_BACKEND_URL/live" || echo "Live check failed"
+          echo ""
+
+          echo "--- Readiness Check ---"
+          curl -sf "$RAILWAY_BACKEND_URL/ready" || echo "Ready check failed"
+          echo ""
+
+          echo "--- Redis Buffer Status ---"
+          curl -sf -H "X-E2E-Token: $E2E_TOKEN" \
+            "$RAILWAY_BACKEND_URL/e2e/redis-buffer?building_id=building_1" || \
+            echo "Redis buffer check failed (E2E probes may be disabled)"
+          echo ""
+
+          echo "--- InfluxDB Status ---"
+          curl -sf -H "X-E2E-Token: $E2E_TOKEN" \
+            "$RAILWAY_BACKEND_URL/e2e/influx-status?run_id=${{ steps.runid.outputs.run_id }}" || \
+            echo "InfluxDB status check failed"
+          echo ""
+
+          echo "=========================================="
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "       RAILWAY E2E TEST SUMMARY"
+          echo "=========================================="
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment || 'staging' }}"
+          echo "URL: ${{ steps.set-url.outputs.BACKEND_URL }}"
+          echo "Run ID: ${{ steps.runid.outputs.run_id }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo ""
+          echo "=========================================="

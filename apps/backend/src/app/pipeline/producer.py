@@ -181,8 +181,8 @@ def main():
     parser.add_argument('--file', type=str, 
                         default='production_jan2025_building_only.parquet',
                         help='Data file path (parquet or csv)')
-    parser.add_argument('--interval', type=float, default=5.0,
-                        help='Seconds between samples (default: 5.0 to match training)')
+    parser.add_argument('--interval', type=float, default=1.0,
+                        help='Seconds between samples (default: 1.0 for 1 Hz)')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first N rows (to start from different point)')
     parser.add_argument('--limit', type=int, default=0,
@@ -231,31 +231,42 @@ def main():
     
     print(f"\n🚀 Starting data stream (interval={interval}s, skip={args.skip}, limit={args.limit or 'all'})")
     print("-" * 60)
-    
+
+    # Use monotonic time for drift-free scheduling
+    next_tick = time.monotonic()
+
     try:
         for data in data_gen:
             # Skip rows if requested
             if args.skip > 0 and sample_count < args.skip:
                 sample_count += 1
                 continue
-            
+
             # Publish to Redis
             r.publish(channel, json.dumps(data))
-            
+
             sample_count += 1
             effective_count = sample_count - args.skip
-            
+
             if effective_count % 100 == 0:
                 print(f"Sent {effective_count:,} samples | Power: {data['power_total']:.0f}W")
-            
+
             # Check limit
             if args.limit > 0 and effective_count >= args.limit:
                 print(f"\n✅ Reached limit of {args.limit} samples")
                 break
-            
+
+            # Monotonic scheduling to prevent drift
             if interval > 0:
-                time.sleep(interval)
-            
+                next_tick += interval
+                sleep_time = next_tick - time.monotonic()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                elif sleep_time < -interval:
+                    # Fell behind by more than one interval, reset tick
+                    print(f"⚠️ Producer fell behind by {-sleep_time:.2f}s, resetting tick")
+                    next_tick = time.monotonic()
+
     except KeyboardInterrupt:
         print(f"\n⏹️ Stopped. Sent {sample_count - args.skip:,} samples total.")
 

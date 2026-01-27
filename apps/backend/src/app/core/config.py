@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        protected_namespaces=('settings_',),
     )
 
     # ==========================================================================
@@ -230,6 +231,34 @@ class Settings(BaseSettings):
     ingest_token: str | None = Field(
         default=None,
         description="Optional token for server-to-server ingestion auth",
+    )
+
+    # ==========================================================================
+    # Model Artifacts
+    # ==========================================================================
+    model_artifact_base_url: str | None = Field(
+        default=None,
+        description="Base URL for fetching missing model artifacts (e.g. https://models.example.com)",
+    )
+    model_artifact_timeout_sec: int = Field(
+        default=60,
+        description="Timeout in seconds for downloading model artifacts",
+    )
+    model_artifact_max_mb: int = Field(
+        default=500,
+        description="Maximum size in MB for downloaded model artifacts",
+    )
+
+    # ==========================================================================
+    # E2E Testing
+    # ==========================================================================
+    e2e_probes_enabled: bool = Field(
+        default=False,
+        description="Enable E2E probe endpoints (disabled by default, Railway testing only)",
+    )
+    e2e_token: str | None = Field(
+        default=None,
+        description="Secret token for E2E probe authentication",
     )
 
     # ==========================================================================

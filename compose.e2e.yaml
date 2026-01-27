@@ -1,3 +1,7 @@
+# [LEGACY/BROKEN]
+# This E2E setup targets the legacy PubSub pipeline (producer/inference_worker/persister).
+# The system has moved to a Redis Streams pipeline (API Ingest -> Stream -> Worker).
+# This file needs to be updated to use the new architecture or is deprecated.
 
 # Docker Compose for E2E Testing
 
@@ -82,10 +86,10 @@ services:
       - BUILDING_ID=building_1
       # E2E-specific overrides
       - ENV=test
-      # Reduce window size for fast E2E feedback (64 samples vs 1536)
+      # Reduce window size for fast E2E feedback (64 samples vs 3600)
       - WINDOW_SIZE=64
-      # Reduce inference interval to 5s (vs 60s)
-      - INFERENCE_INTERVAL=5
+      # 1 Hz inference (same as production cadence)
+      - INFERENCE_INTERVAL=1
 
   # Test Runner (Ephemeral container to run pytest)
   e2e-tests:

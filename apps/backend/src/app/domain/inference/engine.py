@@ -359,8 +359,19 @@ class InferenceEngine:
         # Create model architecture
         model = create_model(entry.architecture, entry.architecture_params)
 
-        # Load weights from safetensors
-        artifact_path = entry.resolved_path
+        # Ensure artifact is present (auto-download if missing)
+        from app.domain.inference.artifacts import ensure_artifact_present
+
+        try:
+            artifact_path = ensure_artifact_present(entry)
+        except Exception as e:
+            if isinstance(e, ModelError):
+                raise
+            raise ModelError(
+                code=ErrorCode.MODEL_LOAD_ERROR,
+                message=f"Failed to ensure artifact availability: {e}",
+            )
+
         if not artifact_path.suffix == ".safetensors":
             raise ModelError(
                 code=ErrorCode.MODEL_ARTIFACT_INVALID,
