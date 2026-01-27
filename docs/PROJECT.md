@@ -41,8 +41,9 @@ graph TD
 ```
 
 For implementation details, see:
-- [**Frontend Documentation**](./FRONTEND.md)
-- [**Backend Documentation**](./BACKEND.md)
+- [**Frontend Guide**](./frontend.md)
+- [**API Reference**](./API.md)
+- [**Integration Guide**](./integration.md)
 
 ### 2.1 Component Interaction
 1.  **Authentication**: User logs in via Frontend using Supabase Auth. A JWT is issued.
@@ -62,10 +63,11 @@ MTS3-MCTE-Team-Project-Energy-G1/
 ├── apps/
 │   ├── backend/                # ✅ FastAPI backend (Python)
 │   └── web/                    # ✅ React frontend (TS/Vite)
-├── infra/                      # Infrastructure Config
 ├── docs/                       # ✅ Canonical Documentation
+├── checkpoints/                # Model checkpoints
+├── data/                       # Processed datasets
 ├── scripts/                    # Seeding & Utility Scripts
-└── models/                     # Training Artifacts (Gitignored)
+└── training/                   # Training scripts + notebooks
 ```
 
 ## 4. Data Models

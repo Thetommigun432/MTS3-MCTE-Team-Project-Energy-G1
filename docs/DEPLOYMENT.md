@@ -10,6 +10,14 @@ This is the single source of truth for production deployment.
 - **InfluxDB**: Railway service or external managed instance.
 - **Frontend**: Vite SPA on Cloudflare Pages.
 
+## Production Base URLs
+
+| Service | Base URL | Notes |
+|---|---|---|
+| Frontend | `https://<cloudflare-pages-domain>` | Cloudflare Pages project domain. |
+| API | `https://<railway-api-domain>` | Public Railway service domain. |
+| InfluxDB (optional) | `https://<influx-domain>` | Only if you expose the UI. |
+
 ## Railway Services
 
 ### Service config paths

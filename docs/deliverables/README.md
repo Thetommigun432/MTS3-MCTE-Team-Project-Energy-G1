@@ -99,7 +99,9 @@ Since some project details were not explicitly provided, the following realistic
 Additional technical documentation is available in the parent `docs/` folder:
 
 - [PROJECT.md](../PROJECT.md) - Architecture and repository structure
-- [OPERATIONS.md](../OPERATIONS.md) - Deployment and operations guide
+- [LOCAL_DEV.md](../LOCAL_DEV.md) - Local development setup
+- [DEPLOYMENT.md](../DEPLOYMENT.md) - Production deployment guide
+- [OPERATIONS.md](../OPERATIONS.md) - Operations runbook and troubleshooting
 - [API.md](../API.md) - Backend API reference
 - [frontend.md](../frontend.md) - Frontend-specific documentation
 

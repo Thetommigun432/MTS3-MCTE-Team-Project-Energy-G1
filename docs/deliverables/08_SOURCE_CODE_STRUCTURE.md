@@ -74,7 +74,9 @@ NILM-Energy-Monitor-Final.zip
 │   │   ├── 07_ARCHITECTURE_OVERVIEW.md
 │   │   └── 08_SOURCE_CODE_STRUCTURE.md
 │   ├── API.md                     # API reference
-│   ├── OPERATIONS.md              # Operations guide
+│   ├── DEPLOYMENT.md              # Production deployment guide
+│   ├── LOCAL_DEV.md               # Local development guide
+│   ├── OPERATIONS.md              # Operations runbook
 │   ├── PROJECT.md                 # Project overview
 │   └── frontend.md                # Frontend documentation
 │
@@ -145,7 +147,7 @@ Project documentation including deliverables.
 |----------------|---------|
 | `deliverables/` | Final submission documents |
 | `API.md` | Backend API reference |
-| `OPERATIONS.md` | Deployment and operations guide |
+| `OPERATIONS.md` | Operations runbook and troubleshooting |
 | `PROJECT.md` | Architecture and project overview |
 | `frontend.md` | Frontend-specific documentation |
 
