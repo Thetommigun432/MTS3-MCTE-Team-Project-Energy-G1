@@ -94,6 +94,11 @@ interface RequestOptions extends Omit<RequestInit, "body"> {
 /**
  * Build URL with query parameters
  * Handles both absolute URLs and relative paths (e.g. /api proxy)
+ *
+ * URL normalization rules:
+ * - Absolute base (http://...): Endpoint is appended with /api prefix ensured
+ * - Relative base ("/api" or ""): Endpoint is prefixed with /api if not already
+ * - Health endpoints (/live, /ready, /health, /metrics) bypass /api prefix
  */
 function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
   const { backendBaseUrl: API_BASE_URL } = getEnv();
@@ -102,28 +107,47 @@ function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
     throw new ApiError("API base URL is not configured", 0);
   }
 
-  let urlString: string;
+  // Normalize endpoint: ensure it starts with /
+  let normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-  // Handle relative base URLs (e.g. "/api" for proxying)
-  if (API_BASE_URL.startsWith("http")) {
-    const url = new URL(endpoint, API_BASE_URL);
-    urlString = url.toString();
-  } else {
-    // Enforce /api prefix normalization
-    // If endpoint is "models", it becomes "/api/models"
-    // If endpoint is "/api/models", it stays "/api/models"
-    let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    if (!cleanEndpoint.startsWith("/api") && !cleanEndpoint.startsWith("/health") && !cleanEndpoint.startsWith("/live") && !cleanEndpoint.startsWith("/ready")) {
-      cleanEndpoint = `/api${cleanEndpoint}`;
-    }
+  // Health/infrastructure endpoints don't get /api prefix
+  const healthEndpoints = ["/live", "/ready", "/health", "/metrics"];
+  const isHealthEndpoint = healthEndpoints.some((h) => normalizedEndpoint.startsWith(h));
 
-    // Clean up slashes for manual concatenation
-    const base = API_BASE_URL.replace(/\/$/, "");
-    const path = cleanEndpoint;
-    urlString = `${base}${path}`;
+  // Ensure /api prefix for non-health endpoints (if not already present)
+  if (!isHealthEndpoint && !normalizedEndpoint.startsWith("/api/") && normalizedEndpoint !== "/api") {
+    normalizedEndpoint = `/api${normalizedEndpoint}`;
   }
 
-  // Append query params manually since we might have a relative URL string
+  let urlString: string;
+
+  if (API_BASE_URL.startsWith("http")) {
+    // Absolute base URL (e.g., http://localhost:8000)
+    // Remove /api from base if present to avoid duplication
+    let cleanBase = API_BASE_URL.replace(/\/+$/, ""); // Remove trailing slashes
+    if (cleanBase.endsWith("/api")) {
+      cleanBase = cleanBase.slice(0, -4); // Remove /api from base
+    }
+    urlString = `${cleanBase}${normalizedEndpoint}`;
+  } else {
+    // Relative base URL (e.g., "/api" or "" for Vite proxy)
+    const cleanBase = API_BASE_URL.replace(/\/+$/, "");
+
+    // If base already contains /api, don't double it
+    if (cleanBase === "/api" || cleanBase.endsWith("/api")) {
+      // Base is already /api, remove /api from endpoint to avoid duplication
+      if (normalizedEndpoint.startsWith("/api")) {
+        normalizedEndpoint = normalizedEndpoint.slice(4) || "/";
+      }
+    }
+
+    urlString = `${cleanBase}${normalizedEndpoint}`;
+  }
+
+  // Clean up any double slashes (except in protocol)
+  urlString = urlString.replace(/([^:]\/)\/+/g, "$1");
+
+  // Append query params
   if (params) {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -166,7 +190,7 @@ async function request<T>(
   };
 
   // Add auth token from Supabase session
-  if (import.meta.env.VITE_SUPABASE_URL) {
+  if (getEnv().supabaseEnabled) {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;

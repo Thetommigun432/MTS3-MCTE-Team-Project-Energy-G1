@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isSupabaseEnabled } from "@/lib/env";
 import { useAuth } from "@/contexts/AuthContext";
 
 export interface ManagedAppliance {
@@ -31,7 +32,7 @@ export function useManagedAppliances(): ManagedAppliancesData {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAppliances = useCallback(async () => {
-    if (!user) {
+    if (!user || !isSupabaseEnabled()) {
       setAppliances([]);
       setLoading(false);
       return;
@@ -41,37 +42,26 @@ export function useManagedAppliances(): ManagedAppliancesData {
       setLoading(true);
       setError(null);
 
-      // Fetch enabled appliances via building_appliances join
+      // Fetch org_appliances directly since building_appliances table is missing
       const { data, error: fetchError } = await supabase
-        .from("building_appliances")
-        .select(
-          `
-          id,
-          building_id,
-          is_enabled,
-          buildings!inner(name),
-          org_appliances!inner(
-            id,
-            name,
-            rated_power_kw
-          )
-        `,
-        )
-        .eq("is_enabled", true);
+        .from("org_appliances")
+        .select("id, name, rated_power_kw")
+        .order("name");
 
       if (fetchError) throw fetchError;
 
       // Transform the data
-      const transformed: ManagedAppliance[] = (data || []).map((item) => ({
-        id: item.id,
-        building_id: item.building_id,
-        building_name: (item.buildings as { name?: string })?.name || "Unknown Building",
-        org_appliance_id: (item.org_appliances as { id?: string })?.id || "",
-        name: (item.org_appliances as { name?: string })?.name || "Unknown Appliance",
-        type: "appliance", // Default type since column doesn't exist
-        rated_power_kw: (item.org_appliances as { rated_power_kw?: number | null })?.rated_power_kw ?? null,
-        status: item.is_enabled ? "active" : "inactive",
-        notes: null as null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transformed: ManagedAppliance[] = (data || []).map((item: any) => ({
+        id: item.id, // Using org_appliance id as the main id for now
+        building_id: "unassigned",
+        building_name: "Unassigned",
+        org_appliance_id: item.id,
+        name: item.name || "Unknown Appliance",
+        type: "appliance",
+        rated_power_kw: item.rated_power_kw ?? null,
+        status: "active", // Default to active since we don't have is_enabled
+        notes: null,
       }));
 
 

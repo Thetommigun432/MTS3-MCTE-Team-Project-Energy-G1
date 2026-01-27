@@ -8,6 +8,7 @@ vi.mock('@/lib/env', () => ({
         backendBaseUrl: 'http://localhost:3000',
         supabaseUrl: 'https://placeholder.supabase.co',
         supabaseAnonKey: 'placeholder',
+        supabasePublishableKey: 'placeholder',
         supabaseEnabled: false
     })),
     isApiConfigured: () => true,
@@ -22,6 +23,7 @@ describe('API Service URL Building', () => {
             backendBaseUrl: 'https://api.example.com',
             supabaseUrl: '',
             supabaseAnonKey: '',
+            supabasePublishableKey: '',
             supabaseEnabled: false
         });
 
@@ -46,6 +48,7 @@ describe('API Service URL Building', () => {
             backendBaseUrl: '/api',
             supabaseUrl: '',
             supabaseAnonKey: '',
+            supabasePublishableKey: '',
             supabaseEnabled: false
         });
 
@@ -69,6 +72,7 @@ describe('API Service URL Building', () => {
             backendBaseUrl: 'https://api.example.com',
             supabaseUrl: '',
             supabaseAnonKey: '',
+            supabasePublishableKey: '',
             supabaseEnabled: false
         });
 

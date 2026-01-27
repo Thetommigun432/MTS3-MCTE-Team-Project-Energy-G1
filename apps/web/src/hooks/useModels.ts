@@ -1,12 +1,15 @@
 /**
  * Hook for managing NILM models
- * Uses Backend API source of truth.
+ * Uses Backend API in API mode, or demo registry in Demo mode.
  */
 import { useState, useEffect, useCallback } from "react";
 import { energyApi, Model } from "@/services/energy";
 import { toast } from "sonner";
 
 import { DataMode } from "@/types/energy";
+
+// Import demo registry for demo mode
+import demoRegistry from "@/demo/registry.demo.json";
 
 export interface UseModelsResult {
   models: Model[]; // Using backend Model type
@@ -26,12 +29,24 @@ export function useModels(mode: DataMode = 'api', _buildingId?: string | null): 
   const [error, setError] = useState<string | null>(null);
 
   const fetchModels = useCallback(async () => {
-    // In Demo mode, or if forced to demo
+    // In Demo mode, use static demo registry
     if (mode === 'demo') {
-      setLoading(false);
+      try {
+        setLoading(true);
+        // Use the imported demo registry
+        const demoModels = demoRegistry.models as Model[];
+        setModels(demoModels);
+        setError(null);
+      } catch (err) {
+        console.error("Error loading demo models:", err);
+        setError("Failed to load demo models");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
+    // API mode: fetch from backend
     try {
       setLoading(true);
       setError(null);
@@ -43,6 +58,12 @@ export function useModels(mode: DataMode = 'api', _buildingId?: string | null): 
     } catch (err) {
       console.error("Error fetching models:", err);
       setError(err instanceof Error ? err.message : "Failed to load models");
+
+      // Fallback to demo models on API error
+      if (mode === 'api') {
+        console.log("Falling back to demo models due to API error");
+        setModels(demoRegistry.models as Model[]);
+      }
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,7 @@
     "build:web": "npm --workspace apps/web run build",
     "test:web": "npm --workspace apps/web run test",
     "typecheck:web": "npm --workspace apps/web run typecheck",
-    "lint:web": "npm --workspace apps/web run lint"
+    "lint:web": "npm --workspace apps/web run lint",
+    "dev:web": "npm --workspace apps/web run dev -- --port 8080"
   }
 }

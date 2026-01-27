@@ -13,6 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from safetensors.torch import load_file as load_safetensors
+from datetime import datetime
 
 from app.core.errors import ErrorCode, ModelError, ValidationError
 from app.core.logging import get_logger
@@ -496,6 +497,7 @@ class InferenceEngine:
         model: nn.Module,
         entry: ModelEntry,
         window: list[float],
+        samples: list[tuple[str, float]] | None = None,
     ) -> dict[str, tuple[float, float]]:
         """
         Run multi-head inference on a window of data.
@@ -517,15 +519,52 @@ class InferenceEngine:
                     message=f"Expected window of {entry.input_window_size} values, got {len(window)}",
                 )
 
-            # Preprocess
-            preprocessed = apply_preprocessing(window, entry.preprocessing)
+            # SOTA Architectures require 7 temporal features (WaveNILM v3, etc.)
+            is_sota = entry.architecture.lower() in ("wavenilm_v3", "wavenilmv3", "hybrid_cnn_transformer", "cnnseq2seq", "unet1d")
 
-            # Convert to tensor: (1, seq_len, 1)
-            x = torch.tensor(preprocessed, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
+            if is_sota and samples:
+                # Use SOTA preprocessor for 7 features
+                from app.domain.inference.preprocessing import DataPreprocessor
+                import numpy as _np
+                # Get P_MAX from architecture_params (default 15 kW = 15000 W)
+                # DataPreprocessor expects P_MAX in WATTS
+                p_max_watts = entry.architecture_params.get("p_max_kw", 15.0) * 1000.0
+                preprocessor = DataPreprocessor(P_MAX=p_max_watts)
 
+                features_list = []
+                for ts_iso, val_kw in samples:
+                    try:
+                        # Handle ISO string with potential Z or +00:00
+                        ts_clean = ts_iso.replace("Z", "+00:00")
+                        dt = datetime.fromisoformat(ts_clean)
+                        # CRITICAL: Rolling window stores values in kW, preprocessor expects WATTS
+                        # Convert kW -> W before passing to preprocessor
+                        val_watts = val_kw * 1000.0
+                        # process_sample returns (7,) array
+                        features = preprocessor.process_sample(dt.timestamp(), val_watts)
+                        features_list.append(features)
+                    except Exception as e:
+                        logger.warning(f"Failed to preprocess sample: {e}")
+                        # Fallback to zeros for this sample if date parsing fails
+                        features_list.append(_np.zeros(7, dtype=_np.float32))
+                
+                # features_list is (seq_len, 7)
+                # Convert to (1, 7, seq_len) for Conv1d
+                x = torch.tensor(_np.array(features_list), dtype=torch.float32).unsqueeze(0).transpose(1, 2)
+            else:
+                # Standard preprocessing
+                preprocessed = apply_preprocessing(window, entry.preprocessing)
+                # Convert to tensor: (1, 1, seq_len)
+                x = torch.tensor(preprocessed, dtype=torch.float32).unsqueeze(0).unsqueeze(1)
+                
             # Run inference
             with torch.no_grad():
                 output = model(x)
+
+            # Handle Multi-Task Learning (MTL) output - typically (power, probability)
+            if isinstance(output, (list, tuple)):
+                # We primarily want the first output (power)
+                output = output[0]
 
             # Get number of output heads
             num_heads = len(entry.heads)

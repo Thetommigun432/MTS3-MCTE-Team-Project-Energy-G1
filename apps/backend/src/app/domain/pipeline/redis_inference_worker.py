@@ -1,20 +1,26 @@
 """
 Redis Inference Worker.
-Consumes power readings from Redis Stream, buffers them, and triggers inference
-updates to InfluxDB predictions bucket.
+Consumes power readings from Redis Stream, reads rolling window from Redis,
+runs inference for each active model, and writes predictions to InfluxDB.
+
+Pipeline flow:
+1. Stream event arrives (building_id, ts)
+2. Read rolling window from Redis (already maintained by ingest endpoint)
+3. For each active model, run inference if window is large enough
+4. Write predictions to InfluxDB
 """
 
 import asyncio
-import json
 from datetime import datetime, timezone
-from typing import Dict, List, Tuple
-from collections import deque
+from typing import Dict, List
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.domain.inference import get_inference_engine, get_model_registry
-from app.infra.influx import get_influx_client
+from app.domain.inference.engine import get_inference_engine
+from app.domain.inference.registry import get_model_registry, ModelEntry
+from app.infra.influx import get_influx_client, init_influx_client
 from app.infra.redis.streams import ack, ensure_group, read_group
+from app.infra.redis.rolling_window import get_window_values, get_window_samples, get_window_length
 
 logger = get_logger(__name__)
 
@@ -22,40 +28,70 @@ logger = get_logger(__name__)
 class RedisInferenceWorker:
     """
     Background worker that processes readings from Redis Streams.
+
+    Unlike the previous implementation that buffered in-process,
+    this worker reads from the shared Redis rolling window maintained
+    by the ingest endpoint. This enables horizontal scaling of workers.
     """
 
     def __init__(self) -> None:
         self.settings = get_settings()
         self.running = False
-        self.consumer_name = f"worker-{datetime.now().timestamp()}"
-        
-        # Buffer: building_id -> deque of (ts, aggregate_kw)
-        self.buffers: Dict[str, deque[Tuple[float, float]]] = {}
-        # Counter: building_id -> items since last inference
-        self.counters: Dict[str, int] = {}
-        
+        self.consumer_name = f"worker-{int(datetime.now().timestamp())}"
+        # Track last inference time per building to implement coalescing
+        self._last_inference: Dict[str, float] = {}
+        self._influx_initialized = False
+
     async def start(self) -> None:
         """Start the worker loop."""
         logger.info("Starting Redis Inference Worker")
+
+        # Initialize InfluxDB connection (CRITICAL - worker needs this)
+        if not self._influx_initialized:
+            try:
+                await init_influx_client()
+                self._influx_initialized = True
+                logger.info("InfluxDB client initialized for worker")
+            except Exception as e:
+                logger.error(f"Failed to initialize InfluxDB: {e}")
+                raise
+
+        # Load model registry
+        try:
+            registry = get_model_registry()
+            if not registry.is_loaded:
+                registry.load()
+            logger.info(f"Model registry loaded: {len(registry.list_all())} models")
+        except Exception as e:
+            logger.error(f"Failed to load model registry: {e}")
+            raise
+
+        # Ensure consumer group exists
         await ensure_group(
             self.settings.redis_stream_key, self.settings.redis_consumer_group
         )
+
         self.running = True
-        
+        logger.info(
+            f"Worker ready: stream={self.settings.redis_stream_key}, "
+            f"group={self.settings.redis_consumer_group}, "
+            f"consumer={self.consumer_name}"
+        )
+
         while self.running:
             try:
                 await self._process_batch()
             except Exception as e:
                 logger.error(f"Worker iteration failed: {e}")
                 await asyncio.sleep(5)  # Backoff on error
-    
+
     async def stop(self) -> None:
         """Stop the worker."""
         self.running = False
         logger.info("Stopping Redis Inference Worker")
 
     async def _process_batch(self) -> None:
-        """Process a batch of messages from Redis."""
+        """Process a batch of messages from Redis Stream."""
         messages = await read_group(
             self.settings.redis_stream_key,
             self.settings.redis_consumer_group,
@@ -67,122 +103,125 @@ class RedisInferenceWorker:
         if not messages:
             return
 
-        msg_ids_to_ack = []
-        
+        # Group messages by building_id and take only the latest per building
+        # This implements message coalescing to avoid redundant inference
+        latest_by_building: Dict[str, tuple] = {}
+        all_msg_ids = []
+
         for msg_id, fields in messages:
+            all_msg_ids.append(msg_id)
+            building_id = fields.get("building_id")
+            if building_id:
+                latest_by_building[building_id] = (msg_id, fields)
+
+        # Process only the latest message per building
+        for building_id, (msg_id, fields) in latest_by_building.items():
             try:
-                building_id = fields.get("building_id")
-                # Redis streams return strings, parse them
-                # ts might be ISO string
                 ts_str = fields.get("ts")
-                agg_kw = float(fields.get("aggregate_kw", 0.0))
-                
-                if not building_id or not ts_str:
-                    logger.warning(f"Malformed message {msg_id}: {fields}")
-                    msg_ids_to_ack.append(msg_id)
+                if not ts_str:
+                    logger.warning(f"Missing timestamp in message {msg_id}")
                     continue
 
-                # Parse timestamp to float timestamp for windowing
+                # Parse timestamp
                 try:
                     dt = datetime.fromisoformat(str(ts_str))
-                    ts = dt.timestamp()
                 except ValueError:
-                    logger.warning(f"Invalid timestamp in message {msg_id}: {ts_str}")
-                    msg_ids_to_ack.append(msg_id)
+                    logger.warning(f"Invalid timestamp: {ts_str}")
                     continue
 
-                # Add to buffer
-                await self._add_to_buffer(building_id, ts, agg_kw, dt)
-                msg_ids_to_ack.append(msg_id)
+                # Run inference for this building
+                await self._run_inference_for_building(building_id, dt)
 
             except Exception as e:
-                logger.error(f"Failed to process message {msg_id}: {e}")
-                # We ack poison messages to verify they don't block
-                msg_ids_to_ack.append(msg_id)
+                logger.error(f"Failed to process building {building_id}: {e}")
 
-        # Batch ACK
-        if msg_ids_to_ack:
+        # ACK all messages (including coalesced ones)
+        if all_msg_ids:
             await ack(
                 self.settings.redis_stream_key,
                 self.settings.redis_consumer_group,
-                msg_ids_to_ack,
+                all_msg_ids,
             )
 
-    async def _add_to_buffer(
-        self, building_id: str, ts: float, agg_kw: float, dt_obj: datetime
+    async def _run_inference_for_building(
+        self, building_id: str, event_time: datetime
     ) -> None:
-        """Add reading to buffer and trigger inference if needed."""
-        if building_id not in self.buffers:
-            self.buffers[building_id] = deque(maxlen=self.settings.pipeline_max_buffer)
-            self.counters[building_id] = 0
+        """
+        Run inference for a building using the Redis rolling window.
 
-        self.buffers[building_id].append((ts, agg_kw))
-        self.counters[building_id] += 1
-
-        # Check inference trigger
-        # Stride: Run every N new samples
-        if self.counters[building_id] >= self.settings.pipeline_stride:
-            await self._try_inference(building_id, dt_obj)
-            self.counters[building_id] = 0
-
-    async def _try_inference(self, building_id: str, current_dt: datetime) -> None:
-        """Attempt to run inference for a building."""
-        engine = get_inference_engine()
+        This reads the window from Redis (shared state) rather than
+        maintaining an in-process buffer.
+        """
         registry = get_model_registry()
-        
-        # Determine active model and required window
-        # For simplicity, we grab the first active model enabled for pipeline
-        active_models = registry.list_active_models()
+        engine = get_inference_engine()
+        influx = get_influx_client()
+
+        # Get all active models
+        active_models = [m for m in registry.list_all() if m.is_active]
         if not active_models:
+            logger.debug("No active models in registry")
             return
 
-        # Use the first one (e.g., transformer-hybrid)
-        model_meta = active_models[0]
-        window_size = model_meta.input_window_size
-        
-        # Check if we have enough data
-        # We need `window_size` samples ending at the current timestamp
-        # In a real system, we'd ensure contiguous timestamps.
-        # Here we just take the last N samples from the buffer.
-        
-        buffer = self.buffers[building_id]
-        if len(buffer) < window_size:
-            # Not enough data yet
-            return
-
-        # Extract window data
-        # Takes the *last* window_size elements
-        window_data = list(buffer)[-window_size:]
-        
-        # Prepare input for engine: list of floats
-        # Engine expects just the values
-        aggregate_window = [kw for _, kw in window_data]
-        
-        # Run inference
+        # Get current window length
         try:
-            logger.debug(f"Running inference for {building_id} with model {model_meta.model_id}")
-            results = await engine.run_inference_multi_head(
-                model_id=model_meta.model_id,
-                aggregate_window=aggregate_window,
-            )
-            
-            # Persist predictions
-            # Results is { appliance_key: (watts, confidence) }
-            # Convert to Influx fields
-            fields = {}
-            for appliance, (kw, conf) in results.items():
-                fields[f"predicted_kw_{appliance}"] = kw
-                if conf is not None:
-                    fields[f"confidence_{appliance}"] = conf
-
-            influx = get_influx_client()
-            await influx.write_predictions_wide(
-                building_id=building_id,
-                model_version=model_meta.model_version,
-                timestamp=current_dt,
-                fields=fields,
-            )
-            logger.info(f"Persisted inference for {building_id} @ {current_dt.isoformat()}")
-
+            window_len = await get_window_length(building_id)
         except Exception as e:
-            logger.error(f"Inference failed for {building_id}: {e}")
+            logger.warning(f"Failed to get window length: {e}")
+            return
+
+        # Run inference for each active model
+        for model_entry in active_models:
+            required_size = model_entry.input_window_size
+
+            if window_len < required_size:
+                logger.debug(
+                    f"Warming up: building={building_id}, "
+                    f"model={model_entry.model_id}, "
+                    f"window={window_len}/{required_size}"
+                )
+                continue
+
+            try:
+                # Read the window values from Redis (full samples for temporal features)
+                window_samples = await get_window_samples(
+                    building_id, last_n=required_size
+                )
+
+                if len(window_samples) < required_size:
+                    logger.debug(f"Insufficient window data: {len(window_samples)}/{required_size}")
+                    continue
+
+                # Extract power values for backward compatibility and basic scaling
+                window_values = [s[1] for s in window_samples]
+
+                # Load the model and run inference
+                model, entry = engine.get_model(model_entry.model_id, model_entry.appliance_id)
+
+                # Run multi-head inference
+                predictions = engine.run_inference_multi_head(
+                    model=model,
+                    entry=entry,
+                    window=window_values,
+                    samples=window_samples,
+                )
+                # Results format: {field_key: (predicted_kw, confidence)}
+                await influx.write_predictions_wide(
+                    building_id=building_id,
+                    predictions=predictions,
+                    model_version=model_entry.model_version,
+                    user_id="pipeline",
+                    request_id=f"worker-{self.consumer_name}",
+                    latency_ms=0.0,  # Could measure actual latency
+                    timestamp=event_time,
+                )
+                logger.info(
+                    f"Prediction written: building={building_id}, "
+                    f"model={model_entry.model_id}, "
+                    f"heads={list(predictions.keys())}"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Inference failed: building={building_id}, "
+                    f"model={model_entry.model_id}, error={e}"
+                )

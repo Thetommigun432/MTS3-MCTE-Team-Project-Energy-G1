@@ -1,15 +1,18 @@
 """
 Analytics API endpoints.
+Provides readings and predictions data from InfluxDB.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.deps import CurrentUserDep, RequestIdDep
-from app.core.security import TokenPayload
+from app.core.logging import get_logger
 from app.domain.authz import require_building_access
 from app.infra.influx import get_influx_client
 from app.schemas.analytics import (
+    DataPoint,
+    PredictionPoint,
     PredictionsResponse,
     ReadingsResponse,
     BuildingsListResponse,
@@ -17,6 +20,7 @@ from app.schemas.analytics import (
 )
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
+logger = get_logger(__name__)
 
 
 @router.get("/readings", response_model=ReadingsResponse)
@@ -36,19 +40,29 @@ async def get_readings(
     Time range can be specified as:
     - Relative: -7d, -1h, -30m
     - ISO8601: 2024-01-15T00:00:00Z
+
+    If include_disaggregation=true (default), the response includes per-appliance
+    predictions attached to each reading timestamp.
     """
     # AuthZ check
     await require_building_access(current_user, building_id)
 
-    # Query InfluxDB
     influx = get_influx_client()
-    data: list[DataPoint] = []
-    # Raw readings are no longer stored in InfluxDB. 
-    # TODO: Implement Redis query for recent raw data if needed.
-    # For now, we return empty data to prevent errors.
+
+    # Query raw sensor readings from InfluxDB (measurement: sensor_reading)
+    try:
+        data = await influx.query_readings(
+            building_id=building_id,
+            start=start,
+            end=end,
+            resolution=resolution,
+        )
+    except Exception as e:
+        logger.warning(f"Failed to query readings: {e}")
+        data = []
 
     # If disaggregation is requested and no specific appliance filter
-    if include_disaggregation and not appliance_id:
+    if include_disaggregation and not appliance_id and data:
         try:
             predictions = await influx.query_predictions_wide(
                 building_id=building_id,
@@ -56,28 +70,23 @@ async def get_readings(
                 end=end,
                 resolution=resolution,
             )
-            
+
             # Index predictions by timestamp for O(1) lookup
-            # Timestamps from Influx are ISO strings
             pred_map = {p["time"]: p for p in predictions}
-            
-            # Merge into readings
+
+            # Merge appliance predictions into readings
             for point in data:
                 if point.time in pred_map:
                     pred = pred_map[point.time]
-                    point.appliances = {}
-                    # pred keys: predicted_kw_HeatPump, confidence_HeatPump, etc.
+                    appliances = {}
                     for key, val in pred.items():
-                        if key.startswith("predicted_kw_"):
+                        if key.startswith("predicted_kw_") and val is not None:
                             appliance_name = key.replace("predicted_kw_", "")
-                            point.appliances[appliance_name] = float(val)
+                            appliances[appliance_name] = float(val)
+                    if appliances:
+                        point.appliances = appliances
         except Exception as e:
-            # Don't fail the whole request if predictions fail
-            # Just log and return aggregate
-            # from app.core.logging import get_logger (already imported as logger?)
-            # logger is mapped to this module
-            # We need to ensure we have logger available, likely defined at module level
-            pass
+            logger.warning(f"Failed to merge disaggregation data: {e}")
 
     return ReadingsResponse(
         building_id=building_id,
@@ -103,6 +112,10 @@ async def get_predictions(
     """
     Get predictions for a building.
 
+    For WIDE format predictions (multi-appliance per timestamp):
+    - If appliance_id is provided, returns that specific appliance's series
+    - If appliance_id is omitted, returns the first available appliance series
+
     Time range can be specified as:
     - Relative: -7d, -1h, -30m
     - ISO8601: 2024-01-15T00:00:00Z
@@ -110,15 +123,38 @@ async def get_predictions(
     # AuthZ check
     await require_building_access(current_user, building_id)
 
-    # Query InfluxDB
     influx = get_influx_client()
-    data = await influx.query_predictions(
-        building_id=building_id,
-        appliance_id=appliance_id,
-        start=start,
-        end=end,
-        resolution=resolution,
-    )
+
+    # Query wide-format predictions
+    try:
+        wide_predictions = await influx.query_predictions_wide(
+            building_id=building_id,
+            start=start,
+            end=end,
+            resolution=resolution,
+        )
+    except Exception as e:
+        logger.error(f"Failed to query predictions: {e}")
+        wide_predictions = []
+
+    data: list[PredictionPoint] = []
+
+    if wide_predictions:
+        if appliance_id:
+            # Extract specific appliance series
+            data = influx.extract_appliance_series_from_wide(wide_predictions, appliance_id)
+        else:
+            # Find first available appliance from field keys
+            first_row = wide_predictions[0]
+            first_appliance = None
+            for key in first_row.keys():
+                if key.startswith("predicted_kw_"):
+                    first_appliance = key.replace("predicted_kw_", "")
+                    break
+
+            if first_appliance:
+                data = influx.extract_appliance_series_from_wide(wide_predictions, first_appliance)
+                appliance_id = first_appliance
 
     return PredictionsResponse(
         building_id=building_id,
@@ -159,7 +195,10 @@ async def list_appliances(
     building_id: str = Query(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$"),
 ) -> AppliancesListResponse:
     """
-    List unique appliance IDs found in InfluxDB (last 30 days) for a building.
+    List unique appliance IDs for a building.
+
+    For WIDE format predictions, this parses field keys like predicted_kw_HeatPump
+    to extract appliance names. Falls back to appliance_id tags for legacy data.
     """
     influx = get_influx_client()
     appliances = await influx.get_unique_appliances(building_id=building_id)

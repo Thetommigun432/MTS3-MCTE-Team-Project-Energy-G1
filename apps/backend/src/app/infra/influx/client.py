@@ -222,6 +222,137 @@ class InfluxClient:
 
 
 
+    async def write_point(
+        self,
+        measurement: str,
+        tags: dict[str, str],
+        fields: dict[str, Any],
+        timestamp: Any | None = None,
+    ) -> bool:
+        """
+        Write a single point to InfluxDB.
+
+        Args:
+            measurement: Measurement name
+            tags: Tag key-value pairs
+            fields: Field key-value pairs
+            timestamp: Optional timestamp (datetime or ISO string)
+
+        Returns:
+            True if write succeeded
+        """
+        settings = get_settings()
+        start_time = time.time()
+
+        try:
+            if not self._write_api:
+                raise InfluxError(
+                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                    message="InfluxDB write API not initialized",
+                )
+
+            point = Point(measurement)
+            for tag_key, tag_val in tags.items():
+                point = point.tag(tag_key, tag_val)
+            for field_key, field_val in fields.items():
+                point = point.field(field_key, field_val)
+            if timestamp:
+                point = point.time(timestamp)
+
+            await self._write_api.write(
+                bucket=settings.influx_bucket_pred,
+                org=settings.influx_org,
+                record=point,
+            )
+
+            duration = time.time() - start_time
+            INFLUX_WRITE_LATENCY.labels(bucket=settings.influx_bucket_pred).observe(duration)
+            INFLUX_WRITE_COUNT.labels(
+                bucket=settings.influx_bucket_pred, status="success"
+            ).inc()
+
+            return True
+
+        except Exception as e:
+            INFLUX_WRITE_COUNT.labels(bucket=settings.influx_bucket_pred, status="failure").inc()
+            logger.error("InfluxDB write_point failed", extra={"error": str(e)})
+            raise InfluxError(
+                code=ErrorCode.INFLUX_WRITE_FAILED,
+                message=f"Failed to write point: {e}",
+            )
+
+    async def query_readings(
+        self,
+        building_id: str,
+        start: str,
+        end: str,
+        resolution: Resolution,
+    ) -> list[DataPoint]:
+        """
+        Query sensor readings from InfluxDB.
+
+        Reads from the sensor_reading measurement written by ingest endpoint.
+
+        Returns:
+            List of DataPoint objects with time and value (aggregate_kw)
+        """
+        settings = get_settings()
+        start_time = time.time()
+
+        try:
+            if not self._client:
+                raise InfluxError(
+                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                    message="InfluxDB client not connected",
+                )
+
+            query = build_readings_query(
+                bucket=settings.influx_bucket_pred,
+                building_id=building_id,
+                appliance_id=None,  # We query aggregate readings
+                start=start,
+                end=end,
+                resolution=resolution,
+            )
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(query, org=settings.influx_org)
+
+            data_points: list[DataPoint] = []
+            for table in tables:
+                for record in table.records:
+                    # Try to get aggregate_kw, fall back to _value
+                    value = record.values.get("aggregate_kw")
+                    if value is None:
+                        value = record.get_value()
+                    if value is None:
+                        continue
+
+                    data_points.append(
+                        DataPoint(
+                            time=record.get_time().isoformat() if record.get_time() else "",
+                            value=float(value),
+                        )
+                    )
+
+            logger.debug(
+                "Query readings completed",
+                extra={"building_id": building_id, "count": len(data_points)},
+            )
+            return data_points
+
+        except InfluxError:
+            raise
+        except Exception as e:
+            logger.error("Query readings failed", extra={"error": str(e)})
+            raise InfluxError(
+                code=ErrorCode.INFLUX_QUERY_ERROR,
+                message=f"Failed to query readings: {e}",
+            )
+        finally:
+            duration = time.time() - start_time
+            INFLUX_QUERY_LATENCY.labels(query_type="readings").observe(duration)
+
     async def query_predictions(
         self,
         building_id: str,
@@ -350,6 +481,41 @@ class InfluxClient:
         finally:
             duration = time.time() - start_time
             INFLUX_QUERY_LATENCY.labels(query_type="predictions_wide").observe(duration)
+
+    def extract_appliance_series_from_wide(
+        self,
+        wide_rows: list[dict[str, Any]],
+        appliance_key: str,
+    ) -> list[PredictionPoint]:
+        """
+        Extract a single appliance's time series from wide-format prediction data.
+
+        Args:
+            wide_rows: List of wide-format dicts from query_predictions_wide
+            appliance_key: The appliance suffix (e.g., "HeatPump" for predicted_kw_HeatPump)
+
+        Returns:
+            List of PredictionPoint for the specified appliance
+        """
+        field_key = f"predicted_kw_{appliance_key}"
+        conf_key = f"confidence_{appliance_key}"
+
+        results: list[PredictionPoint] = []
+        for row in wide_rows:
+            predicted_kw = row.get(field_key)
+            if predicted_kw is None:
+                continue
+
+            results.append(
+                PredictionPoint(
+                    time=row.get("time", ""),
+                    predicted_kw=float(predicted_kw),
+                    confidence=row.get(conf_key),
+                    model_version=row.get("model_version"),
+                )
+            )
+
+        return results
 
     async def write_prediction(
         self,

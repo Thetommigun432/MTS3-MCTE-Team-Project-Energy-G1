@@ -1,0 +1,65 @@
+{
+  "models": [
+    {
+      "model_id": "evcharger-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "EVCharger",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        {
+          "appliance_id": "EVCharger",
+          "field_key": "evcharger"
+        }
+      ],
+      "metrics": {
+        "mae": 0.23,
+        "rmse": 0.45,
+        "f1_score": 0.89
+      }
+    },
+    {
+      "model_id": "heatpump-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "HeatPump",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        {
+          "appliance_id": "HeatPump",
+          "field_key": "heatpump"
+        }
+      ],
+      "metrics": {
+        "mae": 0.31,
+        "rmse": 0.52,
+        "f1_score": 0.85
+      }
+    },
+    {
+      "model_id": "washingmachine-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "WashingMachine",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        {
+          "appliance_id": "WashingMachine",
+          "field_key": "washingmachine"
+        }
+      ],
+      "metrics": {
+        "mae": 0.18,
+        "rmse": 0.38,
+        "f1_score": 0.92
+      }
+    }
+  ],
+  "count": 3
+}

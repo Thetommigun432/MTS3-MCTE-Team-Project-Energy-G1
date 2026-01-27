@@ -4,18 +4,21 @@ import type { Database } from "./types";
 import { getEnv } from "@/lib/env";
 import { customAuthStorage } from "@/lib/authStorage";
 
-const { supabaseUrl, supabaseAnonKey } = getEnv();
+const { supabaseUrl, supabasePublishableKey } = getEnv();
 
-// Fallback to placeholder to prevent crash if env vars missing
-const SUPABASE_URL = supabaseUrl || "https://placeholder.supabase.co";
-const SUPABASE_ANON_KEY = supabaseAnonKey || "placeholder";
+// Warn if Supabase config is missing (but don't crash immediately, let createClient fail or work in limited mode)
+if (!supabaseUrl || !supabasePublishableKey) {
+  console.warn(
+    "Supabase configuration missing (VITE_SUPABASE_URL/PROJECT_ID or VITE_SUPABASE_PUBLISHABLE_KEY). Auth features will not work."
+  );
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_ANON_KEY,
+  supabaseUrl || "https://missing-supabase-url.com",
+  supabasePublishableKey || "missing-key",
   {
     auth: {
       storage: customAuthStorage,

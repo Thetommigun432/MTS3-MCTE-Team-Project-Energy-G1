@@ -1,0 +1,55 @@
+# =============================================================================
+# NILM Backend - Simulator Dockerfile
+# Runs the data simulator as a standalone service
+# =============================================================================
+
+FROM python:3.12-slim-bookworm AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd --gid 1000 appgroup && \
+    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+
+# =============================================================================
+# Production Stage
+# =============================================================================
+FROM base AS production
+
+# Copy project definition
+COPY apps/backend/pyproject.toml ./
+
+# Copy source code
+COPY apps/backend/src/ ./src/
+
+# Install dependencies (simulator needs httpx and pyarrow)
+RUN pip install --no-cache-dir httpx pyarrow && \
+    pip install --no-cache-dir .
+
+# Copy data directory (for simulation_data.parquet)
+COPY apps/backend/data/ ./data/
+
+# Change ownership to non-root user
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Environment defaults
+ENV BACKEND_URL=http://backend:8000 \
+    PARQUET_PATH=/app/data/simulation_data.parquet \
+    BUILDING_ID=building-1 \
+    DATA_POWER_COLUMN=aggregate \
+    SIM_SPEEDUP=1
+
+# Run the simulator
+CMD ["python", "-m", "app.simulator_main"]

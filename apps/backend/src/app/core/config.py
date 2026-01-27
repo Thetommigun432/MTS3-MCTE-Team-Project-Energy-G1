@@ -220,10 +220,38 @@ class Settings(BaseSettings):
     # ==========================================================================
     # Pipeline
     # ==========================================================================
-    pipeline_enabled: bool = Field(
-        default=True,
-        description="Enable background inference pipeline",
+    # Legacy flag for backward compatibility (maps to pipeline_enqueue_enabled if set)
+    pipeline_enabled: bool | None = Field(
+        default=None,
+        description="DEPRECATED: Use PIPELINE_ENQUEUE_ENABLED instead. If set, maps to pipeline_enqueue_enabled.",
     )
+    pipeline_enqueue_enabled: bool = Field(
+        default=True,
+        description="Enable enqueueing readings to Redis Stream (for ingest endpoint)",
+    )
+    pipeline_worker_in_api_enabled: bool = Field(
+        default=False,
+        description="Enable running inference worker in-process with API (for Railway single-service mode)",
+    )
+
+    @field_validator("pipeline_enqueue_enabled", mode="before")
+    @classmethod
+    def resolve_legacy_pipeline_enabled(cls, v: Any, info: Any) -> bool:
+        """Support legacy PIPELINE_ENABLED env var."""
+        if v is not None:
+            # Explicit value provided, use it
+            if isinstance(v, bool):
+                return v
+            if isinstance(v, str):
+                return v.lower() in ("true", "1", "yes")
+            return bool(v)
+        # Check if legacy PIPELINE_ENABLED was set
+        import os
+        legacy = os.environ.get("PIPELINE_ENABLED")
+        if legacy is not None:
+            return legacy.lower() in ("true", "1", "yes")
+        # Default to True
+        return True
     pipeline_stride: int = Field(
         default=30,
         description="Run inference every N samples",
@@ -231,6 +259,10 @@ class Settings(BaseSettings):
     pipeline_max_buffer: int = Field(
         default=2048,
         description="Max per-building buffer size",
+    )
+    pipeline_rolling_window_size: int = Field(
+        default=3600,
+        description="Rolling window size in seconds (3600 = 1 hour at 1Hz)",
     )
     ingest_token: str | None = Field(
         default=None,

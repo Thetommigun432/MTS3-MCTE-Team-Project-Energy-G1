@@ -1,6 +1,6 @@
 
 # NILM Energy Monitor - Docker Compose
-# Orchestrates services for local development
+# Orchestrates services for local development with auto-start pipeline
 
 services:
   # ==========================================================================
@@ -69,6 +69,7 @@ services:
       - "8000:8000"
     volumes:
       - ./apps/backend/models:/app/models:ro
+      - ./apps/backend/data:/app/data:ro
     environment:
       - ENV=dev
       - PORT=8000
@@ -82,8 +83,11 @@ services:
       # Supabase Config
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET:-}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:8080,http://localhost:5173
-      # Pipeline: Disabled in API (handled by worker service)
-      - PIPELINE_ENABLED=false
+      # Pipeline: Enable enqueueing, disable in-process worker (handled by worker service)
+      - PIPELINE_ENQUEUE_ENABLED=true
+      - PIPELINE_WORKER_IN_API_ENABLED=false
+      - PIPELINE_ROLLING_WINDOW_SIZE=3600
+      - RATE_LIMIT_PER_IP=1200/minute
     depends_on:
       influxdb:
         condition: service_healthy
@@ -108,13 +112,16 @@ services:
       dockerfile: apps/backend/Dockerfile.worker
     volumes:
       - ./apps/backend/models:/app/models:ro
+      - ./apps/backend/data:/app/data:ro
     environment:
       - ENV=dev
       # Redis Config
       - REDIS_URL=redis://redis:6379/0
       - REDIS_STREAM_KEY=nilm:readings
       - REDIS_CONSUMER_GROUP=nilm-infer-dev
-      - PIPELINE_ENABLED=true
+      # Pipeline
+      - PIPELINE_ENQUEUE_ENABLED=true
+      - PIPELINE_ROLLING_WINDOW_SIZE=3600
       # InfluxDB config
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
@@ -130,6 +137,32 @@ services:
         condition: service_healthy
     restart: unless-stopped
     # Worker does not need exposed ports or HTTP healthchecks
+
+  # ==========================================================================
+  # Data Simulator (Auto-Start Pipeline)
+  # Reads parquet dataset and posts to backend to simulate live ingestion
+  # ==========================================================================
+  simulator:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile.simulator
+    volumes:
+      - ./apps/backend/data:/app/data:ro
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - PARQUET_PATH=/app/data/simulation_data.parquet
+      - BUILDING_ID=building-1
+      - DATA_POWER_COLUMN=aggregate
+      # Speedup: 1 = send 1 row per second (realtime if data is 1Hz)
+      - SIM_SPEEDUP=${SIM_SPEEDUP:-1}
+      # Duration: 0 = unlimited
+      - SIM_DURATION_SECONDS=${SIM_DURATION_SECONDS:-0}
+    depends_on:
+      backend:
+        condition: service_healthy
+      worker:
+        condition: service_started
+    restart: unless-stopped
 
   # ==========================================================================
   # Redis

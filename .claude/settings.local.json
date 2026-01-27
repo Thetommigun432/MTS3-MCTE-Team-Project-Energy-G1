@@ -45,7 +45,10 @@
       "Bash(grep:*)",
       "Bash(docker compose:*)",
       "Bash(dir /s /b \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\\\\apps\\\\backend\\\\models\\\\*.safetensors\")",
-      "Bash(railway --version:*)"
+      "Bash(railway --version:*)",
+      "Bash(dir:*)",
+      "Bash(py -m compileall:*)",
+      "Bash(npm run build:web:*)"
     ]
   }
 }

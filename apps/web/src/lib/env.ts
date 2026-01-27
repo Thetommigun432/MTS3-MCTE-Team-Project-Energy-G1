@@ -10,20 +10,30 @@
 export function getEnv() {
   const env = import.meta.env;
 
+  // Backend URL: Strip quotes, trim whitespace, ensure protocol
+  // Default to "/api" (Vite proxy) if not set, enabling zero-config local dev
+  const backendBaseUrl = parseUrl(env.VITE_BACKEND_URL || env.VITE_API_BASE_URL) || "/api";
+
+  // Supabase
+  let supabaseUrl = stripQuotes(env.VITE_SUPABASE_URL);
+  const supabaseProjectId = stripQuotes(env.VITE_SUPABASE_PROJECT_ID);
+
+  // If URL missing but Project ID exists, construct it
+  if (!supabaseUrl && supabaseProjectId) {
+    supabaseUrl = `https://${supabaseProjectId}.supabase.co`;
+  }
+
+  // Prefer Publishable Key (safe), fallback to Anon Key (legacy)
+  const supabasePublishableKey = stripQuotes(env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY);
+
   return {
-    // Backend URL: Strip quotes, trim whitespace, ensure protocol
-    backendBaseUrl: parseUrl(env.VITE_BACKEND_URL || env.VITE_API_BASE_URL),
-
-    // Supabase
-    // Supabase
-    // Fallback to empty string if env vars missing
-    supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL),
-    // Prefer Publishable Key (safe), fallback to Anon Key (legacy)
-    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY),
-
-    // Enabled only if keys are present
-    supabaseEnabled: !!env.VITE_SUPABASE_URL && !!env.VITE_SUPABASE_ANON_KEY,
-
+    backendBaseUrl,
+    supabaseUrl,
+    supabasePublishableKey,
+    // Alias for backward compatibility
+    supabaseAnonKey: supabasePublishableKey,
+    // Enabled only if both URL and Key are present
+    supabaseEnabled: !!supabaseUrl && !!supabasePublishableKey,
   };
 }
 

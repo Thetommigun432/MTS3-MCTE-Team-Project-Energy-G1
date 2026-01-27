@@ -118,15 +118,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error("Failed to load model registry", extra={"error": str(e)})
 
-    # Pipeline worker
+    # Pipeline worker (only if explicitly enabled for in-API mode)
+    # By default, worker runs as separate container in local compose
     worker = None
     worker_task = None
-    if settings.pipeline_enabled and settings.redis_url:
+    if settings.pipeline_worker_in_api_enabled and settings.redis_url:
         try:
             from app.domain.pipeline.redis_inference_worker import RedisInferenceWorker
             worker = RedisInferenceWorker()
             worker_task = asyncio.create_task(worker.start())
-            logger.info("Pipeline worker started")
+            logger.info("Pipeline worker started (in-API mode)")
         except Exception as e:
             logger.error(f"Failed to start pipeline worker: {e}")
 
