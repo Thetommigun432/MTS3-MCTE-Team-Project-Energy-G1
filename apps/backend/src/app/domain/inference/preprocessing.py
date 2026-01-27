@@ -7,8 +7,10 @@ class DataPreprocessor:
     """
     Preprocesses raw sensor data into model-ready features.
     
-    Features (7 total) - MUST MATCH TRAINING DATA:
-        0: Aggregate (power_normalized 0-1, scaled by P_MAX)
+    Supports 7 or 8 features depending on model:
+    
+    7 features (HeatPump, older models):
+        0: Aggregate (normalized by p95, scaled to [-1, 3])
         1: hour_sin   = sin(2π × hour/24)
         2: hour_cos   = cos(2π × hour/24)
         3: dow_sin    = sin(2π × day_of_week/7)
@@ -16,17 +18,29 @@ class DataPreprocessor:
         5: month_sin  = sin(2π × month/12)
         6: month_cos  = cos(2π × month/12)
     
+    8 features (newer models with delta_P):
+        0-6: Same as above
+        7: ΔP = delta power (clipped to ±5kW, scaled to [-1, 1])
+    
     NOTE: Temporal features are in [-1, 1] (NO SCALING needed).
-    NOTE: P_MAX is in WATTS (same as metadata from training)!
+    NOTE: agg_p95 is in WATTS (from training metadata)!
     """
     
-    def __init__(self, P_MAX: float = 15000.0):
+    def __init__(self, agg_p95: float = 8000.0, n_features: int = 7, P_MAX: float = None):
         """
         Args:
-            P_MAX: Maximum power in WATTS for normalization (from training metadata)
-                   Default ~15kW, but should be loaded from metadata.pkl
+            agg_p95: 95th percentile of Aggregate in WATTS (from training metadata)
+                     Default ~8kW, but should be loaded from metadata.pkl
+            n_features: Number of features (7 or 8). 8 includes delta_P.
+            P_MAX: Alias for agg_p95 (for backwards compatibility)
         """
-        self.P_MAX = P_MAX  # WATTS (NOT kW!)
+        # Support both names for backwards compatibility
+        if P_MAX is not None:
+            self.agg_p95 = P_MAX
+        else:
+            self.agg_p95 = agg_p95
+        self.n_features = n_features
+        self.prev_power = None  # For ΔP calculation
         
     def process_sample(self, timestamp: float, power_watts: float) -> np.ndarray:
         """
@@ -37,10 +51,11 @@ class DataPreprocessor:
             power_watts: Total power in WATTS
         
         Returns:
-            np.ndarray: Feature vector of shape (7,) dtype=float32
+            np.ndarray: Feature vector of shape (n_features,) dtype=float32
         """
-        # 1. Normalize Aggregate power: Aggregate_scaled = Aggregate / P_MAX
-        aggregate_norm = np.clip(power_watts / self.P_MAX, 0, 1)
+        # 1. Normalize Aggregate power using p95 (SAME as train_v6_simple.py)
+        #    Clip to [0, 2] then scale to [-1, 3]
+        aggregate_norm = np.clip(power_watts / self.agg_p95, 0, 2) * 2 - 1
         
         # 2. Extract time components
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
@@ -56,17 +71,29 @@ class DataPreprocessor:
         month_sin = np.sin(2 * np.pi * month / 12)
         month_cos = np.cos(2 * np.pi * month / 12)
         
-        # Return in EXACT order as training data
-        return np.array([
+        # Base features (7 total)
+        features = [
             aggregate_norm,  # 0: Aggregate
             hour_sin,        # 1: hour_sin
             hour_cos,        # 2: hour_cos
             dow_sin,         # 3: dow_sin
             dow_cos,         # 4: dow_cos
             month_sin,       # 5: month_sin
-            month_cos        # 6: month_cos
-        ], dtype=np.float32)
+            month_cos,       # 6: month_cos
+        ]
+        
+        # 4. Optional: ΔP (delta power) for 8-feature models
+        if self.n_features == 8:
+            if self.prev_power is None:
+                delta_p = 0.0
+            else:
+                # ΔP in watts, clipped to ±5kW, scaled to [-1, 1]
+                delta_p = np.clip((power_watts - self.prev_power) / 5000.0, -1, 1)
+            self.prev_power = power_watts
+            features.append(delta_p)  # 7: ΔP
+        
+        return np.array(features, dtype=np.float32)
     
     def reset(self):
-        """Reset preprocessor state (stateless, but kept for API compatibility)."""
-        pass
+        """Reset preprocessor state."""
+        self.prev_power = None

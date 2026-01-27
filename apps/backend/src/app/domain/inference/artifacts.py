@@ -59,6 +59,11 @@ def ensure_artifact_present(entry: ModelEntry, models_dir: Path | None = None) -
     
     # 1. Check if file exists
     if artifact_path.exists():
+        # If no SHA256 in registry, trust the file exists (local models)
+        if not entry.artifact_sha256:
+            logger.debug(f"Artifact exists, no SHA check for {entry.model_id}")
+            return artifact_path
+            
         current_hash = calculate_sha256(artifact_path)
         if current_hash == entry.artifact_sha256:
             # Match!
@@ -112,15 +117,16 @@ def ensure_artifact_present(entry: ModelEntry, models_dir: Path | None = None) -
             with open(artifact_path, "wb") as f:
                 shutil.copyfileobj(response, f)
                 
-        # 3. Verify downloaded file
-        new_hash = calculate_sha256(artifact_path)
-        if new_hash != entry.artifact_sha256:
-            artifact_path.unlink()  # Delete bad file
-            raise ModelError(
-                code=ErrorCode.MODEL_ARTIFACT_INVALID,
-                message="Downloaded artifact checksum mismatch",
-                details={"expected": entry.artifact_sha256, "actual": new_hash},
-            )
+        # 3. Verify downloaded file (only if SHA is specified)
+        if entry.artifact_sha256:
+            new_hash = calculate_sha256(artifact_path)
+            if new_hash != entry.artifact_sha256:
+                artifact_path.unlink()  # Delete bad file
+                raise ModelError(
+                    code=ErrorCode.MODEL_ARTIFACT_INVALID,
+                    message="Downloaded artifact checksum mismatch",
+                    details={"expected": entry.artifact_sha256, "actual": new_hash},
+                )
             
         logger.info(f"Successfully downloaded and verified {entry.model_id}")
         return artifact_path

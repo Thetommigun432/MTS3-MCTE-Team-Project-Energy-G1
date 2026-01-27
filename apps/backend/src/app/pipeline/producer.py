@@ -99,18 +99,62 @@ def simulate_building_power() -> Generator[Dict, None, None]:
 
 
 def read_csv_file(file_path: str) -> Generator[Dict, None, None]:
-    """Read power data from CSV file."""
-    import csv
+    """
+    Read power data from CSV file.
     
-    with open(file_path, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            yield {
-                'timestamp': float(row.get('timestamp', time.time())),
-                'power_total': float(row['power_total']),
-                'voltage': float(row.get('voltage', 230)),
-                'current': float(row.get('current', 0)),
-            }
+    Supports two formats:
+        1. Clean format: time, aggregate_kw (from clean_csv_for_producer.py)
+        2. Raw format: time, building_* columns
+    """
+    import pandas as pd
+    
+    print(f"Loading CSV: {file_path}")
+    df = pd.read_csv(file_path)
+    print(f"  Loaded {len(df):,} rows, {len(df.columns)} columns")
+    print(f"  Columns: {list(df.columns)}")
+    
+    # Detect format
+    if 'aggregate_kw' in df.columns:
+        # Clean format
+        power_col = 'aggregate_kw'
+        print(f"  Using clean format: {power_col}")
+    else:
+        # Raw format - find building column that is not all zeros
+        building_cols = [col for col in df.columns if col.startswith('building_')]
+        power_col = None
+        for col in building_cols:
+            if df[col].sum() != 0:
+                power_col = col
+                break
+        if not power_col:
+            raise ValueError("No power column found in CSV")
+        print(f"  Using raw format: {power_col}")
+    
+    # Check if power is in kW (typical for this data)
+    power_max = df[power_col].max()
+    is_kw = power_max < 100  # Assume kW if max < 100
+    print(f"  Power max: {power_max:.2f} {'kW' if is_kw else 'W'}")
+    
+    for idx, row in df.iterrows():
+        # Parse timestamp
+        if pd.notna(row['time']):
+            ts = pd.Timestamp(row['time']).timestamp()
+        else:
+            ts = time.time()
+        
+        # Get power (convert kW to W if needed)
+        power_w = row[power_col] * 1000 if is_kw else row[power_col]
+        
+        yield {
+            'timestamp': ts,
+            'power_total': round(float(power_w), 1),
+            'voltage': 230.0,
+            'current': round(float(power_w) / 230, 2),
+        }
+        
+        # Progress every 10000 rows
+        if idx > 0 and idx % 10000 == 0:
+            print(f"  Processed {idx:,} / {len(df):,} rows...")
 
 
 def read_parquet_file(file_path: str, speed_factor: float = 1.0) -> Generator[Dict, None, None]:
@@ -177,12 +221,12 @@ def main():
                         default=int(os.environ.get('REDIS_PORT', 6379)))
     parser.add_argument('--building-id', type=str, default='building_1')
     parser.add_argument('--source', type=str, choices=['simulation', 'csv', 'parquet'],
-                        default='parquet')
+                        default='csv')
     parser.add_argument('--file', type=str, 
-                        default='production_jan2025_building_only.parquet',
+                        default='../../data/raw/1sec_new/household_2025_01_clean.csv',
                         help='Data file path (parquet or csv)')
     parser.add_argument('--interval', type=float, default=1.0,
-                        help='Seconds between samples (default: 1.0 for 1 Hz)')
+                        help='Seconds between samples (default: 1.0 for realtime)')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first N rows (to start from different point)')
     parser.add_argument('--limit', type=int, default=0,
@@ -219,6 +263,7 @@ def main():
         data_gen = read_csv_file(args.file)
     elif args.source == 'parquet':
         # Default to production parquet in same directory
+        import os
         file_path = args.file
         if not os.path.isabs(file_path):
             script_dir = os.path.dirname(os.path.abspath(__file__))

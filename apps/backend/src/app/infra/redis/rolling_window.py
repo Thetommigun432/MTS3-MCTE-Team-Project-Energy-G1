@@ -5,7 +5,7 @@ Maintains a fixed-size sliding window of preprocessed readings per building.
 Key design:
 - Uses Redis LIST per building: nilm:{building_id}:window
 - Each element is JSON: {"ts": "<iso>", "value": <float>}
-- RPUSH + LTRIM enforces max size (3600 = 1 hour at 1Hz)
+- RPUSH + LTRIM enforces max size (4096 samples for largest model window)
 - Window is deterministic: oldest samples are dropped when full
 """
 
@@ -38,7 +38,7 @@ async def update_rolling_window(
     building_id: str,
     timestamp: str,
     value: float,
-    max_size: int = 3600,
+    max_size: int = 4096,
 ) -> int:
     """
     Add a preprocessed reading to the rolling window.
@@ -51,7 +51,7 @@ async def update_rolling_window(
         building_id: Building identifier
         timestamp: ISO8601 timestamp string
         value: Preprocessed power value (float)
-        max_size: Maximum window size (default 3600 = 1 hour at 1Hz)
+        max_size: Maximum window size (default 4096 for largest model window)
 
     Returns:
         Current window length after update

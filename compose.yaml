@@ -70,6 +70,7 @@ services:
     volumes:
       - ./apps/backend/models:/app/models:ro
       - ./apps/backend/data:/app/data:ro
+      - ./apps/backend/src:/app/src:ro  # DEV: mount source for hot reload
     environment:
       - ENV=dev
       - PORT=8000
@@ -91,7 +92,7 @@ services:
       # Pipeline: Enable enqueueing, disable in-process worker (handled by worker service)
       - PIPELINE_ENQUEUE_ENABLED=true
       - PIPELINE_WORKER_IN_API_ENABLED=false
-      - PIPELINE_ROLLING_WINDOW_SIZE=3600
+      - PIPELINE_ROLLING_WINDOW_SIZE=4096  # Must match largest model window
       - RATE_LIMIT_PER_IP=1200/minute
     depends_on:
       influxdb:
@@ -118,6 +119,7 @@ services:
     volumes:
       - ./apps/backend/models:/app/models:ro
       - ./apps/backend/data:/app/data:ro
+      - ./apps/backend/src:/app/src:ro  # DEV: mount source for hot reload
     environment:
       - ENV=dev
       # Redis Config
@@ -126,7 +128,7 @@ services:
       - REDIS_CONSUMER_GROUP=nilm-infer-dev
       # Pipeline
       - PIPELINE_ENQUEUE_ENABLED=true
-      - PIPELINE_ROLLING_WINDOW_SIZE=3600
+      - PIPELINE_ROLLING_WINDOW_SIZE=4096  # Must match largest model window
       # InfluxDB config
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}

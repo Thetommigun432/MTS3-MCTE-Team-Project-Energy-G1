@@ -29,7 +29,7 @@ def mock_inference_service():
             "model_id": "multi_v1",
             "model_version": "2.0.0",
             "appliance_id": "multi",
-            "architecture": "WaveNILM_v3",
+            "architecture": "tcn_sa",
             "input_window_size": 1000,
             "is_active": True,
             "cached": True,

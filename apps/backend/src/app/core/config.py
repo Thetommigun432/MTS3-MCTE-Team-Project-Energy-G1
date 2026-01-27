@@ -261,8 +261,8 @@ class Settings(BaseSettings):
         description="Max per-building buffer size",
     )
     pipeline_rolling_window_size: int = Field(
-        default=3600,
-        description="Rolling window size in seconds (3600 = 1 hour at 1Hz)",
+        default=4096,
+        description="Rolling window size in samples (4096 = enough for largest model window)",
     )
     ingest_token: str | None = Field(
         default=None,
