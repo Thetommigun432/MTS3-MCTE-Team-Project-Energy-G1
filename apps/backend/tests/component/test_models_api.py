@@ -74,14 +74,14 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_list_models_returns_200(self, test_client, mock_inference_service):
         """GET /models returns 200 OK."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
 
         assert response.status_code == 200
 
     @pytest.mark.component
     def test_list_models_response_has_models_array(self, test_client, mock_inference_service):
         """Response contains 'models' array."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         assert "models" in data
@@ -90,7 +90,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_list_models_response_has_count(self, test_client, mock_inference_service):
         """Response contains 'count' field matching models length."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         assert "count" in data
@@ -100,7 +100,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_model_info_has_required_fields(self, test_client, mock_inference_service):
         """Each model has required fields."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         required_fields = {
@@ -121,7 +121,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_multi_head_model_has_heads(self, test_client, mock_inference_service):
         """Multi-head model includes heads list."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         multi_model = next(m for m in data["models"] if m["model_id"] == "multi_v1")
@@ -133,7 +133,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_single_head_model_has_empty_heads(self, test_client, mock_inference_service):
         """Single-head model has empty heads list."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         single_model = next(m for m in data["models"] if m["model_id"] == "heatpump_v1")
@@ -143,7 +143,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_model_metrics_optional(self, test_client, mock_inference_service):
         """Model metrics can be null or object."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         # First model has no metrics
@@ -158,7 +158,7 @@ class TestListModelsEndpoint:
     @pytest.mark.component
     def test_cached_status_reported(self, test_client, mock_inference_service):
         """Model cached status is correctly reported."""
-        response = test_client.get("/models")
+        response = test_client.get("/api/models")
         data = response.json()
 
         # First model not cached
@@ -182,7 +182,7 @@ class TestEmptyModelsResponse:
         with patch("app.api.routers.inference.get_inference_service", return_value=mock_service):
             from app.main import app
             with TestClient(app) as client:
-                response = client.get("/models")
+                response = client.get("/api/models")
 
                 assert response.status_code == 200
                 data = response.json()
@@ -202,7 +202,7 @@ class TestModelMetricsEndpoint:
         with patch("app.api.routers.inference.get_inference_service", return_value=mock_service):
             from app.main import app
             with TestClient(app) as client:
-                response = client.get("/models/heatpump_v1/metrics")
+                response = client.get("/api/models/heatpump_v1/metrics")
 
                 assert response.status_code == 200
 
@@ -215,7 +215,7 @@ class TestModelMetricsEndpoint:
         with patch("app.api.routers.inference.get_inference_service", return_value=mock_service):
             from app.main import app
             with TestClient(app) as client:
-                response = client.get("/models/heatpump_v1/metrics")
+                response = client.get("/api/models/heatpump_v1/metrics")
                 data = response.json()
 
                 assert "model_id" in data
@@ -234,7 +234,7 @@ class TestModelMetricsEndpoint:
         with patch("app.api.routers.inference.get_inference_service", return_value=mock_service):
             from app.main import app
             with TestClient(app) as client:
-                response = client.get("/models/heatpump_v1/metrics")
+                response = client.get("/api/models/heatpump_v1/metrics")
                 data = response.json()
 
                 assert data["architecture_params"]["d_model"] == 128
@@ -254,7 +254,7 @@ class TestModelMetricsEndpoint:
         with patch("app.api.routers.inference.get_inference_service", return_value=mock_service):
             from app.main import app
             with TestClient(app) as client:
-                response = client.get("/models/unknown_model/metrics")
+                response = client.get("/api/models/unknown_model/metrics")
 
                 # Should return 404 or error response
                 assert response.status_code in [404, 422, 500]

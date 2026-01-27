@@ -62,7 +62,7 @@ class TestIngestReadingsEndpoint:
     def test_ingest_single_reading_returns_202(self, test_client):
         """Single reading is ingested and returns 202 ACCEPTED."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={
                 "readings": [
                     {
@@ -80,7 +80,7 @@ class TestIngestReadingsEndpoint:
     def test_ingest_single_reading_response_shape(self, test_client):
         """Response has correct schema."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={
                 "readings": [
                     {
@@ -112,7 +112,7 @@ class TestIngestReadingsEndpoint:
         ]
 
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={"readings": readings}
         )
 
@@ -130,7 +130,7 @@ class TestIngestReadingsEndpoint:
             from app.main import app
             with TestClient(app) as client:
                 client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {
@@ -154,7 +154,7 @@ class TestIngestReadingsEndpoint:
             from app.main import app
             with TestClient(app) as client:
                 client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {
@@ -192,7 +192,7 @@ class TestIngestPartialFailure:
                     for i in range(3)
                 ]
 
-                response = client.post("/ingest/readings", json={"readings": readings})
+                response = client.post("/api/ingest/readings", json={"readings": readings})
 
                 assert response.status_code == 202
                 data = response.json()
@@ -211,7 +211,7 @@ class TestIngestPartialFailure:
             from app.main import app
             with TestClient(app) as client:
                 response = client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {"building_id": "b1", "ts": "2024-01-15T12:00:00Z", "aggregate_kw": 2.0}
@@ -232,7 +232,7 @@ class TestIngestPartialFailure:
             from app.main import app
             with TestClient(app) as client:
                 response = client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {"building_id": "b1", "ts": "2024-01-15T12:00:00Z", "aggregate_kw": 2.0}
@@ -253,7 +253,7 @@ class TestIngestValidation:
     def test_empty_readings_array_accepted(self, test_client):
         """Empty readings array is handled gracefully."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={"readings": []}
         )
 
@@ -267,7 +267,7 @@ class TestIngestValidation:
     def test_missing_readings_field_returns_422(self, test_client):
         """Missing readings field returns validation error."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={}
         )
 
@@ -277,7 +277,7 @@ class TestIngestValidation:
     def test_invalid_building_id_returns_422(self, test_client):
         """Invalid building_id format returns validation error."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={
                 "readings": [
                     {
@@ -295,7 +295,7 @@ class TestIngestValidation:
     def test_missing_timestamp_returns_422(self, test_client):
         """Missing timestamp returns validation error."""
         response = test_client.post(
-            "/ingest/readings",
+            "/api/ingest/readings",
             json={
                 "readings": [
                     {
@@ -322,7 +322,7 @@ class TestIngestToken:
             with TestClient(app) as client:
                 # Without token
                 response = client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {"building_id": "b1", "ts": "2024-01-15T12:00:00Z", "aggregate_kw": 2.0}
@@ -341,7 +341,7 @@ class TestIngestToken:
             from app.main import app
             with TestClient(app) as client:
                 response = client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {"building_id": "b1", "ts": "2024-01-15T12:00:00Z", "aggregate_kw": 2.0}
@@ -361,7 +361,7 @@ class TestIngestToken:
             from app.main import app
             with TestClient(app) as client:
                 response = client.post(
-                    "/ingest/readings",
+                    "/api/ingest/readings",
                     json={
                         "readings": [
                             {"building_id": "b1", "ts": "2024-01-15T12:00:00Z", "aggregate_kw": 2.0}

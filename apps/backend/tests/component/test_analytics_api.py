@@ -107,7 +107,7 @@ class TestReadingsEndpoint:
     def test_readings_returns_200(self, test_client):
         """GET /analytics/readings returns 200 with valid params."""
         response = test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -122,7 +122,7 @@ class TestReadingsEndpoint:
     def test_readings_response_shape(self, test_client):
         """Response has correct schema."""
         response = test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -143,7 +143,7 @@ class TestReadingsEndpoint:
     def test_readings_data_points_structure(self, test_client):
         """Data points have correct structure."""
         response = test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -162,7 +162,7 @@ class TestReadingsEndpoint:
     def test_readings_requires_building_id(self, test_client):
         """Request without building_id returns 422."""
         response = test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "start": "-7d",
                 "end": "now()",
@@ -176,7 +176,7 @@ class TestReadingsEndpoint:
     def test_readings_requires_start(self, test_client):
         """Request without start returns 422."""
         response = test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "end": "now()",
@@ -194,7 +194,7 @@ class TestPredictionsEndpoint:
     def test_predictions_returns_200(self, test_client):
         """GET /analytics/predictions returns 200 with valid params."""
         response = test_client.get(
-            "/analytics/predictions",
+            "/api/analytics/predictions",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -209,7 +209,7 @@ class TestPredictionsEndpoint:
     def test_predictions_response_shape(self, test_client):
         """Response has correct schema."""
         response = test_client.get(
-            "/analytics/predictions",
+            "/api/analytics/predictions",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -228,7 +228,7 @@ class TestPredictionsEndpoint:
     def test_predictions_data_points_structure(self, test_client):
         """Prediction points have correct structure."""
         response = test_client.get(
-            "/analytics/predictions",
+            "/api/analytics/predictions",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -256,7 +256,7 @@ class TestBuildingsEndpoint:
     def test_buildings_returns_200(self, test_client):
         """GET /analytics/buildings returns 200."""
         response = test_client.get(
-            "/analytics/buildings",
+            "/api/analytics/buildings",
             headers={"Authorization": "Bearer test_token"}
         )
 
@@ -266,7 +266,7 @@ class TestBuildingsEndpoint:
     def test_buildings_response_shape(self, test_client):
         """Response has correct schema."""
         response = test_client.get(
-            "/analytics/buildings",
+            "/api/analytics/buildings",
             headers={"Authorization": "Bearer test_token"}
         )
 
@@ -279,7 +279,7 @@ class TestBuildingsEndpoint:
     def test_buildings_returns_list(self, test_client):
         """Returns list of building IDs."""
         response = test_client.get(
-            "/analytics/buildings",
+            "/api/analytics/buildings",
             headers={"Authorization": "Bearer test_token"}
         )
 
@@ -295,7 +295,7 @@ class TestAppliancesEndpoint:
     def test_appliances_returns_200(self, test_client):
         """GET /analytics/appliances returns 200."""
         response = test_client.get(
-            "/analytics/appliances",
+            "/api/analytics/appliances",
             params={"building_id": "building_1"},
             headers={"Authorization": "Bearer test_token"}
         )
@@ -306,7 +306,7 @@ class TestAppliancesEndpoint:
     def test_appliances_response_shape(self, test_client):
         """Response has correct schema."""
         response = test_client.get(
-            "/analytics/appliances",
+            "/api/analytics/appliances",
             params={"building_id": "building_1"},
             headers={"Authorization": "Bearer test_token"}
         )
@@ -320,7 +320,7 @@ class TestAppliancesEndpoint:
     def test_appliances_returns_list(self, test_client):
         """Returns list of appliance IDs for building."""
         response = test_client.get(
-            "/analytics/appliances",
+            "/api/analytics/appliances",
             params={"building_id": "building_1"},
             headers={"Authorization": "Bearer test_token"}
         )
@@ -333,7 +333,7 @@ class TestAppliancesEndpoint:
     def test_appliances_requires_building_id(self, test_client):
         """Request without building_id returns 422."""
         response = test_client.get(
-            "/analytics/appliances",
+            "/api/analytics/appliances",
             headers={"Authorization": "Bearer test_token"}
         )
 
@@ -356,7 +356,7 @@ class TestAuthenticationRequired:
     def test_readings_requires_auth(self, unauthenticated_client):
         """GET /analytics/readings returns 401 without auth."""
         response = unauthenticated_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -370,7 +370,7 @@ class TestAuthenticationRequired:
     def test_predictions_requires_auth(self, unauthenticated_client):
         """GET /analytics/predictions returns 401 without auth."""
         response = unauthenticated_client.get(
-            "/analytics/predictions",
+            "/api/analytics/predictions",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -383,7 +383,7 @@ class TestAuthenticationRequired:
     @pytest.mark.component
     def test_buildings_requires_auth(self, unauthenticated_client):
         """GET /analytics/buildings returns 401 without auth."""
-        response = unauthenticated_client.get("/analytics/buildings")
+        response = unauthenticated_client.get("/api/analytics/buildings")
 
         assert response.status_code == 401
 
@@ -395,7 +395,7 @@ class TestResolutionParameter:
     def test_default_resolution_is_1m(self, test_client, mock_influx_client):
         """Default resolution is 1 minute."""
         test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",
@@ -414,7 +414,7 @@ class TestResolutionParameter:
     def test_custom_resolution(self, test_client, mock_influx_client):
         """Custom resolution parameter is passed to query."""
         test_client.get(
-            "/analytics/readings",
+            "/api/analytics/readings",
             params={
                 "building_id": "building_1",
                 "start": "-7d",

@@ -109,9 +109,17 @@ function buildUrl(endpoint: string, params?: RequestOptions["params"]): string {
     const url = new URL(endpoint, API_BASE_URL);
     urlString = url.toString();
   } else {
+    // Enforce /api prefix normalization
+    // If endpoint is "models", it becomes "/api/models"
+    // If endpoint is "/api/models", it stays "/api/models"
+    let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    if (!cleanEndpoint.startsWith("/api") && !cleanEndpoint.startsWith("/health") && !cleanEndpoint.startsWith("/live") && !cleanEndpoint.startsWith("/ready")) {
+      cleanEndpoint = `/api${cleanEndpoint}`;
+    }
+
     // Clean up slashes for manual concatenation
     const base = API_BASE_URL.replace(/\/$/, "");
-    const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    const path = cleanEndpoint;
     urlString = `${base}${path}`;
   }
 

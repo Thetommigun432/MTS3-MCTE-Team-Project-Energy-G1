@@ -18,7 +18,8 @@ export function getEnv() {
     // Supabase
     // Fallback to empty string if env vars missing
     supabaseUrl: stripQuotes(env.VITE_SUPABASE_URL),
-    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_ANON_KEY),
+    // Prefer Publishable Key (safe), fallback to Anon Key (legacy)
+    supabaseAnonKey: stripQuotes(env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY),
 
     // Enabled only if keys are present
     supabaseEnabled: !!env.VITE_SUPABASE_URL && !!env.VITE_SUPABASE_ANON_KEY,
