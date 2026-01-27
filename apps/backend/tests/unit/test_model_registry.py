@@ -199,7 +199,7 @@ class TestMultiHeadModels:
                 "multi_v1": {
                     "model_version": "2.0.0",
                     "appliance_id": "multi",
-                    "architecture": "WaveNILM_v3",
+                    "architecture": "tcn_sa",
                     "artifact_path": "model.safetensors",
                     "artifact_sha256": sha256,
                     "input_window_size": 1000,

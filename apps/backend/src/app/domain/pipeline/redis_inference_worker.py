@@ -19,6 +19,7 @@ from app.core.logging import get_logger
 from app.domain.inference.engine import get_inference_engine
 from app.domain.inference.registry import get_model_registry, ModelEntry
 from app.domain.inference.postprocessing import enforce_sum_constraint_smart, compute_residual
+from app.domain.inference.smoothing import get_prediction_smoother
 from app.infra.influx import get_influx_client, init_influx_client
 from app.infra.redis.streams import ack, ensure_group, read_group
 from app.infra.redis.rolling_window import get_window_values, get_window_samples, get_window_length
@@ -246,18 +247,22 @@ class RedisInferenceWorker:
                 aggregate_power_kw=aggregate_power_kw,
             )
 
-            # Compute residual (ghost load)
-            residual_kw = compute_residual(corrected_predictions, aggregate_power_kw)
+            # Apply 30-second rolling window smoothing
+            smoother = get_prediction_smoother(window_size=30)
+            smoothed_predictions = smoother.smooth(building_id, corrected_predictions)
+
+            # Compute residual (ghost load) - use smoothed values
+            residual_kw = compute_residual(smoothed_predictions, aggregate_power_kw)
             logger.debug(
                 f"Residual power: {residual_kw:.3f}kW "
                 f"({residual_kw/aggregate_power_kw*100:.1f}% of aggregate)"
             )
 
-            # Write predictions to InfluxDB
+            # Write smoothed predictions to InfluxDB
             try:
                 await influx.write_predictions_wide(
                     building_id=building_id,
-                    predictions=corrected_predictions,
+                    predictions=smoothed_predictions,
                     model_version="ensemble-v1",  # Multiple models
                     user_id="pipeline",
                     request_id=f"worker-{self.consumer_name}",
@@ -266,9 +271,9 @@ class RedisInferenceWorker:
                 )
                 logger.info(
                     f"Predictions written: building={building_id}, "
-                    f"appliances={len(corrected_predictions)}, "
+                    f"appliances={len(smoothed_predictions)}, "
                     f"aggregate={aggregate_power_kw:.3f}kW, "
-                    f"sum={sum(p for p, _ in corrected_predictions.values()):.3f}kW"
+                    f"sum={sum(p for p, _ in smoothed_predictions.values()):.3f}kW"
                 )
             except Exception as e:
                 logger.error(f"Failed to write predictions to InfluxDB: {e}")

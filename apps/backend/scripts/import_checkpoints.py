@@ -15,7 +15,7 @@ import sys
 backend_src = Path.cwd() / "apps" / "backend" / "src"
 sys.path.append(str(backend_src))
 
-from app.domain.inference.architectures.wavenilm_v3 import WaveNILM_v3
+from app.domain.inference.architectures.tcn_gated import TCN_Gated
 
 def compute_sha256(path: Path) -> str:
     hash_sha256 = hashlib.sha256()
@@ -62,7 +62,7 @@ def convert_checkpoint(ckpt_path: Path, output_dir: Path, registry_data: dict):
     metadata = data.get('scaling', {})
     p_max = float(metadata.get('P_MAX', 15.0)) if 'P_MAX' in metadata else 15.0
     
-    # Infer appliance from filename (e.g. wavenilm_v3_SOTA_HeatPump_best.pth)
+    # Infer appliance from filename (e.g. TCN_SA_HeatPump_best.pt)
     appliance = "unknown"
     parts = ckpt_path.stem.split('_')
     for p in parts:
@@ -75,9 +75,9 @@ def convert_checkpoint(ckpt_path: Path, output_dir: Path, registry_data: dict):
         return
 
     # Create output directory
-    model_version = "v3-sota"
+    model_version = "v1-sota"
     model_id = f"{appliance.lower()}-{model_version}"
-    save_dir = output_dir / "wavenilm_v3" / appliance.lower() / model_version
+    save_dir = output_dir / "tcn_sa" / appliance.lower() / model_version
     save_dir.mkdir(parents=True, exist_ok=True)
     
     safetensors_path = save_dir / "model.safetensors"
@@ -101,7 +101,7 @@ def convert_checkpoint(ckpt_path: Path, output_dir: Path, registry_data: dict):
         "model_id": model_id,
         "model_version": model_version,
         "appliance_id": appliance,
-        "architecture": "wavenilm_v3",
+        "architecture": "tcn_sa",
         "architecture_params": {
             "n_blocks": n_blocks,
             "hidden_channels": hidden_channels,
@@ -124,7 +124,7 @@ def convert_checkpoint(ckpt_path: Path, output_dir: Path, registry_data: dict):
     print(f"  [OK] Added to registry as {model_id}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Import WaveNILM checkpoints")
+    parser = argparse.ArgumentParser(description="Import TCN_SA checkpoints")
     parser.add_argument("--src", type=str, default="checkpoints", help="Source directory containing .pth files")
     parser.add_argument("--dest", type=str, default="apps/backend/models", help="Destination storage directory")
     parser.add_argument("--registry", type=str, default="apps/backend/models/registry.json", help="Registry JSON path")

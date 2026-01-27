@@ -114,6 +114,7 @@ temp/
 temp_model/
 tempo/
 *.stackdump
+classification/
 
 # ============================================
 # Local InfluxDB data and config (Docker volumes)
@@ -131,3 +132,4 @@ supabase/.temp/
 # ============================================
 go-cursor-help/
 config.json
+household_2025_01.csv

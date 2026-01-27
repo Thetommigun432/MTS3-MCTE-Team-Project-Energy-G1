@@ -68,8 +68,8 @@ class TestModelLoading:
                     
         assert not missing, f"Missing artifacts: {missing}"
     
-    def test_load_wavenilm_v3(self, models_dir, registry_path):
-        """Test loading a WaveNILM v3 model from safetensors."""
+    def test_load_tcn_sa(self, models_dir, registry_path):
+        """Test loading a TCN_SA model from safetensors."""
         import json
         from safetensors.torch import load_file as load_safetensors
         
@@ -79,18 +79,18 @@ class TestModelLoading:
         models = data["models"]
         entries = list(models.values()) if isinstance(models, dict) else models
         
-        # Find a wavenilm_v3 entry that is active
-        wavenilm_entry = None
+        # Find a tcn_sa or tcn_gated entry that is active
+        tcn_entry = None
         for entry in entries:
-            if entry.get("architecture") == "wavenilm_v3" and entry.get("is_active"):
-                wavenilm_entry = entry
+            if entry.get("architecture") in ("tcn_sa", "tcn_gated") and entry.get("is_active"):
+                tcn_entry = entry
                 break
         
-        if not wavenilm_entry:
-            pytest.skip("No active wavenilm_v3 model in registry")
+        if not tcn_entry:
+            pytest.skip("No active tcn_sa/tcn_gated model in registry")
         
         # Load weights
-        artifact_path = models_dir / wavenilm_entry["artifact_path"]
+        artifact_path = models_dir / tcn_entry["artifact_path"]
         if not artifact_path.exists():
             pytest.skip(f"Artifact not found: {artifact_path}")
             
@@ -111,7 +111,7 @@ class TestModelLoading:
         sys.path.insert(0, str(backend_src))
         
         from safetensors.torch import load_file as load_safetensors
-        from app.domain.inference.architectures.wavenilm_v3 import WaveNILM_v3
+        from app.domain.inference.architectures.tcn_gated import TCN_Gated
         
         with open(registry_path) as f:
             data = json.load(f)
@@ -119,30 +119,30 @@ class TestModelLoading:
         models = data["models"]
         entries = list(models.values()) if isinstance(models, dict) else models
         
-        wavenilm_entry = None
+        tcn_entry = None
         for entry in entries:
-            if entry.get("architecture") == "wavenilm_v3":
-                wavenilm_entry = entry
+            if entry.get("architecture") in ("tcn_sa", "tcn_gated"):
+                tcn_entry = entry
                 break
         
-        if not wavenilm_entry:
-            pytest.skip("No wavenilm_v3 model in registry")
+        if not tcn_entry:
+            pytest.skip("No tcn_sa/tcn_gated model in registry")
         
         # Get architecture params
-        params = wavenilm_entry.get("architecture_params", {})
+        params = tcn_entry.get("architecture_params", {})
         n_blocks = params.get("n_blocks", 9)
         hidden_channels = params.get("hidden_channels", 64)
-        window_size = wavenilm_entry.get("input_window_size", 1536)
+        window_size = tcn_entry.get("input_window_size", 1536)
         
         # Create model
-        model = WaveNILM_v3(
+        model = TCN_Gated(
             n_input_features=7,
             hidden_channels=hidden_channels,
             n_blocks=n_blocks,
         )
         
         # Load weights
-        artifact_path = models_dir / wavenilm_entry["artifact_path"]
+        artifact_path = models_dir / tcn_entry["artifact_path"]
         state_dict = load_safetensors(str(artifact_path))
         
         # Try to load - may fail if architecture mismatch
@@ -159,7 +159,7 @@ class TestModelLoading:
         with torch.no_grad():
             output = model(dummy_input)
         
-        # WaveNILM returns tuple (power, prob)
+        # TCN_Gated returns tuple (power, prob)
         assert isinstance(output, tuple), "Expected tuple output"
         power, prob = output
         
