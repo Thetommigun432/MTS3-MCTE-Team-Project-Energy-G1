@@ -188,6 +188,10 @@ class Settings(BaseSettings):
         default="/app/models",
         description="Directory containing model artifacts",
     )
+    dataset_path: str = Field(
+        default="/app/data/simulation_data.parquet",
+        description="Path to simulation dataset",
+    )
 
     # ==========================================================================
     # Redis

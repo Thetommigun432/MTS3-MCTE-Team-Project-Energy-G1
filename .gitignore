@@ -63,7 +63,8 @@ data/
 data/**/*.csv
 data/**/*.xlsx
 data/**/*.json
-*.parquet
+# *.parquet
+!apps/backend/data/*.parquet
 
 # ============================================
 # Model files (large, training outputs)
@@ -83,6 +84,9 @@ transformer-*.zip
 
 # Keep backend model artifacts for deployment
 !apps/backend/models/**/*.safetensors
+!apps/backend/models/**/*.pt
+!apps/backend/models/**/*.pth
+!apps/backend/models/**/*.onnx
 
 # Keep test fixtures (small samples)
 !apps/backend/tests/fixtures/*.npy

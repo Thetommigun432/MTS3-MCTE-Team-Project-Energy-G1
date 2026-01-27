@@ -46,6 +46,20 @@ class WorkerRunner:
             },
         )
         
+        # Validate dataset and models
+        import os
+        if os.path.exists(settings.dataset_path):
+            size_mb = os.path.getsize(settings.dataset_path) / (1024 * 1024)
+            logger.info(f"Dataset found at {settings.dataset_path} ({size_mb:.2f} MB)")
+        else:
+            logger.error(f"Dataset NOT found at {settings.dataset_path}")
+            # Worker strictly needs data/models? Maybe not strict for startup, but good to know.
+            
+        if os.path.isdir(settings.models_dir):
+            logger.info(f"Models directory found at {settings.models_dir}")
+        else:
+            logger.error(f"Models directory NOT found at {settings.models_dir}")
+
         # Initialize Redis connection (CRITICAL FIX)
         from app.infra.redis.client import init_redis_cache, close_redis_cache
         await init_redis_cache()
@@ -66,11 +80,12 @@ class WorkerRunner:
             # RedisInferenceWorker.start() is a while loop. We should let it run.
             # But we also need to listen for shutdown event.
             # Better pattern: Run worker in a task.
+            # Start worker task
             worker_task = asyncio.create_task(self.worker.start())
             
             # Wait for shutdown signal (or worker failure)
             done, pending = await asyncio.wait(
-                [self.shutdown_event.wait(), worker_task],
+                [asyncio.create_task(self.shutdown_event.wait()), worker_task],
                 return_when=asyncio.FIRST_COMPLETED
             )
             

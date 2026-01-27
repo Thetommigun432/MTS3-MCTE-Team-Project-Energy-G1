@@ -114,6 +114,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - REDIS_STREAM_KEY=nilm:readings
       - REDIS_CONSUMER_GROUP=nilm-infer-dev
+      - PIPELINE_ENABLED=true
       # InfluxDB config
       - INFLUX_URL=http://influxdb:8086
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}

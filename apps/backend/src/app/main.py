@@ -42,6 +42,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     logger.info("Starting NILM Backend", extra={"env": settings.env})
 
+    # Validate dataset and models
+    import os
+    if os.path.exists(settings.dataset_path):
+        size_mb = os.path.getsize(settings.dataset_path) / (1024 * 1024)
+        logger.info(f"Dataset found at {settings.dataset_path} ({size_mb:.2f} MB)")
+    else:
+        logger.warning(f"Dataset NOT found at {settings.dataset_path}")
+
+    if os.path.isdir(settings.models_dir):
+        logger.info(f"Models directory found at {settings.models_dir}")
+        model_files = []
+        for root, _, files in os.walk(settings.models_dir):
+            for f in files:
+                if f.endswith(('.pt', '.pth', '.onnx', '.safetensors', '.json')):
+                    model_files.append(os.path.join(root, f))
+        logger.info(f"Found {len(model_files)} model files")
+    else:
+        logger.warning(f"Models directory NOT found at {settings.models_dir}")
+
     # Validate production settings
     if settings.env == "prod":
         config_errors = validate_production_settings(settings)
@@ -187,11 +206,12 @@ def create_app() -> FastAPI:
         )
 
     # Register routers
-    app.include_router(health.router)
-    app.include_router(inference.router)
-    app.include_router(analytics.router)
-    app.include_router(ingest.router)
-    app.include_router(admin.router)
+    # Register routers (mounted under /api)
+    app.include_router(health.router)  # Health check stays at root /health and /live
+    app.include_router(inference.router, prefix="/api")
+    app.include_router(analytics.router, prefix="/api")
+    app.include_router(ingest.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
 
     # Conditionally register E2E router (Railway testing)
     if settings.e2e_probes_enabled:

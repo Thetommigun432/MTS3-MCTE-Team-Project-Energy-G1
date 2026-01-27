@@ -38,6 +38,9 @@ RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch
 # Copy models directory
 COPY apps/backend/models/ ./models/
 
+# Copy data directory (for simulation_data.parquet)
+COPY apps/backend/data/ ./data/
+
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /app
 
