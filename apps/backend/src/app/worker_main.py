@@ -45,6 +45,10 @@ class WorkerRunner:
                 "influx_url": settings.influx_url,
             },
         )
+        
+        # Initialize Redis connection (CRITICAL FIX)
+        from app.infra.redis.client import init_redis_cache, close_redis_cache
+        await init_redis_cache()
 
         # Create worker
         self.worker = RedisInferenceWorker()
@@ -56,16 +60,30 @@ class WorkerRunner:
 
         try:
             # Start worker
-            await self.worker.start()
-
-            # Wait for shutdown signal
-            await self.shutdown_event.wait()
-
+            # Note: worker.start() contains the loop, so we run it directly.
+            # However, looking at RedisInferenceWorker.start(), it runs a while loop.
+            # If we await it, it blocks until stop() is called. Used task here or await directly?
+            # RedisInferenceWorker.start() is a while loop. We should let it run.
+            # But we also need to listen for shutdown event.
+            # Better pattern: Run worker in a task.
+            worker_task = asyncio.create_task(self.worker.start())
+            
+            # Wait for shutdown signal (or worker failure)
+            done, pending = await asyncio.wait(
+                [self.shutdown_event.wait(), worker_task],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            if worker_task in done:
+                # Worker finished (error or break), re-raise if exception
+                worker_task.result()
+                
         except Exception as e:
             logger.error(f"Worker error: {e}")
             raise
         finally:
             await self._shutdown()
+            await close_redis_cache()
 
     def _signal_handler(self):
         """Handle shutdown signals."""
