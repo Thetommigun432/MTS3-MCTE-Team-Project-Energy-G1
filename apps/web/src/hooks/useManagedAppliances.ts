@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isSupabaseEnabled } from "@/lib/env";
-import { isDemoMode } from "@/lib/dataSource";
+import { isDemoMode, onModeChange, DataSource } from "@/lib/dataSource";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Track if schema warning has been logged (session-level)
@@ -106,6 +106,16 @@ export function useManagedAppliances(): ManagedAppliancesData {
       setLoading(false);
     }
   }, [user]);
+
+  // Subscribe to mode changes and re-fetch
+  useEffect(() => {
+    const unsubscribe = onModeChange((_newMode: DataSource) => {
+      // Reset schema check on mode change
+      schemaUnavailable.current = false;
+      fetchAppliances();
+    });
+    return unsubscribe;
+  }, [fetchAppliances]);
 
   useEffect(() => {
     fetchAppliances();

@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { energyApi } from "@/services/energy";
 import { toast } from "sonner";
-import { getDataSource } from "@/lib/dataSource";
+import { getDataSource, onModeChange, DataSource } from "@/lib/dataSource";
 
 export interface Building {
   id: string;
@@ -43,6 +43,8 @@ export function useBuildings(): UseBuildingsResult {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track current mode to trigger re-fetch on change
+  const [currentMode, setCurrentMode] = useState<DataSource>(getDataSource);
 
   const fetchBuildings = useCallback(async () => {
     const dataSource = getDataSource();
@@ -85,9 +87,18 @@ export function useBuildings(): UseBuildingsResult {
     }
   }, []);
 
+  // Subscribe to mode changes and re-fetch buildings
+  useEffect(() => {
+    const unsubscribe = onModeChange((newMode) => {
+      setCurrentMode(newMode);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Re-fetch when mode changes
   useEffect(() => {
     fetchBuildings();
-  }, [fetchBuildings]);
+  }, [fetchBuildings, currentMode]);
 
   // Mutations disabled in API Discovery mode
   // Mutations disabled in API Discovery mode
