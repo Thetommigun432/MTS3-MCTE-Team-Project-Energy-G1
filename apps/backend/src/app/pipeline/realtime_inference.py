@@ -165,7 +165,7 @@ class RedisBufferManager:
         self,
         redis_client: redis.Redis,
         building_id: str = "building_1",
-        max_window_size: int = 4096,  # Keep enough for largest model
+        max_window_size: int = 4100,  # Keep enough for largest model (4096 + margin)
         key_prefix: str = "nilm"
     ):
         self.redis = redis_client
