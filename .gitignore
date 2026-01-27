@@ -64,6 +64,7 @@ data/**/*.csv
 data/**/*.xlsx
 data/**/*.json
 # *.parquet
+!apps/backend/data/
 !apps/backend/data/*.parquet
 
 # ============================================
