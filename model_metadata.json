@@ -1,1 +1,0 @@
-{"classes": ["Dishwasher", "Dryer", "EVCharger", "EVSocket", "GarageCabinet", "HeatPump", "Oven", "RainwaterPump", "RangeHood", "Stove", "WashingMachine"], "features": ["delta_power", "ss_mean", "ss_std", "ss_range", "ss_p25", "ss_p50", "ss_p75", "ramp_2s", "hour", "day_of_week", "dominant_freq", "spectral_power", "spectral_entropy"]}

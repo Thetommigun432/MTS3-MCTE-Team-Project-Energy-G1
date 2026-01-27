@@ -1,1 +1,0 @@
-{"classes": ["Dishwasher", "EVCharger", "EVSocket", "GarageCabinet", "HeatPump", "Oven", "RainwaterPump", "RangeHood", "Stove", "WashingMachine"], "input_dim": 55, "features": ["delta_power", "ss_mean", "ss_std", "ss_range", "hour"]}
