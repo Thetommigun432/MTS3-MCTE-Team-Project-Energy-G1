@@ -38,6 +38,10 @@ class WorkerRunner:
         """Start the worker and run until shutdown."""
         settings = get_settings()
 
+        # Setup logging properly
+        from app.core.logging import setup_logging
+        setup_logging("DEBUG" if settings.debug else "INFO")
+
         logger.info(
             "Starting NILM Inference Worker",
             extra={
@@ -53,7 +57,6 @@ class WorkerRunner:
             logger.info(f"Dataset found at {settings.dataset_path} ({size_mb:.2f} MB)")
         else:
             logger.error(f"Dataset NOT found at {settings.dataset_path}")
-            # Worker strictly needs data/models? Maybe not strict for startup, but good to know.
             
         if os.path.isdir(settings.models_dir):
             logger.info(f"Models directory found at {settings.models_dir}")
@@ -62,7 +65,13 @@ class WorkerRunner:
 
         # Initialize Redis connection (CRITICAL FIX)
         from app.infra.redis.client import init_redis_cache, close_redis_cache
-        await init_redis_cache()
+        
+        try:
+            # Wait max 10 seconds for Redis, then crash fast so Railway restarts
+            await asyncio.wait_for(init_redis_cache(), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.error("Redis connection timed out")
+            raise
 
         # Create worker
         self.worker = RedisInferenceWorker()
