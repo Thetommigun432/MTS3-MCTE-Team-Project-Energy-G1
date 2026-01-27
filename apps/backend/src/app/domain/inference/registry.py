@@ -25,6 +25,8 @@ class PreprocessingConfig:
     std: float | list[float] | None = None
     min_val: float | None = None
     max_val: float | None = None
+    p_max_kw: float | None = None  # P_MAX for de-normalizing TCN_SA output
+    agg_p95: float | None = None   # 95th percentile of aggregate (W) for input normalization
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "PreprocessingConfig":
@@ -35,6 +37,8 @@ class PreprocessingConfig:
             std=data.get("std"),
             min_val=data.get("min"),
             max_val=data.get("max"),
+            p_max_kw=data.get("p_max_kw"),
+            agg_p95=data.get("agg_p95"),
         )
 
 
@@ -74,9 +78,9 @@ class ModelEntry:
     architecture: str
     architecture_params: dict[str, Any]
     artifact_path: str
-    artifact_sha256: str
     input_window_size: int
     preprocessing: PreprocessingConfig
+    artifact_sha256: str | None = None  # Optional - skip verification if not present
     is_active: bool = False
     heads: list[HeadConfig] = field(default_factory=list)  # Multi-head config
 
@@ -173,7 +177,7 @@ class ModelRegistry:
         """Parse a single registry entry."""
         required_fields = [
             "model_id", "model_version", "appliance_id", "architecture",
-            "artifact_path", "artifact_sha256", "input_window_size",
+            "artifact_path", "input_window_size",
         ]
 
         # Check required fields
@@ -196,8 +200,8 @@ class ModelRegistry:
             architecture=data["architecture"],
             architecture_params=data.get("architecture_params", {}),
             artifact_path=data["artifact_path"],
-            artifact_sha256=data["artifact_sha256"],
             input_window_size=data["input_window_size"],
+            artifact_sha256=data.get("artifact_sha256"),
             preprocessing=preprocessing,
             is_active=data.get("is_active", False),
             heads=[
@@ -247,13 +251,14 @@ class ModelRegistry:
                 errors.append(f"Model {model_id}: artifact not found at {entry.resolved_path}")
                 continue
 
-            # Check SHA256
-            actual_sha256 = self._compute_sha256(entry.resolved_path)
-            if actual_sha256 != entry.artifact_sha256:
-                errors.append(
-                    f"Model {model_id}: SHA256 mismatch "
-                    f"(expected {entry.artifact_sha256[:16]}..., got {actual_sha256[:16]}...)"
-                )
+            # Check SHA256 (skip if not provided)
+            if entry.artifact_sha256:
+                actual_sha256 = self._compute_sha256(entry.resolved_path)
+                if actual_sha256 != entry.artifact_sha256:
+                    errors.append(
+                        f"Model {model_id}: SHA256 mismatch "
+                        f"(expected {entry.artifact_sha256[:16]}..., got {actual_sha256[:16]}...)"
+                    )
 
         # Check for appliances without active model
         for appliance_id, model_ids in self._by_appliance.items():

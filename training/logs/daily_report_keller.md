@@ -32,3 +32,28 @@
 ### Status
 - Preprocessing pipeline completed
 - Data ready for next analysis and modeling phase
+
+---
+
+## January 12 - 1-Second Data Analysis
+
+### Completed Tasks
+- **Data Analysis**: Analyzed 1-second interval data.
+- **Data Cleaning**: Performed cleaning on the 1-second data.
+
+---
+
+## January 13 - Client Meeting & Preprocessing
+
+### Completed Tasks
+- **Client Interaction**: Met with the client for guidance on project direction.
+- **Preprocessing**: Finalized preprocessing for 1-second data (noted limited usability).
+- **Modeling**: Began creation of models using the 1-second data.
+
+---
+
+## January 14 - Model Implementation & Comparison
+
+### Completed Tasks
+- **Model Implementation**: Continued implementation of models using 1-second data.
+- **Performance Evaluation**: Testing if 1-second data models outperform 15-minute data models despite the limited dataset size.

@@ -48,7 +48,8 @@
                         "CNNSeq2Seq",
                         "UNet1D",
                         "hybrid_cnn_transformer",
-                        "wavenilm_v3"
+                        "tcn_gated",
+                        "tcn_sa"
                     ],
                     "description": "Model architecture type"
                 },

@@ -18,6 +18,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.inference.engine import get_inference_engine
 from app.domain.inference.registry import get_model_registry, ModelEntry
+from app.domain.inference.postprocessing import enforce_sum_constraint_smart, compute_residual
 from app.infra.influx import get_influx_client, init_influx_client
 from app.infra.redis.streams import ack, ensure_group, read_group
 from app.infra.redis.rolling_window import get_window_values, get_window_samples, get_window_length
@@ -92,6 +93,21 @@ class RedisInferenceWorker:
 
     async def _process_batch(self) -> None:
         """Process a batch of messages from Redis Stream."""
+        # Health check: ensure Redis connection is alive
+        try:
+            from app.infra.redis.client import get_redis_cache
+            cache = get_redis_cache()
+            if cache._redis:
+                await cache._redis.ping()
+        except Exception as e:
+            logger.warning(f"Redis health check failed, attempting reconnect: {e}")
+            try:
+                from app.infra.redis.client import init_redis_cache
+                await init_redis_cache()
+            except Exception as e2:
+                logger.error(f"Redis reconnect failed: {e2}")
+                raise
+
         messages = await read_group(
             self.settings.redis_stream_key,
             self.settings.redis_consumer_group,
@@ -169,6 +185,10 @@ class RedisInferenceWorker:
             logger.warning(f"Failed to get window length: {e}")
             return
 
+        # Collect all predictions from all active models
+        all_predictions: Dict[str, Tuple[float, float]] = {}
+        aggregate_power_kw = 0.0  # Will be extracted from window
+
         # Run inference for each active model
         for model_entry in active_models:
             required_size = model_entry.input_window_size
@@ -194,6 +214,10 @@ class RedisInferenceWorker:
                 # Extract power values for backward compatibility and basic scaling
                 window_values = [s[1] for s in window_samples]
 
+                # Get aggregate power from the MOST RECENT sample (for constraint enforcement)
+                if window_samples:
+                    aggregate_power_kw = window_samples[-1][1]  # Most recent power reading
+
                 # Load the model and run inference
                 model, entry = engine.get_model(model_entry.model_id, model_entry.appliance_id)
 
@@ -204,24 +228,48 @@ class RedisInferenceWorker:
                     window=window_values,
                     samples=window_samples,
                 )
+
+                # Accumulate predictions (one model = one appliance typically)
                 # Results format: {field_key: (predicted_kw, confidence)}
-                await influx.write_predictions_wide(
-                    building_id=building_id,
-                    predictions=predictions,
-                    model_version=model_entry.model_version,
-                    user_id="pipeline",
-                    request_id=f"worker-{self.consumer_name}",
-                    latency_ms=0.0,  # Could measure actual latency
-                    timestamp=event_time,
-                )
-                logger.info(
-                    f"Prediction written: building={building_id}, "
-                    f"model={model_entry.model_id}, "
-                    f"heads={list(predictions.keys())}"
-                )
+                all_predictions.update(predictions)
 
             except Exception as e:
                 logger.error(
                     f"Inference failed: building={building_id}, "
                     f"model={model_entry.model_id}, error={e}"
                 )
+
+        # Apply Smart Priority Scaling post-processing
+        if all_predictions:
+            corrected_predictions = enforce_sum_constraint_smart(
+                predictions=all_predictions,
+                aggregate_power_kw=aggregate_power_kw,
+            )
+
+            # Compute residual (ghost load)
+            residual_kw = compute_residual(corrected_predictions, aggregate_power_kw)
+            logger.debug(
+                f"Residual power: {residual_kw:.3f}kW "
+                f"({residual_kw/aggregate_power_kw*100:.1f}% of aggregate)"
+            )
+
+            # Write predictions to InfluxDB
+            try:
+                await influx.write_predictions_wide(
+                    building_id=building_id,
+                    predictions=corrected_predictions,
+                    model_version="ensemble-v1",  # Multiple models
+                    user_id="pipeline",
+                    request_id=f"worker-{self.consumer_name}",
+                    latency_ms=0.0,  # Could measure actual latency
+                    timestamp=event_time,
+                )
+                logger.info(
+                    f"Predictions written: building={building_id}, "
+                    f"appliances={len(corrected_predictions)}, "
+                    f"aggregate={aggregate_power_kw:.3f}kW, "
+                    f"sum={sum(p for p, _ in corrected_predictions.values()):.3f}kW"
+                )
+            except Exception as e:
+                logger.error(f"Failed to write predictions to InfluxDB: {e}")
+

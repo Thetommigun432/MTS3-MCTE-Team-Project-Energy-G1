@@ -19,7 +19,7 @@ from app.core.errors import ErrorCode, ModelError, ValidationError
 from app.core.logging import get_logger
 from app.core.telemetry import INFERENCE_COUNT, INFERENCE_LATENCY, MODEL_CACHE_SIZE
 from app.domain.inference.registry import ModelEntry, PreprocessingConfig, get_model_registry
-from app.domain.inference.architectures import HybridCNNTransformerAdapter, WaveNILM_v3
+from app.domain.inference.architectures import HybridCNNTransformerAdapter, TCN_Gated, TCN_SA
 
 logger = get_logger(__name__)
 
@@ -253,9 +253,11 @@ MODEL_CLASSES: dict[str, type[nn.Module]] = {
     "hybrid_cnn_transformer": HybridCNNTransformerAdapter,
     "hybridcnntransformer": HybridCNNTransformerAdapter,
     "hybrid": HybridCNNTransformerAdapter,
-    # WaveNILM v3
-    "wavenilm_v3": WaveNILM_v3,
-    "wavenilmv3": WaveNILM_v3,
+    # TCN architectures
+    "tcn_gated": TCN_Gated,
+    "tcn-gated": TCN_Gated,
+    "tcn_sa": TCN_SA,
+    "tcn-sa": TCN_SA,
 }
 
 
@@ -318,7 +320,18 @@ def apply_inverse_preprocessing(
     value: float,
     config: PreprocessingConfig,
 ) -> float:
-    """Apply inverse preprocessing to model output."""
+    """
+    Apply inverse preprocessing to model output.
+    
+    For TCN_SA models: output is normalized [0,1] by P_MAX.
+    To get kW: predicted_kw = output * p_max_kw
+    """
+    # TCN_SA models: output normalized by P_MAX
+    # De-normalize: multiply by p_max_kw
+    if hasattr(config, 'p_max_kw') and config.p_max_kw:
+        return value * config.p_max_kw
+    
+    # Legacy: standard normalization with mean/std
     if config.type == "standard":
         mean = config.mean
         std = config.std
@@ -350,7 +363,7 @@ class InferenceEngine:
         self._model_cache: dict[tuple[str, str], nn.Module] = {}
 
     def _load_model(self, entry: ModelEntry) -> nn.Module:
-        """Load a model from safetensors."""
+        """Load a model from safetensors or .pt checkpoint."""
         cache_key = (entry.model_id, entry.model_version)
 
         # Check cache
@@ -373,19 +386,41 @@ class InferenceEngine:
                 message=f"Failed to ensure artifact availability: {e}",
             )
 
-        if not artifact_path.suffix == ".safetensors":
+        # Support both .safetensors and .pt formats
+        if artifact_path.suffix == ".safetensors":
+            try:
+                state_dict = load_safetensors(str(artifact_path))
+                model.load_state_dict(state_dict, strict=False)
+            except Exception as e:
+                raise ModelError(
+                    code=ErrorCode.MODEL_LOAD_ERROR,
+                    message=f"Failed to load safetensors: {e}",
+                )
+        elif artifact_path.suffix in (".pt", ".pth"):
+            try:
+                checkpoint = torch.load(str(artifact_path), map_location="cpu", weights_only=False)
+                # Handle different checkpoint formats
+                if isinstance(checkpoint, dict):
+                    if "model_state_dict" in checkpoint:
+                        state_dict = checkpoint["model_state_dict"]
+                    elif "model" in checkpoint:
+                        state_dict = checkpoint["model"]
+                    elif "state_dict" in checkpoint:
+                        state_dict = checkpoint["state_dict"]
+                    else:
+                        state_dict = checkpoint
+                else:
+                    state_dict = checkpoint
+                model.load_state_dict(state_dict, strict=False)
+            except Exception as e:
+                raise ModelError(
+                    code=ErrorCode.MODEL_LOAD_ERROR,
+                    message=f"Failed to load .pt checkpoint: {e}",
+                )
+        else:
             raise ModelError(
                 code=ErrorCode.MODEL_ARTIFACT_INVALID,
-                message=f"Only .safetensors artifacts are supported, got: {artifact_path.suffix}",
-            )
-
-        try:
-            state_dict = load_safetensors(str(artifact_path))
-            model.load_state_dict(state_dict, strict=False)
-        except Exception as e:
-            raise ModelError(
-                code=ErrorCode.MODEL_LOAD_ERROR,
-                message=f"Failed to load safetensors: {e}",
+                message=f"Unsupported artifact format: {artifact_path.suffix}. Use .safetensors or .pt",
             )
 
         model.eval()
@@ -519,17 +554,19 @@ class InferenceEngine:
                     message=f"Expected window of {entry.input_window_size} values, got {len(window)}",
                 )
 
-            # SOTA Architectures require 7 temporal features (WaveNILM v3, etc.)
-            is_sota = entry.architecture.lower() in ("wavenilm_v3", "wavenilmv3", "hybrid_cnn_transformer", "cnnseq2seq", "unet1d")
+            # SOTA Architectures require 7/8 temporal features
+            is_sota = entry.architecture.lower() in ("tcn_gated", "tcn-gated", "tcn_sa", "tcn-sa", "hybrid_cnn_transformer", "cnnseq2seq", "unet1d")
 
             if is_sota and samples:
-                # Use SOTA preprocessor for 7 features
+                # Use SOTA preprocessor for 7 or 8 features (based on model config)
                 from app.domain.inference.preprocessing import DataPreprocessor
                 import numpy as _np
                 # Get P_MAX from architecture_params (default 15 kW = 15000 W)
                 # DataPreprocessor expects P_MAX in WATTS
                 p_max_watts = entry.architecture_params.get("p_max_kw", 15.0) * 1000.0
-                preprocessor = DataPreprocessor(P_MAX=p_max_watts)
+                # Get n_features from architecture_params (7 for old models, 8 for new with delta_P)
+                n_features = entry.architecture_params.get("n_features", 7)
+                preprocessor = DataPreprocessor(P_MAX=p_max_watts, n_features=n_features)
 
                 features_list = []
                 for ts_iso, val_kw in samples:
@@ -540,17 +577,18 @@ class InferenceEngine:
                         # CRITICAL: Rolling window stores values in kW, preprocessor expects WATTS
                         # Convert kW -> W before passing to preprocessor
                         val_watts = val_kw * 1000.0
-                        # process_sample returns (7,) array
+                        # process_sample returns (n_features,) array
                         features = preprocessor.process_sample(dt.timestamp(), val_watts)
                         features_list.append(features)
                     except Exception as e:
                         logger.warning(f"Failed to preprocess sample: {e}")
                         # Fallback to zeros for this sample if date parsing fails
-                        features_list.append(_np.zeros(7, dtype=_np.float32))
+                        features_list.append(_np.zeros(n_features, dtype=_np.float32))
                 
-                # features_list is (seq_len, 7)
-                # Convert to (1, 7, seq_len) for Conv1d
-                x = torch.tensor(_np.array(features_list), dtype=torch.float32).unsqueeze(0).transpose(1, 2)
+                # features_list is (seq_len, n_features)
+                # TCN_SA expects input (B, T, F) where T=seq_len, F=n_features
+                # It does internal transpose: x.transpose(1, 2) -> (B, F, T) for Conv1d
+                x = torch.tensor(_np.array(features_list), dtype=torch.float32).unsqueeze(0)  # (1, T, F)
             else:
                 # Standard preprocessing
                 preprocessed = apply_preprocessing(window, entry.preprocessing)

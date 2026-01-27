@@ -1,69 +1,213 @@
 {
   "$schema": "./registry.schema.json",
   "models": {
-    "evcharger-v3-sota": {
-      "model_id": "evcharger-v3-sota",
-      "model_version": "v3-sota",
-      "appliance_id": "EVCharger",
-      "architecture": "wavenilm_v3",
-      "architecture_params": {
-        "n_blocks": 9,
-        "hidden_channels": 128,
-        "n_stacks": 2,
-        "window": 1536,
-        "p_max_kw": 15.0,
-        "optimal_threshold": 0.5
-      },
-      "artifact_path": "wavenilm_v3/evcharger/v3-sota/model.safetensors",
-      "artifact_sha256": "48e31f7ea81f29331173bb8a0629b4a2fcf503266e89eb763b8aebc85090c089",
-      "input_window_size": 1536,
-      "preprocessing": {
-        "type": "standard",
-        "max": 15.0
-      },
-      "is_active": true
-    },
-    "heatpump-v3-sota": {
-      "model_id": "heatpump-v3-sota",
-      "model_version": "v3-sota",
+    "heatpump-tcn-sa": {
+      "model_id": "heatpump-tcn-sa",
+      "model_version": "1.0",
       "appliance_id": "HeatPump",
-      "architecture": "wavenilm_v3",
+      "architecture": "tcn_sa",
       "architecture_params": {
-        "n_blocks": 9,
+        "n_blocks": 12,
         "hidden_channels": 64,
-        "n_stacks": 2,
-        "window": 1536,
-        "p_max_kw": 15.0,
-        "optimal_threshold": 0.5
+        "n_features": 7,
+        "window": 4096,
+        "inception_causal": true
       },
-      "artifact_path": "wavenilm_v3/heatpump/v3-sota/model.safetensors",
-      "artifact_sha256": "9c4c47e6c3589ef947dc11a510d2aa79a5fa9bb8e66a32c7c0c30c727caf121a",
-      "input_window_size": 1536,
+      "artifact_path": "tcn_sa/TCN_SA_HeatPump_best.pt",
+      "input_window_size": 4096,
       "preprocessing": {
         "type": "standard",
-        "max": 15.0
+        "agg_p95": 8000,
+        "p_max_kw": 5.0
       },
       "is_active": true
     },
-    "washingmachine-v3-sota": {
-      "model_id": "washingmachine-v3-sota",
-      "model_version": "v3-sota",
+    "dishwasher-tcn-sa": {
+      "model_id": "dishwasher-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "Dishwasher",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 10,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_Dishwasher_20260126_225619_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 2.5
+      },
+      "is_active": true
+    },
+    "washingmachine-tcn-sa": {
+      "model_id": "washingmachine-tcn-sa",
+      "model_version": "1.0",
       "appliance_id": "WashingMachine",
-      "architecture": "wavenilm_v3",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 10,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_WashingMachine_20260127_013621_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 2.5
+      },
+      "is_active": true
+    },
+    "dryer-tcn-sa": {
+      "model_id": "dryer-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "Dryer",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 10,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_Dryer_20260127_104154_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 3.0
+      },
+      "is_active": true
+    },
+    "oven-tcn-sa": {
+      "model_id": "oven-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "Oven",
+      "architecture": "tcn_sa",
       "architecture_params": {
         "n_blocks": 9,
         "hidden_channels": 64,
-        "n_stacks": 2,
-        "window": 1536,
-        "p_max_kw": 15.0,
-        "optimal_threshold": 0.5
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
       },
-      "artifact_path": "wavenilm_v3/washingmachine/v3-sota/model.safetensors",
-      "artifact_sha256": "e54b3975927a2fe034ef1fac0ce59f6a06b602608bcf4aa6aba0ffd10c092e4f",
-      "input_window_size": 1536,
+      "artifact_path": "tcn_sa/TCN_SA_Oven_20260127_075244_best.pt",
+      "input_window_size": 4096,
       "preprocessing": {
         "type": "standard",
-        "max": 15.0
+        "agg_p95": 8000,
+        "p_max_kw": 3.5
+      },
+      "is_active": true
+    },
+    "stove-tcn-sa": {
+      "model_id": "stove-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "Stove",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 9,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_Stove_20260127_054136_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 3.0
+      },
+      "is_active": true
+    },
+    "rangehood-tcn-sa": {
+      "model_id": "rangehood-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "RangeHood",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 8,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_RangeHood_20260127_091844_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 0.5
+      },
+      "is_active": true
+    },
+    "evcharger-tcn-sa": {
+      "model_id": "evcharger-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "EVCharger",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 10,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": false
+      },
+      "artifact_path": "tcn_sa/TCN_SA_EVCharger_20260126_204724_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 7.5
+      },
+      "is_active": true
+    },
+    "evsocket-tcn-sa": {
+      "model_id": "evsocket-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "EVSocket",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 10,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_EVSocket_20260127_114410_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 7.5
+      },
+      "is_active": true
+    },
+    "rainwaterpump-tcn-sa": {
+      "model_id": "rainwaterpump-tcn-sa",
+      "model_version": "1.0",
+      "appliance_id": "RainwaterPump",
+      "architecture": "tcn_sa",
+      "architecture_params": {
+        "n_blocks": 8,
+        "hidden_channels": 64,
+        "n_features": 8,
+        "window": 4096,
+        "inception_causal": true
+      },
+      "artifact_path": "tcn_sa/TCN_SA_RainwaterPump_20260127_100548_best.pt",
+      "input_window_size": 4096,
+      "preprocessing": {
+        "type": "standard",
+        "agg_p95": 8000,
+        "p_max_kw": 1.0
       },
       "is_active": true
     }
