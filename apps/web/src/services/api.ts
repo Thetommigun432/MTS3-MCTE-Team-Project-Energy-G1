@@ -189,13 +189,14 @@ async function request<T>(
     ...customHeaders,
   };
 
-  // Add auth token from Supabase session
+  // Add auth token from Supabase session if available
   if (getEnv().supabaseEnabled) {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
-      if (token) {
+      // Only send real tokens, not demo placeholders
+      if (token && token !== "demo-token") {
         (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
       }
     } catch {

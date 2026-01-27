@@ -16,6 +16,13 @@ from app.infra.supabase.client import get_supabase_client
 
 logger = get_logger(__name__)
 
+# Demo/development buildings that are accessible without Supabase
+DEMO_BUILDINGS = frozenset({
+    "demo-residential-001",
+    "building-1",
+    "building_1",  # Alternative format
+})
+
 
 class AuthzPolicy:
     """Authorization policy checker."""
@@ -71,20 +78,43 @@ class AuthzPolicy:
         """
         Check if user has access to a building.
 
-        Admins have access to all buildings.
-        Regular users must own the building.
+        Access is granted if:
+        - User has admin role
+        - Building is in the user's permission graph (owned, member, or demo)
+        - Building is a known demo building and we're in dev mode
         """
         start_time = time.time()
+        settings = get_settings()
 
         try:
+            # In dev/test mode, allow access to demo buildings for any authenticated user
+            if settings.env in ("dev", "test", "local") and building_id in DEMO_BUILDINGS:
+                logger.debug(
+                    "Allowing demo building access in dev mode",
+                    extra={"building_id": building_id, "user_id": token.user_id}
+                )
+                return True
+
             graph = await self.get_permission_graph(token.user_id, token.role)
 
             # Admins have universal access
             if graph.role in self.ADMIN_ROLES:
                 return True
 
-            # Check building ownership
-            return building_id in graph.buildings
+            # Check building in permission graph
+            if building_id in graph.buildings:
+                return True
+            
+            # If Supabase returned no buildings but we have demo buildings configured,
+            # allow access to demo buildings for authenticated users
+            if len(graph.buildings) == 0 and building_id in DEMO_BUILDINGS:
+                logger.info(
+                    "Allowing demo building access (Supabase returned no buildings)",
+                    extra={"building_id": building_id, "user_id": token.user_id}
+                )
+                return True
+
+            return False
 
         finally:
             duration = time.time() - start_time

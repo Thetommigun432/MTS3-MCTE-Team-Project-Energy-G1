@@ -23,7 +23,7 @@ class SupabaseClient:
         """Initialize the Supabase client."""
         settings = get_settings()
 
-        # Prefer publishable key, fallback handled in config or here if needed
+        # Prefer publishable key (new format), fallback to anon key
         key = settings.supabase_publishable_key or settings.supabase_anon_key
 
         if not settings.supabase_url or not key:
@@ -43,23 +43,52 @@ class SupabaseClient:
 
     async def get_user_buildings(self, user_id: str) -> list[str]:
         """
-        Get building IDs that a user owns.
+        Get building IDs that a user has access to.
+        
+        Access includes:
+        - Buildings the user owns (user_id matches)
+        - Buildings marked as demo (is_demo=TRUE)
+        - Buildings where user is a member (building_members)
+        - Buildings in orgs the user belongs to
 
         Returns:
-            List of building UUIDs
+            List of building IDs (TEXT)
         """
         if not self._client:
             logger.warning("Supabase client not connected")
             return []
 
+        buildings: set[str] = set()
+
         try:
-            response = (
+            # Get buildings user owns
+            owned = (
                 self._client.table("buildings")
                 .select("id")
                 .eq("user_id", user_id)
                 .execute()
             )
-            return [row["id"] for row in response.data]
+            buildings.update(row["id"] for row in owned.data)
+
+            # Get demo buildings (accessible to all authenticated users)
+            demo = (
+                self._client.table("buildings")
+                .select("id")
+                .eq("is_demo", True)
+                .execute()
+            )
+            buildings.update(row["id"] for row in demo.data)
+
+            # Get buildings via membership
+            memberships = (
+                self._client.table("building_members")
+                .select("building_id")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            buildings.update(row["building_id"] for row in memberships.data)
+
+            return list(buildings)
         except Exception as e:
             logger.error("Failed to get user buildings", extra={"user_id": user_id, "error": str(e)})
             return []

@@ -90,14 +90,12 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Determine initial mode from localStorage or environment
   const [mode, setModeInternal] = useState<DataMode>(() => {
-    // Check localStorage first
+    // Check localStorage for user preference
     const savedMode = localStorage.getItem("energy-monitor-mode");
     if (savedMode === "api" || savedMode === "demo") {
       return savedMode;
     }
-    // Fallback to environment default
-    if (import.meta.env.VITE_DEMO_MODE === "true") return "demo";
-    return "api"; // Default to API mode in production
+    return "api"; // Default to API mode
   });
 
   const [selectedBuilding, setSelectedBuilding] = useState("Demo Building");

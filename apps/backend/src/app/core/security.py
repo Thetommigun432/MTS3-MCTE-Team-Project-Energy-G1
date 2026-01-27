@@ -1,6 +1,6 @@
 """
 JWT verification and authentication.
-Supports HS256 (default) and RS256 (via JWKS).
+Supports HS256 (default), RS256, and ES256 (via JWKS).
 """
 
 import threading
@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 class JWKSCache:
     """
-    Cached JWKS client for RS256 verification.
+    Cached JWKS client for RS256/ES256 verification.
     
     Implements concurrent-safe refreshing:
     - Caches keys in-memory via PyJWKClient.
@@ -169,7 +169,7 @@ def verify_token(token: str) -> TokenPayload:
 
     Verification mode (Auto):
     1. Parse header (unverified) to get 'alg'.
-    2. If RS256: Verify via JWKS (SUPABASE_JWKS_URL).
+    2. If RS256 or ES256: Verify via JWKS (SUPABASE_JWKS_URL).
     3. If HS256: Verify via SUPABASE_JWT_SECRET (Legacy).
     4. If Unknown: Reject.
 
@@ -194,23 +194,26 @@ def verify_token(token: str) -> TokenPayload:
         payload: dict[str, Any] | None = None
 
         # 2. Route Verification based on Algorithm
-        if algorithm == "RS256":
+        if algorithm in ("RS256", "ES256"):
             jwks_cache = _get_jwks_cache()
             if not jwks_cache:
                 # Should not happen if config is correct, but safe fallback
                 raise AuthenticationError(
                     code=ErrorCode.AUTH_CONFIGURATION_ERROR,
-                    message="RS256 token received but JWKS URL not configured"
+                    message=f"{algorithm} token received but JWKS URL not configured"
                 )
             
             signing_key = jwks_cache.get_signing_key(token)
             payload = jwt.decode(
                 token,
                 signing_key.key,
-                algorithms=["RS256"],
+                algorithms=[algorithm],
                 audience="authenticated" if settings.auth_verify_aud else None,
                 issuer=f"{settings.supabase_url}/auth/v1" if settings.supabase_url else None,
-                options={"require": ["exp", "sub"]}
+                options={
+                    "require": ["exp", "sub"],
+                    "verify_aud": settings.auth_verify_aud,
+                }
             )
 
         elif algorithm == "HS256":
@@ -233,7 +236,10 @@ def verify_token(token: str) -> TokenPayload:
                     algorithms=["HS256"],
                     audience="authenticated" if settings.auth_verify_aud else None,
                     issuer=f"{settings.supabase_url}/auth/v1" if settings.supabase_url else None,
-                    options={"require": ["exp", "sub"]}
+                    options={
+                        "require": ["exp", "sub"],
+                        "verify_aud": settings.auth_verify_aud,
+                    }
                 )
             else:
                 # Fail closed if HS256 received but no secret configured

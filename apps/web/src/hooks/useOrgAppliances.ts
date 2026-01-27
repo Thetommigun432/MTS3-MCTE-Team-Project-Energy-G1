@@ -2,10 +2,24 @@
  * Hook for managing organization-level appliances
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { isSupabaseEnabled } from "@/lib/env";
 import { toast } from "sonner";
+
+// Track if schema warning has been logged (session-level)
+let schemaWarningLogged = false;
+
+/**
+ * Check if error is a Supabase schema/table missing error
+ */
+function isSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const error = err as { code?: string; message?: string };
+  return ['PGRST205', '42703', '42P01', 'PGRST200'].includes(error.code || '') ||
+    (error.message?.includes('does not exist') ?? false);
+}
 
 export interface OrgAppliance {
   id: string;
@@ -40,9 +54,11 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
   const [appliances, setAppliances] = useState<OrgAppliance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track if schema is unavailable (don't retry)
+  const schemaUnavailable = useRef(false);
 
   const fetchAppliances = useCallback(async () => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user || !isSupabaseEnabled() || schemaUnavailable.current) {
       setAppliances([]);
       setLoading(false);
       return;
@@ -68,7 +84,20 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
         )
         .order("name");
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        // Check if it's a schema error (table/column doesn't exist)
+        if (isSchemaError(fetchError)) {
+          schemaUnavailable.current = true;
+          if (!schemaWarningLogged) {
+            console.warn("[useOrgAppliances] Supabase schema not available. Using empty state.");
+            schemaWarningLogged = true;
+          }
+          setAppliances([]);
+          setLoading(false);
+          return;
+        }
+        throw fetchError;
+      }
 
       const transformed: OrgAppliance[] = (data || []).map((a) => ({
         id: a.id,

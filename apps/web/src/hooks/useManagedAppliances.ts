@@ -1,7 +1,22 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { isSupabaseEnabled } from "@/lib/env";
+import { isDemoMode } from "@/lib/dataSource";
 import { useAuth } from "@/contexts/AuthContext";
+
+// Track if schema warning has been logged (session-level)
+let schemaWarningLogged = false;
+
+/**
+ * Check if error is a Supabase schema/table missing error
+ */
+function isSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const error = err as { code?: string; message?: string };
+  // PGRST205: table not found, 42703: column not found, 42P01: relation not found
+  return ['PGRST205', '42703', '42P01', 'PGRST200'].includes(error.code || '') ||
+    (error.message?.includes('does not exist') ?? false);
+}
 
 export interface ManagedAppliance {
   id: string; // building_appliance_id
@@ -30,9 +45,12 @@ export function useManagedAppliances(): ManagedAppliancesData {
   const [appliances, setAppliances] = useState<ManagedAppliance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track if schema is unavailable (don't retry)
+  const schemaUnavailable = useRef(false);
 
   const fetchAppliances = useCallback(async () => {
-    if (!user || !isSupabaseEnabled()) {
+    // Skip Supabase calls in demo mode or if not configured
+    if (!user || !isSupabaseEnabled() || isDemoMode() || schemaUnavailable.current) {
       setAppliances([]);
       setLoading(false);
       return;
@@ -48,7 +66,20 @@ export function useManagedAppliances(): ManagedAppliancesData {
         .select("id, name, rated_power_kw")
         .order("name");
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        // Check if it's a schema error (table/column doesn't exist)
+        if (isSchemaError(fetchError)) {
+          schemaUnavailable.current = true;
+          if (!schemaWarningLogged) {
+            console.warn("[useManagedAppliances] Supabase schema not available (table missing). Using empty state.");
+            schemaWarningLogged = true;
+          }
+          setAppliances([]);
+          setLoading(false);
+          return;
+        }
+        throw fetchError;
+      }
 
       // Transform the data
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,7 +92,7 @@ export function useManagedAppliances(): ManagedAppliancesData {
         type: "appliance",
         rated_power_kw: item.rated_power_kw ?? null,
         status: "active", // Default to active since we don't have is_enabled
-        notes: null,
+        notes: null as null,
       }));
 
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -53,7 +53,21 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnergy } from "@/contexts/EnergyContext";
+import { isSupabaseEnabled } from "@/lib/env";
 import { toast } from "sonner";
+
+// Track schema warnings (session-level)
+let schemaWarningLogged = false;
+
+/**
+ * Check if error is a Supabase schema/table missing error
+ */
+function isSchemaError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const error = err as { code?: string; message?: string };
+  return ['PGRST205', '42703', '42P01', 'PGRST200'].includes(error.code || '') ||
+    (error.message?.includes('does not exist') ?? false);
+}
 
 interface Building {
   id: string;
@@ -109,6 +123,8 @@ export default function Buildings() {
   const [expandedBuildings, setExpandedBuildings] = useState<Set<string>>(
     new Set(),
   );
+  // Track if Supabase schema is unavailable (don't retry)
+  const schemaUnavailable = useRef(false);
 
   // Building dialogs
   const [isAddBuildingOpen, setIsAddBuildingOpen] = useState(false);
@@ -148,7 +164,16 @@ export default function Buildings() {
         .select("*")
         .order("name");
 
-      if (error) throw error;
+      if (error) {
+        if (isSchemaError(error)) {
+          if (!schemaWarningLogged) {
+            console.warn("[Buildings] org_appliances table not available. Using empty state.");
+            schemaWarningLogged = true;
+          }
+          return;
+        }
+        throw error;
+      }
       setOrgAppliances(data || []);
     } catch (error) {
       console.error("Error fetching org appliances:", error);
@@ -181,8 +206,23 @@ export default function Buildings() {
       }
 
       // In API mode, fetch from Supabase
-      if (!user) {
-        setBuildings([]);
+      if (!user || !isSupabaseEnabled() || schemaUnavailable.current) {
+        // Fall back to context buildings if available
+        if (contextBuildings.length > 0) {
+          const fallbackBuildings = contextBuildings.map(b => ({
+            id: b.id,
+            name: b.name,
+            address: b.address || null,
+            description: null as string | null,
+            status: b.status || "active",
+            total_appliances: contextAppliances.length,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }));
+          setBuildings(fallbackBuildings);
+        } else {
+          setBuildings([]);
+        }
         setLoading(false);
         return;
       }
@@ -192,7 +232,32 @@ export default function Buildings() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isSchemaError(error)) {
+          schemaUnavailable.current = true;
+          if (!schemaWarningLogged) {
+            console.warn("[Buildings] Supabase buildings table not available. Using context fallback.");
+            schemaWarningLogged = true;
+          }
+          // Fall back to context buildings
+          if (contextBuildings.length > 0) {
+            const fallbackBuildings = contextBuildings.map(b => ({
+              id: b.id,
+              name: b.name,
+              address: b.address || null,
+              description: null as string | null,
+              status: b.status || "active",
+              total_appliances: contextAppliances.length,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }));
+            setBuildings(fallbackBuildings);
+          }
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
       setBuildings(data || []);
     } catch (error) {
       console.error("Error fetching buildings:", error);

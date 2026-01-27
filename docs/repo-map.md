@@ -12,7 +12,6 @@ This document provides an overview of the NILM Energy Monitor monorepo structure
 ├── checkpoints/             # ML training checkpoints (not deployed)
 ├── data/                    # Local data files (gitignored)
 ├── docs/                    # Documentation
-├── production/              # DEPRECATED - legacy files
 ├── scripts/                 # Utility scripts
 ├── supabase/                # Supabase configuration and migrations
 ├── tests/                   # Integration tests
@@ -63,12 +62,6 @@ apps/web/
 | API Server | `apps/backend/src/app/main.py` | `uvicorn app.main:app` |
 | Inference Worker | `apps/backend/src/app/worker_main.py` | `python -m app.worker_main` |
 | Frontend Dev | `apps/web/` | `npm run dev` |
-
-## Deprecated Folders
-
-| Folder | Status | Notes |
-|--------|--------|-------|
-| `/production/` | DEPRECATED | Legacy inference scripts, now merged into `/apps/backend/` |
 
 ## Configuration Files
 

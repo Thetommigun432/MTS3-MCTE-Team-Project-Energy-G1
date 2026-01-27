@@ -3,7 +3,6 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import react from "eslint-plugin-react"; // New dependency
-import tailwind from "eslint-plugin-tailwindcss"; // New dependency
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -12,7 +11,6 @@ export default tseslint.config(
     extends: [
       js.configs.recommended,
       ...tseslint.configs.recommended,
-      ...tailwind.configs["flat/recommended"], // Adds Tailwind rules
     ],
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
@@ -42,10 +40,6 @@ export default tseslint.config(
 
       // React 19 doesn't need React imported in JSX files anymore
       "react/react-in-jsx-scope": "off",
-
-      // Tailwind v4 Customization
-      // This ensures custom classes (like "text-brand-primary") don't error if defined in CSS
-      "tailwindcss/no-custom-classname": "off",
 
       "react-refresh/only-export-components": [
         "warn",
