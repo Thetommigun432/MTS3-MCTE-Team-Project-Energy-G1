@@ -75,9 +75,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Initialize InfluxDB client
     try:
-        await init_influx_client()
-        # Ensure required buckets exist (creates if missing)
-        try:
+        # Enforce strict timeout for the entire InfluxDB startup sequence
+        async def _startup_influx():
+            await init_influx_client()
+            # Ensure required buckets exist (creates if missing)
             influx = get_influx_client()
             bucket_results = await influx.ensure_buckets()
             for bucket_name, success in bucket_results.items():
@@ -85,8 +86,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     logger.info(f"InfluxDB bucket ready: {bucket_name}")
                 else:
                     logger.warning(f"InfluxDB bucket may not exist: {bucket_name}")
-        except Exception as e:
-            logger.error("Failed to ensure InfluxDB buckets", extra={"error": str(e)})
+        
+        # Wait max 5 seconds for InfluxDB to be ready, otherwise proceed
+        await asyncio.wait_for(_startup_influx(), timeout=5.0)
+
+    except asyncio.TimeoutError:
+        logger.error("InfluxDB startup timed out (continuing anyway)")
     except Exception as e:
         logger.error("Failed to connect to InfluxDB", extra={"error": str(e)})
 
