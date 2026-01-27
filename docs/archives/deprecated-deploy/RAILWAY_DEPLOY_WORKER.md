@@ -1,3 +1,8 @@
+# Deprecated: archived deployment doc
+
+> This document is archived and no longer maintained.
+> Use [docs/DEPLOYMENT.md](../../DEPLOYMENT.md) instead.
+
 # Railway Deployment: Inference Worker
 
 This guide explains how to deploy the NILM Inference Worker as a separate service on Railway using the **NILM Stream Pipeline**.

@@ -4,6 +4,22 @@
 
 This document describes the data flow and contracts between the frontend, backend, and external services (InfluxDB, Redis, Supabase).
 
+## End-to-End Dataflow
+
+1. **Raw readings** arrive via `POST /ingest/readings` (or simulator in local dev).
+2. **Backend** stores a rolling window in Redis and enqueues a stream event.
+3. **Worker** consumes the stream, builds a window, applies preprocessing, and runs inference.
+4. **Predictions** are written to InfluxDB in the `predictions` bucket.
+5. **Frontend** queries the backend for predictions and aggregates.
+
+## InfluxDB Naming (Current)
+
+| Concept | Value | Notes |
+|---|---|---|
+| Bucket | `predictions` | Controlled by `INFLUX_BUCKET_PRED`. |
+| Measurement (wide) | `prediction` | Preferred format. |
+| Measurement (legacy) | `nilm_predictions` | Supported for backward compatibility. |
+
 ---
 
 ## Building Identifiers

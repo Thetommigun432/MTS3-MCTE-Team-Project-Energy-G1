@@ -1,3 +1,8 @@
+# Deprecated: archived deployment doc
+
+> This document is archived and no longer maintained.
+> Use [docs/DEPLOYMENT.md](../../DEPLOYMENT.md) instead.
+
 # Railway Deployment Guide
 
 This guide details how to deploy the NILM system (API + Worker) on Railway.

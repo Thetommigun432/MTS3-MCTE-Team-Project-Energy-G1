@@ -11,7 +11,7 @@ This document provides an overview of the NILM Energy Monitor monorepo structure
 │   └── web/                 # React frontend (Vite + TypeScript)
 ├── checkpoints/             # ML training checkpoints (not deployed)
 ├── data/                    # Local data files (gitignored)
-├── docs/                    # Documentation
+├── docs/                    # Documentation (including archives)
 ├── scripts/                 # Utility scripts
 ├── supabase/                # Supabase configuration and migrations
 ├── tests/                   # Integration tests

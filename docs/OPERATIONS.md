@@ -1,111 +1,70 @@
-# Operations Guide
+# Operations & Troubleshooting
 
-## 1. Local Development
+This document is a runbook for operating and troubleshooting the system. It does not replace setup or deployment guides.
 
-### Prerequisites
-- Node.js 22 (LTS)
-- Docker & Docker Compose
-- Python 3.12+ (optional, for non-Docker backend)
+**Primary guides:**
+- Local dev: [LOCAL_DEV.md](./LOCAL_DEV.md)
+- Deployment: [DEPLOYMENT.md](./DEPLOYMENT.md)
+- Integration dataflow: [integration.md](./integration.md)
 
-### Quick Start (Full Stack)
-The easiest way to run the full stack locally is with Docker Compose.
+## Health Checks
 
-1.  **Environment Setup**:
-    ```bash
-    cp .env.local.example .env.local
-    # Set INFLUX_TOKEN (min 32 chars)
-    
-    cp apps/web/.env.example apps/web/.env
-    # Set VITE_DEMO_MODE=true for quick testing
-    ```
+### API
+- Liveness: `GET /live`
+- Readiness: `GET /ready`
 
-2.  **Start Backend & DB**:
-    ```bash
-    docker compose up -d
-    ```
+### Expected responses
+- `/live` returns 200 when the API process is running.
+- `/ready` returns 200 when dependencies (InfluxDB/Redis) are reachable.
 
-3.  **Start Frontend**:
-    ```bash
-    cd apps/web
-    npm install
-    npm run dev
-    ```
+## Common Incidents
 
-4.  **Access**:
-    - Frontend: `http://localhost:8080`
-    - Backend API: `http://localhost:8000`
-    - InfluxDB: `http://localhost:8086`
+### 1) Frontend shows "API unreachable"
+Checklist:
+- Verify the backend URL used at build time (`VITE_BACKEND_URL`).
+- Check that the backend responds at `/live`.
+- Ensure `CORS_ORIGINS` includes your frontend domain.
 
-### NILM Dataflow Pipeline (Local)
-To demonstrate the end-to-end pipeline with automatic inference:
+### 2) No predictions visible
+Checklist:
+- Verify the worker is consuming Redis streams.
+- Confirm the predictions bucket exists (`INFLUX_BUCKET_PRED`).
+- Check InfluxDB for recent points in the `predictions` bucket.
 
-1.  **Seed Data**:
-    ```bash
-    cd apps/backend
-    python scripts/seed_from_y_test.py --seconds 7200 --building-id demo
-    ```
-    This synthesizes aggregate power from `y_test.npy`, pushes it to the backend ingestion API, which queues it in Redis.
+### 3) Redis stream empty
+Checklist:
+- Ensure `PIPELINE_ENQUEUE_ENABLED=true` on the API service.
+- Confirm ingestion endpoint is receiving data (`POST /ingest/readings`).
 
-2.  **Verify Pipeline**:
-    - The backend logs will show `Pipeline worker started` and `Persisted inference for demo`.
-    - Check Frontend Dashboard for "demo" building (ensure VITE_DEMO_MODE=false).
-    - Query Disagregation: `GET /analytics/readings?building_id=demo&include_disaggregation=true`
+## Logs
 
-## 2. Deployment
+### Docker Compose (local)
+```bash
+docker compose logs -f backend
+docker compose logs -f worker
+docker compose logs -f simulator
+```
 
-### Backend (Railway)
-- **Repo Root**: Set Railway root directory to `apps/backend`.
-- **Dockerfile**: Automatically detected.
-- **Port**: Auto-injected (`PORT`).
-- **Health Check Path**: `/live`.
-- **Environment Variables**:
-    - `INFLUX_URL` (External InfluxDB cloud or hosted instance)
-    - `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET_*`
-    - `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-    - `CORS_ORIGINS` (Point to your Cloudflare URL)
+### Railway (production)
+Use Railway service logs for:
+- API service: request handling, CORS issues, readiness
+- Worker service: stream consumption, inference errors
 
-### Frontend (Cloudflare Pages)
-- **Source**: Connect GitHub repo.
-- **Build Settings**:
-    - **Framework**: Vite
-    - **Build command**: `npm ci && npm run build`
-    - **Build output directory**: `apps/web/dist`
-    - **Node Version**: `22` (Set `NODE_VERSION` env var or use `.nvmrc`)
-- **Environment Variables**:
-    - `VITE_BACKEND_URL`: Your Railway URL (e.g., `https://backend-production.up.railway.app`)
-    - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+## Dataflow Verification (quick)
 
-## 3. Configuration & Secrets
+1) **API health**
+```bash
+curl https://<api-domain>/live
+```
 
-### Environment Variables
-| Component | File | Key Variables |
-|-----------|------|---------------|
-| **Root** | `.env.local` | `INFLUX_TOKEN` (Shared secret) |
-| **Backend** | `apps/backend/.env` | `INFLUX_*`, `SUPABASE_*`, `CORS_ORIGINS` |
-| **Frontend** | `apps/web/.env` | `VITE_BACKEND_URL`, `VITE_SUPABASE_*` |
+2) **Redis stream length** (local)
+```bash
+docker exec nilm-redis redis-cli XLEN nilm:readings
+```
 
-**Security Note**: Never commit `.env` files. Use secrets management in production (Railway Variables / Cloudflare Pages Variables).
-
-### Railway Private Network
-These internal DNS values are available only within the Railway project network:
-
-| Service | Connection String | Notes |
-|---------|-------------------|-------|
-| **InfluxDB** | `influxdb.railway.internal` | Port 8086 |
-| **Redis** | `redis://redis.railway.internal:6379` | No password used internally |
-| **Backend** | `mts3-mcte-team-project-energy-g1.railway.internal` | Private DNS |
-
-
-## 4. Troubleshooting
-
-### Build Failures
-- **Lockfile mismatch**: Ensure you are using the root `package-lock.json`. run `npm ci` in root first.
-- **Node Version**: Check that specific environments use Node 22.
-
-### Connectivity
-- **CORS Error**: Check `CORS_ORIGINS` in Railway matches your Cloudflare URL exactly (no trailing slash).
-- **Influx Connection Refused**: Ensure `INFLUX_URL` is reachable from the backend container. In Docker Compose, use `http://influxdb:8086`.
-
-### Auth Issues
-- **"supabaseKey is required"**: In local dev, set `VITE_DEMO_MODE=true` to bypass Supabase, or provide valid keys.
-- **Backend 401**: Ensure the JWT sent by frontend matches the Supabase project configured in Backend.
+3) **Influx predictions** (local)
+```bash
+docker exec -it $(docker compose ps -q influxdb) influx query \
+  'from(bucket: "predictions") |> range(start: -5m) |> limit(n: 5)' \
+  --org energy-monitor --token $INFLUX_TOKEN
+```

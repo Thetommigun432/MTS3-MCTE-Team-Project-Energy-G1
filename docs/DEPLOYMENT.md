@@ -1,101 +1,110 @@
-# Deployment Guide
+# Deployment
 
-This guide details how to deploy the NILM Energy Monitor application. The architecture consists of:
-1.  **Backend API**: FastAPI service hosted on **Railway**.
-2.  **Worker**: Background Python worker hosted on **Railway**.
-3.  **Frontend**: React (Vite) application hosted on **Cloudflare Pages**.
-4.  **Databases**: InfluxDB and Redis hosted on **Railway**.
+This is the single source of truth for production deployment.
 
----
+## Architecture
 
-## 1. Railway Deployment (Backend)
+- **Backend API**: FastAPI on Railway (public).
+- **Worker**: Redis stream consumer on Railway (private).
+- **Redis**: Railway plugin or private service.
+- **InfluxDB**: Railway service or external managed instance.
+- **Frontend**: Vite SPA on Cloudflare Pages.
 
-We use Railway's Config as Code (toml) to define our services.
+## Railway Services
 
-### Prerequisites
-*   Railway CLI installed (`npm i -g @railway/cli`)
-*   Logged in (`railway login`)
-*   A Railway Project created.
+### Service config paths
 
-### Services Configuration
+Railway config is defined via TOML files in the repo:
 
-#### A. Databases
-Ensure your Railway project has the following databases mapped or provisioned:
-*   **Redis**: Standard provision.
-*   **InfluxDB**: Custom Image (`influxdb:2.7`) or persistent service. Ensure volumes are attached.
+| Service | Config file path | Networking |
+|--------|-------------------|-----------|
+| API | `apps/backend/railway.api.toml` | Public |
+| Worker | `apps/backend/railway.worker.toml` | Private |
 
-#### B. Backend API Service
-*   **Source**: Monorepo root.
-*   **Config File**: `apps/backend/railway.api.toml`
-*   **Networking**: Public Networking **Enabled**.
-*   **Healthcheck**: `/live` (Timeout: 300s).
+Set these in **Railway → Service Settings → Source → Config File Path**.
 
-#### C. Worker Service
-*   **Source**: Monorepo root.
-*   **Config File**: `apps/backend/railway.worker.toml`
-*   **Networking**: Public Networking **Disabled** (Internal only).
-*   **Restart Policy**: Always.
+### Datastores
 
-### Environment Variable Matrix (Backend)
+- **Redis**: Railway Redis plugin (recommended).
+- **InfluxDB**: Railway service (influxdb:2.8) or external managed InfluxDB.
 
-Apply these variables to the **Shared Environment** in Railway so both API and Worker can access them.
+For Railway private networking, use internal URLs such as:
+- `REDIS_URL=redis://redis.railway.internal:6379`
+- `INFLUX_URL=http://influxdb.railway.internal:8086`
 
-| Variable | Required | Description | Example Value |
-| :--- | :--- | :--- | :--- |
-| `PORT` | Yes (API) | Provided by Railway. | `8000` |
-| `ENV` | Yes | Environment mode. | `production` |
-| `LOG_LEVEL` | No | Logging verbosity. | `INFO` |
-| `INFLUX_URL` | Yes | Internal InfluxDB URL. | `http://influxdb:8086` |
-| `INFLUX_TOKEN` | Yes | Admin token. | `secure-production-token` |
-| `INFLUX_ORG` | Yes | Organization name. | `mcte-energy` |
-| `INFLUX_BUCKET_RAW` | Yes | Bucket for raw readings. | `raw_sensor_data` |
-| `INFLUX_BUCKET_PRED`| Yes | Bucket for predictions. | `predictions` |
-| `REDIS_URL` | Yes | Internal Redis URL. | `redis://default:pass@redis:6379` |
-| `SUPABASE_URL` | Yes | Supabase Project URL. | `https://xyz.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | **Secret** Service Role Key. | `ey...` |
-| `SUPABASE_JWKS_URL` | Yes | URL for JWT verification. | `https://xyz.supabase.co/auth/v1/.well-known/jwks.json` |
-| `CORS_ORIGINS` | Yes | Allowed Frontend Origins. | `https://your-frontend.pages.dev` |
-| `PIPELINE_ENABLED` | Yes | Enable worker pipeline logic. | `true` (Worker), `false` (API) |
+## Environment Variable Matrix
 
-> **Note**: Set `PIPELINE_ENABLED=true` specifically for the **Worker** service variable override, and `false` for the API if possible, or handle via shared env logic (Defaults to false in code if missing, but Worker needs it true).
+Use Railway **Shared Environment** for common values and Service Overrides for API/Worker-specific values.
 
----
+| Variable | Service(s) | Required | Where to set | Notes |
+|---|---|---|---|---|
+| `ENV` | API + Worker | Yes | Railway shared | Use `prod` in production. |
+| `PORT` | API | Yes | Railway injected | Do not set manually. |
+| `HOST` | API | No | Railway shared | Default `0.0.0.0`. |
+| `CORS_ORIGINS` | API | Yes | Railway shared | Comma-separated, no spaces. |
+| `INFLUX_URL` | API + Worker | Yes | Railway shared | Use private URL in Railway. |
+| `INFLUX_TOKEN` | API + Worker | Yes | Railway shared (secret) | Influx admin or RW token. |
+| `INFLUX_ORG` | API + Worker | Yes | Railway shared | Default `energy-monitor`. |
+| `INFLUX_BUCKET_PRED` | API + Worker | Yes | Railway shared | Predictions bucket. |
+| `REDIS_URL` | API + Worker | Yes | Railway shared | Redis connection string. |
+| `REDIS_STREAM_KEY` | API + Worker | No | Railway shared | Default `nilm:readings`. |
+| `REDIS_CONSUMER_GROUP` | Worker | No | Worker override | Default `nilm-infer`. |
+| `PIPELINE_ENQUEUE_ENABLED` | API | Yes | API override | Must be `true` to enqueue. |
+| `PIPELINE_WORKER_IN_API_ENABLED` | API | No | API override | Keep `false` when using a separate Worker. |
+| `PIPELINE_ROLLING_WINDOW_SIZE` | API + Worker | No | Railway shared | Default `3600`. |
+| `MODEL_ARTIFACT_BASE_URL` | API + Worker | Yes | Railway shared | Required for production models. See [RAILWAY_MODELS.md](./RAILWAY_MODELS.md). |
+| `SUPABASE_URL` | API | Yes | Railway shared | Supabase project URL. |
+| `SUPABASE_PUBLISHABLE_KEY` | API | Yes | Railway shared | Preferred over anon. |
+| `SUPABASE_ANON_KEY` | API | Optional | Railway shared | Legacy fallback if publishable key is not set. |
+| `SUPABASE_JWT_SECRET` | API | Optional | Railway shared (secret) | HS256 legacy auth. |
+| `SUPABASE_JWKS_URL` | API | Optional | Railway shared | Derived automatically if omitted. |
+| `AUTH_VERIFY_AUD` | API | Yes | Railway shared | Must be `true` in prod. |
+| `ADMIN_TOKEN` | API | Recommended | Railway shared (secret) | Protects `/admin/*` endpoints. |
+| `INGEST_TOKEN` | API | Optional | Railway shared (secret) | Server-to-server ingest auth. |
 
-## 2. Cloudflare Pages Deployment (Frontend)
+### Frontend (Cloudflare Pages)
 
-Run the frontend as a static site.
+Set in **Cloudflare Pages → Settings → Environment Variables**:
 
-### Build Configuration
-*   **Framework Preset**: Vite
-*   **Build Command**: `npm run -w apps/web build`
-*   **Root Directory**: `/` (Repository Root)
-*   **Build Output Directory**: `apps/web/dist`
+| Variable | Required | Notes |
+|---|---|---|
+| `VITE_BACKEND_URL` | Yes | Use the public Railway API domain. |
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL. |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Yes | Preferred key. |
+| `VITE_SUPABASE_ANON_KEY` | Optional | Legacy alias. |
+| `VITE_DEMO_MODE` | Optional | `false` for production. |
 
-### Environment Variable Matrix (Frontend)
+### Supabase key precedence
 
-Set these in **Cloudflare Pages > Settings > Environment Variables** (Production).
+- Backend prefers `SUPABASE_PUBLISHABLE_KEY`, falling back to `SUPABASE_ANON_KEY`.
+- Frontend prefers `VITE_SUPABASE_PUBLISHABLE_KEY`, falling back to `VITE_SUPABASE_ANON_KEY`.
 
-| Variable | Required | Description | Example Value |
-| :--- | :--- | :--- | :--- |
-| `VITE_BACKEND_URL` | Yes | Public URL of Railway API. | `https://backend-api-production.up.railway.app` |
-| `VITE_SUPABASE_URL` | Yes | Supabase Project URL. | `https://xyz.supabase.co` |
-| `VITE_SUPABASE_PUBLISHABLE_KEY`| Yes | Public Anon Key. | `ey...` |
+## Cloudflare Pages build settings
 
-> **Important**: `VITE_SUPABASE_ANON_KEY` is deprecated but supported as fallback. Use `VITE_SUPABASE_PUBLISHABLE_KEY`.
+| Setting | Value |
+|---|---|
+| Framework preset | Vite |
+| Build command | `npm run build:web` |
+| Output directory | `apps/web/dist` |
 
-### Verification
-1.  **Live Check**: Visit `https://your-frontend.pages.dev/api/live`. It should proxy or directly call backend (if configured). Actually, frontend calls backend via CORS.
-2.  **Network Tab**: Verify XHR requests go to `VITE_BACKEND_URL/api/...`.
+## Verification (Production)
 
----
-
-## 3. Local Development (Docker Compose)
-To run the full stack locally:
-
+### API health
 ```bash
-# Start all services (Backend, Worker, Influx, Redis)
-docker compose up -d --build
-
-# Run frontend dev server
-npm run -w apps/web dev
+curl https://<api-domain>/live
+curl https://<api-domain>/ready
 ```
+
+### Frontend network checks
+- Requests should go to `VITE_BACKEND_URL/api/*`.
+- Health checks use `/live` and `/ready` without `/api`.
+
+### Pipeline checks
+1. Send a reading to `POST /ingest/readings`.
+2. Verify Redis stream length increases.
+3. Verify InfluxDB has new points in the `predictions` bucket.
+
+## Notes
+
+- Local dev instructions live in [LOCAL_DEV.md](./LOCAL_DEV.md).
+- Archived deployment docs are in [archives/deprecated-deploy](./archives/deprecated-deploy).

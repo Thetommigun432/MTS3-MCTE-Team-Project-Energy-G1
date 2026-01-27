@@ -9,10 +9,10 @@ The Frontend is a **React 19** Single Page Application (SPA) built with **Vite 7
 ## 2. Technology Stack
 - **Core**: React 19, TypeScript 5.9
 - **Build**: Vite 7 (ESBuild)
-- **Styling**: Tailwind CSS v3, `shadcn/ui` (Radix Primitives + `class-variance-authority`)
+- **Styling**: Tailwind CSS v4, `shadcn/ui` (Radix Primitives + `class-variance-authority`)
 - **State Management**: React Context (`AuthContext`, `EnergyContext`)
 - **Data Visualization**: Recharts (ResponsiveContainer, AreaChart, BarChart)
-- **Protocol**: REST API (via Axios) + Supabase Client
+- **Protocol**: REST API (fetch wrapper in `services/api.ts`) + Supabase Client
 
 ## 3. Architecture & Directory Structure
 
@@ -67,10 +67,11 @@ Environment variables are typed and validated in `src/lib/env.ts`.
 | Variable | Description |
 |----------|-------------|
 | `VITE_SUPABASE_URL` | Supabase Project URL. |
-| `VITE_SUPABASE_ANON_KEY` | Public API Key. |
-| `VITE_BACKEND_URL` | Production Backend URL. In Dev, this is empty (proxy used). |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Preferred public key. |
+| `VITE_SUPABASE_ANON_KEY` | Legacy alias for publishable key. |
+| `VITE_BACKEND_URL` | Backend base URL. Use `/api` for local dev (Vite proxy). |
 | `VITE_DEMO_MODE` | `true` bypasses Auth and uses static CSV data. |
-| `VITE_LOCAL_MODE` | *(Deprecated)* Use local InfluxDB directly. |
+| `VITE_LOCAL_MODE` | *(Deprecated)* Local InfluxDB mode. |
 
 ## 6. Development Workflow
 
@@ -98,10 +99,10 @@ proxy: {
 ## 7. Authentication Flow
 1.  **Login**: User submits credentials to Supabase via `AuthContext`.
 2.  **Session**: Supabase returns a `session` object containing a JWT (`access_token`).
-3.  **API Requests**: `services/api.ts` interceptor attaches `Authorization: Bearer <token>` to every request.
+3.  **API Requests**: `services/api.ts` attaches `Authorization: Bearer <token>` to requests when authenticated.
 4.  **Expiry**: Supabase client auto-refreshes the token.
 
 ## 8. Deployment (Cloudflare Pages)
-- **Build Command**: `npm ci && npm run build`
-- **Output Directory**: `dist`
+- **Build Command**: `npm run build:web`
+- **Output Directory**: `apps/web/dist`
 - **Routing**: SPA routing is handled by `public/_redirects` file containing `/* /index.html 200`.

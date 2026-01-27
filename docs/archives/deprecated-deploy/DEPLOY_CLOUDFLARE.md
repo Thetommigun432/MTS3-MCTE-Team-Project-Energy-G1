@@ -1,3 +1,8 @@
+# Deprecated: archived deployment doc
+
+> This document is archived and no longer maintained.
+> Use [docs/DEPLOYMENT.md](../../DEPLOYMENT.md) instead.
+
 # Deploying to Cloudflare Pages
 
 This frontend is a React + Vite SPA designed to run on Cloudflare Pages.

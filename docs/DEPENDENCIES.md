@@ -1,40 +1,48 @@
 # Dependencies Audit
 
-This document serves as the canonical list of approved dependencies for the NILM Energy Monitor project.
+This document summarizes key dependencies and where they are defined.
 
-## 1. Backend (Python)
-**File**: `apps/backend/requirements.txt`
-**Constraint**: `apps/backend/constraints.txt` (for PyTorch CPU)
+## Backend (Python)
+
+**Source of truth**: `apps/backend/pyproject.toml`
 
 ### Core Framework
-- **fastapi**: Web framework. Pinned to `0.115.6`.
-- **uvicorn[standard]**: ASGI server. Pinned to `0.34.0`.
-- **pydantic**: Validation. Pinned to `2.10.4`.
+- **fastapi**: `0.128.0`
+- **uvicorn[standard]**: `0.40.0`
+- **pydantic**: `2.12.5`
 
 ### Data & ML
-- **influxdb-client[async]**: Time-series DB client. Pinned to `1.47.0`.
-- **numpy**: Pinned to `<2.0.0` for compatibility.
-- **torch**: PyTorch (CPU only). Pinned to `2.5.1` in constraints.
+- **influxdb-client[async]**: `1.50.0`
+- **numpy**: `>=1.26.0,<2.0.0`
+- **torch**: `>=2.2.0`
 
-### Utils
-- **supabase**: Database/Auth client. Pinned to `2.11.0`.
-- **python-json-logger**: Structured logging.
+### Integrations
+- **supabase**: `2.27.2`
+- **redis[hiredis]**: `7.1.0`
+- **pyarrow**: `>=14.0.0`
+- **pandas**: `>=2.1.0`
 
-## 2. Frontend (Node.js)
-**File**: `apps/web/package.json`
+## Frontend (Node)
+
+**Source of truth**: `apps/web/package.json`
 
 ### Core
-- **react**, **react-dom**: v19.
-- **vite**: v7.
-- **typescript**: v5.x.
+- **react**, **react-dom**: `^19.x`
+- **vite**: `^7.x`
+- **typescript**: `^5.x`
 
-### UI Components
-- **tailwindcss**: Styling.
-- **lucide-react**: Icons.
-- **recharts**: Data visualization.
-- **@radix-ui/**: Accessible primitives.
+### UI & Visualization
+- **tailwindcss**: `^4.x`
+- **@radix-ui/**: UI primitives
+- **recharts**: Charts
+- **lucide-react**: Icons
 
-### State & Logic
-- **@supabase/supabase-js**: Auth & DB.
-- **date-fns**: Date manipulation.
-- **react-hook-form**: Form handling.
+### Data & Auth
+- **@supabase/supabase-js**: Supabase client
+- **react-hook-form**: Forms
+- **date-fns**: Date utilities
+
+## Notes
+
+- The backend uses `pyproject.toml` and does not rely on `requirements.txt`.
+- Keep versions aligned with the repository’s lockfiles and Dockerfiles.

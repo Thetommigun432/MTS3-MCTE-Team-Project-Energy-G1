@@ -1,22 +1,28 @@
 # Documentation Index
 
-Welcome to the **NILM Energy Monitor** documentation.
+Welcome to the **NILM Energy Monitor** documentation. This README is the single navigation hub for all docs.
 
-## Core Documentation
+## Start Here
 
 | Document | Description |
 |----------|-------------|
-| [**Project Overview**](./PROJECT.md) | **Start Here**. Goals, Context, and Repo Map. |
-| [**Frontend Guide**](./FRONTEND.md) | **Deep Dive**. React/Vite architecture, state, and auth. |
-| [**Backend Guide**](./BACKEND.md) | **Deep Dive**. FastAPI internal architecture, ML pipeline, and data access. |
-| [**Operations Guide**](./OPERATIONS.md) | Local Development setup, Deployment (Cloudflare/Railway), and Troubleshooting. |
-| [**API Reference**](./API.md) | Backend API endpoints, authentication, and schemas. |
+| [**Project Overview**](./PROJECT.md) | Goals, architecture, and repo map. |
+| [**Local Development**](./LOCAL_DEV.md) | Docker Compose + npm workspace setup. |
+| [**Deployment**](./DEPLOYMENT.md) | Railway (API + Worker + Redis + Influx) and Cloudflare Pages. |
+| [**Integration**](./integration.md) | Dataflow, identifiers, and backend contracts. |
+| [**Operations & Troubleshooting**](./OPERATIONS.md) | Runbooks and incident checks. |
+| [**API Reference**](./API.md) | Backend endpoints and schemas. |
+| [**Model Artifacts**](./RAILWAY_MODELS.md) | Hosting and verifying production model weights. |
+| [**Repo Map**](./repo-map.md) | Monorepo structure overview. |
 
-## Quick Links
+## Frontend Deep Dive
 
-- **Frontend Code**: [`apps/web`](../apps/web)
-- **Backend Code**: [`apps/backend`](../apps/backend)
-- **ML Models**: [`models/`](../models)
+- [Frontend Guide](./frontend.md)
 
-## Contributing
-Please review [OPERATIONS.md](./OPERATIONS.md) for how to set up your local environment before contributing.
+## QA / Testing
+
+- [Testing Guide](./testing.md)
+
+## Archives (Deprecated)
+
+Archived deployment docs live under [archives/deprecated-deploy](./archives/deprecated-deploy). Do not use them for new deployments.

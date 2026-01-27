@@ -1,3 +1,8 @@
+# Deprecated: archived deployment doc
+
+> This document is archived and no longer maintained.
+> Use [docs/DEPLOYMENT.md](../../DEPLOYMENT.md) instead.
+
 # Deploying to Railway
 
 The backend is a FastAPI application running in a Docker container.
