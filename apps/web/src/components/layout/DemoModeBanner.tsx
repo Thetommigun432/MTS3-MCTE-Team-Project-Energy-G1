@@ -5,14 +5,25 @@
  * This prevents user confusion about whether data is real or simulated.
  */
 import { AlertTriangle, X } from "lucide-react";
-import { useState } from "react";
-import { isDemoMode } from "@/lib/dataSource";
+import { useState, useEffect } from "react";
+import { isDemoMode, onModeChange, DataSource } from "@/lib/dataSource";
 
 export function DemoModeBanner() {
   const [dismissed, setDismissed] = useState(false);
+  const [isDemo, setIsDemo] = useState(isDemoMode);
+
+  // Subscribe to mode changes
+  useEffect(() => {
+    const unsubscribe = onModeChange((_mode: DataSource) => {
+      setIsDemo(isDemoMode());
+      // Reset dismissed state when switching to demo mode
+      setDismissed(false);
+    });
+    return unsubscribe;
+  }, []);
 
   // Only show in demo mode
-  if (!isDemoMode() || dismissed) {
+  if (!isDemo || dismissed) {
     return null;
   }
 

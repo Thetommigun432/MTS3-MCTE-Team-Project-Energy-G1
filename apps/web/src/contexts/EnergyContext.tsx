@@ -30,6 +30,7 @@ import { useBuildings } from "@/hooks/useBuildings";
 import { energyApi, isEnergyApiAvailable, ReadingDataPoint, ApiError } from "@/services/energy";
 import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
+import { getDataSource, setDataSource } from "@/lib/dataSource";
 
 
 interface EnergyContextType {
@@ -88,14 +89,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [apiRows, setApiRows] = useState<NilmDataRow[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
 
-  // Determine initial mode from localStorage or environment
+  // Determine initial mode from centralized dataSource (which reads localStorage)
   const [mode, setModeInternal] = useState<DataMode>(() => {
-    // Check localStorage for user preference
-    const savedMode = localStorage.getItem("energy-monitor-mode");
-    if (savedMode === "api" || savedMode === "demo") {
-      return savedMode;
-    }
-    return "api"; // Default to API mode
+    return getDataSource();
   });
 
   const [selectedBuilding, setSelectedBuilding] = useState("Demo Building");
@@ -143,8 +139,8 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     (newMode: DataMode) => {
       if (newMode === mode) return;
 
-      // Persist to localStorage
-      localStorage.setItem("energy-monitor-mode", newMode);
+      // Update centralized data source (persists to localStorage + notifies hooks)
+      setDataSource(newMode);
 
       // Clear API data when switching away from API mode
       if (mode === "api") {
@@ -318,7 +314,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   // Auto-select first building when entering API mode or demo mode
   useEffect(() => {
     if (mode === "api" && !selectedBuildingId && supabaseBuildings.length > 0) {
-      setSelectedBuildingId(supabaseBuildings[0].id);
+      // Prefer building-1 if it exists (matches simulator default)
+      const building1 = supabaseBuildings.find(b => b.id === "building-1");
+      setSelectedBuildingId(building1?.id ?? supabaseBuildings[0].id);
     } else if (mode === "demo" && !selectedBuildingId) {
       // Auto-select demo building
       setSelectedBuildingId("demo-residential-001");
@@ -334,11 +332,33 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return map;
   }, [managedAppliances]);
 
-  // Appliances list: Use Managed Appliances (Supabase) in API mode
+  // Extract appliance keys from API rows (the actual keys in row.appliances)
+  const apiApplianceKeys = useMemo(() => {
+    if (mode !== "api" || apiRows.length === 0) return [];
+    
+    // Collect all unique appliance keys from all rows
+    const keySet = new Set<string>();
+    for (const row of apiRows) {
+      if (row.appliances) {
+        Object.keys(row.appliances).forEach(key => keySet.add(key));
+      }
+    }
+    return Array.from(keySet).sort();
+  }, [mode, apiRows]);
+
+  // Appliances list: In API mode, prefer keys from actual API data
   const appliances = useMemo(() => {
     if (mode === "api") {
-      // In API mode, we use the user's managed appliances list from Supabase
-      return managedAppliances.map(a => a.name).sort();
+      // Priority 1: Use actual keys from API response data (most accurate)
+      if (apiApplianceKeys.length > 0) {
+        return apiApplianceKeys;
+      }
+      // Priority 2: Fall back to managed appliances from Supabase
+      if (managedAppliances.length > 0) {
+        return managedAppliances.map(a => a.name).sort();
+      }
+      // Priority 3: Return empty (will populate when data loads)
+      return [];
     }
 
     // In demo mode, fallback to managed or demo
@@ -347,7 +367,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       return managedNames;
     }
     return demoAppliances;
-  }, [mode, managedAppliances, demoAppliances]);
+  }, [mode, apiApplianceKeys, managedAppliances, demoAppliances]);
 
   // Buildings from Supabase for API mode, demo building for demo mode
   const buildings = useMemo((): Building[] => {
