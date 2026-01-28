@@ -225,7 +225,7 @@ export default function Buildings() {
       const { data, error } = await supabase
         .from("buildings")
         .select("*")
-        .or("is_demo.is.null,is_demo.eq.false")
+        .neq("is_demo", true)
         .order("created_at", { ascending: false });
 
       if (error) {

@@ -1,26 +1,39 @@
 """
-NILM Simulator - Parquet Data Ingestion Service
-================================================
+NILM Simulator - Data Ingestion Service
+========================================
 
 This module provides a standalone service that simulates live sensor ingestion
-by reading rows from a parquet dataset and posting them to the backend API.
+by reading rows from either a parquet dataset or InfluxDB raw bucket
+and posting them to the backend API.
 
 The simulator:
 1. Waits for the backend to be ready (/ready returns 200)
-2. Reads the parquet dataset row by row
-3. Posts each row to the ingest API at configurable speed
-4. Runs continuously until stopped or dataset exhausted
+2. Loads data from parquet file (local) or InfluxDB raw bucket (cloud)
+3. Posts each reading to the ingest API at configurable speed
+4. Runs continuously until stopped, optionally looping through data
 
 Usage:
     python -m app.simulator_main
 
 Environment Variables:
     BACKEND_URL: Backend base URL (default: http://backend:8000)
-    PARQUET_PATH: Path to parquet file (default from config)
     BUILDING_ID: Building identifier (default: building-1)
-    DATA_POWER_COLUMN: Column name for aggregate power (default: aggregate)
     SIM_SPEEDUP: Speedup factor (default: 1, meaning 1 row/sec)
-    SIM_DURATION_SECONDS: Optional max duration (default: unlimited)
+    SIM_DURATION_SECONDS: Optional max duration (default: 0 = unlimited)
+    SIM_LOOP: Loop through data forever (default: true)
+
+    # Data Source Selection
+    RAW_DATA_SOURCE: "local" (parquet) or "influx" (InfluxDB raw bucket)
+
+    # For RAW_DATA_SOURCE=local:
+    PARQUET_PATH: Path to parquet file (default from config)
+    DATA_POWER_COLUMN: Column name for aggregate power (default: aggregate)
+
+    # For RAW_DATA_SOURCE=influx:
+    INFLUX_URL: InfluxDB URL
+    INFLUX_TOKEN: InfluxDB token
+    INFLUX_ORG: InfluxDB organization
+    INFLUX_BUCKET_RAW: Raw readings bucket name
 """
 
 import asyncio
@@ -41,7 +54,7 @@ logger = get_logger(__name__)
 
 
 class DataSimulator:
-    """Simulates live data ingestion from parquet file."""
+    """Simulates live data ingestion from parquet file or InfluxDB."""
 
     def __init__(self):
         self.settings = get_settings()
@@ -50,16 +63,23 @@ class DataSimulator:
 
         # Configuration from environment
         self.backend_url = os.getenv("BACKEND_URL", "http://backend:8000")
-        self.parquet_path = os.getenv("PARQUET_PATH", self.settings.dataset_path)
         self.building_id = os.getenv("BUILDING_ID", "building-1")
-        self.power_column = os.getenv("DATA_POWER_COLUMN", "aggregate")
         self.speedup = float(os.getenv("SIM_SPEEDUP", "1"))
         self.duration_seconds = int(os.getenv("SIM_DURATION_SECONDS", "0"))  # 0 = unlimited
+        self.loop_forever = os.getenv("SIM_LOOP", "true").lower() in ("true", "1", "yes")
+
+        # Data source selection
+        self.raw_data_source = os.getenv("RAW_DATA_SOURCE", self.settings.raw_data_source)
+
+        # Parquet-specific config
+        self.parquet_path = os.getenv("PARQUET_PATH", self.settings.dataset_path)
+        self.power_column = os.getenv("DATA_POWER_COLUMN", "aggregate")
 
         # Stats
         self.rows_sent = 0
         self.errors = 0
         self.start_time = None
+        self.loop_count = 0
 
     async def wait_for_backend(self, timeout: int = 300) -> bool:
         """Wait for backend to be ready."""
@@ -81,8 +101,8 @@ class DataSimulator:
         logger.error(f"Backend did not become ready within {timeout}s")
         return False
 
-    def load_parquet(self):
-        """Load the parquet file and validate columns."""
+    def load_parquet(self) -> list[tuple[datetime, float]]:
+        """Load the parquet file and return list of (timestamp, power_kw) tuples."""
         logger.info(f"Loading parquet from {self.parquet_path}")
 
         if not os.path.exists(self.parquet_path):
@@ -108,10 +128,70 @@ class DataSimulator:
                 )
 
         logger.info(f"Using power column: {self.power_column}")
-        return df
+
+        # Convert to list of (timestamp, power_kw) tuples
+        readings: list[tuple[datetime, float]] = []
+
+        for idx, row in df.iterrows():
+            # Get power value and convert to kW if needed
+            power_value = float(row[self.power_column])
+            # Assume values > 100 are in Watts, convert to kW
+            power_kw = power_value / 1000.0 if power_value > 100 else power_value
+
+            # Get timestamp
+            if "timestamp" in df.columns:
+                ts = row["timestamp"]
+                if isinstance(ts, str):
+                    timestamp = datetime.fromisoformat(ts)
+                else:
+                    timestamp = ts.to_pydatetime()
+                # Make timezone aware if needed
+                if timestamp.tzinfo is None:
+                    timestamp = timestamp.replace(tzinfo=timezone.utc)
+            else:
+                # Generate synthetic timestamps at 1Hz starting from now
+                timestamp = datetime.now(timezone.utc)
+
+            readings.append((timestamp, power_kw))
+
+        return readings
+
+    async def load_from_influx(self) -> list[tuple[datetime, float]]:
+        """Load raw readings from InfluxDB raw bucket."""
+        logger.info("Loading data from InfluxDB raw bucket...")
+
+        from app.infra.influx.client import init_influx_client, get_influx_client, close_influx_client
+
+        try:
+            await init_influx_client()
+            influx = get_influx_client()
+
+            # Check how many readings exist
+            count = await influx.count_raw_readings(self.building_id)
+            logger.info(f"Found {count} raw readings for building {self.building_id}")
+
+            if count == 0:
+                raise ValueError(
+                    f"No raw readings found in InfluxDB for building '{self.building_id}'. "
+                    f"Run 'python -m app.tools.ingest_raw_to_influx' first to populate the raw bucket."
+                )
+
+            # Query all data from raw bucket
+            readings = await influx.query_raw_readings(
+                building_id=self.building_id,
+                start="-365d",  # Last year
+                end="now()",
+                limit=3000000,  # ~1 month at 1Hz
+            )
+
+            logger.info(f"Loaded {len(readings)} readings from InfluxDB")
+            return readings
+
+        finally:
+            await close_influx_client()
 
     async def send_reading(
-        self, client: httpx.AsyncClient, row_idx: int, power_value: float, timestamp: datetime
+        self, client: httpx.AsyncClient, row_idx: int, power_kw: float, timestamp: datetime
     ) -> bool:
         """Send a single reading to the backend."""
         try:
@@ -119,7 +199,7 @@ class DataSimulator:
                 "readings": [
                     {
                         "building_id": self.building_id,
-                        "aggregate_kw": power_value / 1000.0 if power_value > 100 else power_value,  # Convert W to kW if needed
+                        "aggregate_kw": power_kw,
                         "ts": timestamp.isoformat(),
                     }
                 ]
@@ -147,10 +227,13 @@ class DataSimulator:
         logger.info("NILM Data Simulator Starting")
         logger.info("=" * 60)
         logger.info(f"Backend URL: {self.backend_url}")
-        logger.info(f"Parquet path: {self.parquet_path}")
         logger.info(f"Building ID: {self.building_id}")
-        logger.info(f"Power column: {self.power_column}")
+        logger.info(f"Data source: {self.raw_data_source}")
         logger.info(f"Speedup: {self.speedup}x")
+        logger.info(f"Loop forever: {self.loop_forever}")
+        if self.raw_data_source == "local":
+            logger.info(f"Parquet path: {self.parquet_path}")
+            logger.info(f"Power column: {self.power_column}")
         logger.info("=" * 60)
 
         # Wait for backend
@@ -158,9 +241,14 @@ class DataSimulator:
             logger.error("Backend not available, exiting")
             sys.exit(1)
 
-        # Load data
-        df = self.load_parquet()
-        total_rows = len(df)
+        # Load data based on source
+        if self.raw_data_source == "influx":
+            readings = await self.load_from_influx()
+        else:
+            readings = self.load_parquet()
+
+        total_rows = len(readings)
+        logger.info(f"Total readings to replay: {total_rows}")
 
         # Calculate interval
         interval = 1.0 / self.speedup
@@ -179,28 +267,15 @@ class DataSimulator:
                         logger.info(f"Duration limit reached ({self.duration_seconds}s)")
                         break
 
-                # Get current row (loop if needed)
+                # Get current reading (loop if enabled)
                 actual_idx = row_idx % total_rows
-                row = df.iloc[actual_idx]
+                timestamp, power_kw = readings[actual_idx]
 
-                # Get power value
-                power_value = float(row[self.power_column])
-
-                # Generate timestamp (current time or from dataset if available)
-                if "timestamp" in df.columns:
-                    ts = row["timestamp"]
-                    if isinstance(ts, str):
-                        timestamp = datetime.fromisoformat(ts)
-                    else:
-                        timestamp = ts.to_pydatetime()
-                    # Make timezone aware if needed
-                    if timestamp.tzinfo is None:
-                        timestamp = timestamp.replace(tzinfo=timezone.utc)
-                else:
-                    timestamp = datetime.now(timezone.utc)
+                # For replay, use current time instead of original timestamp
+                current_timestamp = datetime.now(timezone.utc)
 
                 # Send reading
-                success = await self.send_reading(client, row_idx, power_value, timestamp)
+                success = await self.send_reading(client, row_idx, power_kw, current_timestamp)
 
                 if success:
                     self.rows_sent += 1
@@ -213,10 +288,18 @@ class DataSimulator:
                     rate = self.rows_sent / elapsed if elapsed > 0 else 0
                     logger.info(
                         f"Progress: {self.rows_sent} sent, {self.errors} errors, "
-                        f"rate={rate:.2f}/s, elapsed={elapsed:.1f}s"
+                        f"rate={rate:.2f}/s, elapsed={elapsed:.1f}s, loop={self.loop_count}"
                     )
 
                 row_idx += 1
+
+                # Check if we completed a loop
+                if actual_idx == total_rows - 1:
+                    self.loop_count += 1
+                    logger.info(f"Completed loop {self.loop_count}")
+                    if not self.loop_forever:
+                        logger.info("Loop disabled, stopping after first pass")
+                        break
 
                 # Wait for next interval
                 await asyncio.sleep(interval)
@@ -231,6 +314,7 @@ class DataSimulator:
         logger.info("Simulator stopped")
         logger.info(f"Total sent: {self.rows_sent}")
         logger.info(f"Total errors: {self.errors}")
+        logger.info(f"Loops completed: {self.loop_count}")
         logger.info(f"Elapsed time: {elapsed:.1f}s")
         logger.info("=" * 60)
 

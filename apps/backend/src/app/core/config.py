@@ -69,9 +69,21 @@ class Settings(BaseSettings):
         default="predictions",
         description="InfluxDB bucket for predictions",
     )
+    influx_bucket_raw: str = Field(
+        default="raw_readings",
+        description="InfluxDB bucket for raw sensor readings",
+    )
     influx_timeout_ms: int = Field(
         default=10000,
         description="InfluxDB client timeout in milliseconds",
+    )
+
+    # ==========================================================================
+    # Data Source Configuration
+    # ==========================================================================
+    raw_data_source: Literal["local", "influx"] = Field(
+        default="local",
+        description="Raw data source: 'local' reads parquet file, 'influx' reads from raw bucket",
     )
 
     # ==========================================================================

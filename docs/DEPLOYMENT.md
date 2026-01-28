@@ -2,12 +2,19 @@
 
 This is the single source of truth for production deployment.
 
+**Detailed Guides:**
+- [Railway Deployment Guide](./deploy-railway.md) - Full Railway setup with CLI commands
+- [Cloudflare Pages Guide](./deploy-cloudflare-pages.md) - Frontend deployment with Wrangler
+
 ## Architecture
 
 - **Backend API**: FastAPI on Railway (public).
 - **Worker**: Redis stream consumer on Railway (private).
+- **Simulator**: Data producer on Railway (private) - reads from InfluxDB raw bucket.
 - **Redis**: Railway plugin or private service.
 - **InfluxDB**: Railway service or external managed instance.
+  - `predictions` bucket: Model output
+  - `raw_readings` bucket: Raw sensor data for simulator replay
 - **Frontend**: Vite SPA on Cloudflare Pages.
 
 ## Production Base URLs
@@ -28,6 +35,7 @@ Railway config is defined via TOML files in the repo:
 |--------|-------------------|-----------|
 | API | `apps/backend/railway.api.toml` | Public |
 | Worker | `apps/backend/railway.worker.toml` | Private |
+| Simulator | `apps/backend/railway.simulator.toml` | Private |
 
 Set these in **Railway → Service Settings → Source → Config File Path**.
 

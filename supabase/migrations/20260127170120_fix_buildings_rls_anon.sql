@@ -100,12 +100,12 @@ ON CONFLICT (id) DO UPDATE SET
   is_demo = TRUE,
   name = EXCLUDED.name;
 
--- Ensure building-1 exists (used by InfluxDB data)
+-- Ensure building-1 exists (used by InfluxDB data) - NOT a demo building
 INSERT INTO public.buildings (id, name, address, description, status, is_demo, stream_key, created_at)
 VALUES 
-  ('building-1', 'Building 1', 'Main Facility', 'Primary monitored building', 'active', TRUE, 'building-1', NOW())
+  ('building-1', 'Building 1', 'Main Facility', 'Primary monitored building', 'active', FALSE, 'building-1', NOW())
 ON CONFLICT (id) DO UPDATE SET
-  is_demo = TRUE,
+  is_demo = FALSE,
   name = EXCLUDED.name;
 
 -- ============================================

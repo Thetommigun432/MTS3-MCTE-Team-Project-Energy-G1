@@ -31,8 +31,8 @@ COPY apps/backend/pyproject.toml ./
 # Copy source code
 COPY apps/backend/src/ ./src/
 
-# Install dependencies (simulator needs httpx and pyarrow)
-RUN pip install --no-cache-dir httpx pyarrow && \
+# Install dependencies (simulator needs httpx, pyarrow, and influxdb-client for cloud mode)
+RUN pip install --no-cache-dir httpx pyarrow "influxdb-client[async]" && \
     pip install --no-cache-dir .
 
 # Copy data directory (for simulation_data.parquet)
@@ -49,7 +49,9 @@ ENV BACKEND_URL=http://backend:8000 \
     PARQUET_PATH=/app/data/simulation_data.parquet \
     BUILDING_ID=building-1 \
     DATA_POWER_COLUMN=aggregate \
-    SIM_SPEEDUP=1
+    SIM_SPEEDUP=1 \
+    SIM_LOOP=true \
+    RAW_DATA_SOURCE=local
 
 # Run the simulator
 CMD ["python", "-m", "app.simulator_main"]

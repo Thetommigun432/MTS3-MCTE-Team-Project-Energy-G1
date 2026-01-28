@@ -48,7 +48,21 @@
       "Bash(railway --version:*)",
       "Bash(dir:*)",
       "Bash(py -m compileall:*)",
-      "Bash(npm run build:web:*)"
+      "Bash(npm run build:web:*)",
+      "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" ls-files)",
+      "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" status -s)",
+      "Bash(git -C \"C:\\\\Users\\\\rodri\\\\source\\\\25-26\\\\teamproject\\\\MTS3-MCTE-Team-Project-Energy-G1\" check-ignore .env)",
+      "Bash(railway whoami:*)",
+      "Bash(railway status:*)",
+      "Bash(railway service:*)",
+      "Bash(railway --help:*)",
+      "Bash(railway add --help:*)",
+      "Bash(railway add:*)",
+      "Bash(railway variables:*)",
+      "Bash(railway up --help:*)",
+      "Bash(railway open:*)",
+      "Bash(railway deploy --help:*)",
+      "Bash(railway up:*)"
     ]
   }
 }

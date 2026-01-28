@@ -28,7 +28,7 @@ services:
       retries: 5
 
   # ==========================================================================
-  # InfluxDB Init - Create predictions bucket
+  # InfluxDB Init - Create buckets (predictions + raw_readings)
   # ==========================================================================
   influxdb-init:
     image: influxdb:2.8
@@ -40,6 +40,7 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_readings}
     entrypoint: ["/bin/sh", "-c"]
     command: |
       set -euo pipefail
@@ -47,11 +48,21 @@ services:
       influx ping --host "$$INFLUX_HOST"
 
       echo "Ensuring buckets exist..."
+
+      # Create predictions bucket if missing
       if influx bucket list --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" | grep -q " $$INFLUX_BUCKET_PRED "; then
         echo "✅ Bucket '$$INFLUX_BUCKET_PRED' exists."
       else
         echo "Creating bucket '$$INFLUX_BUCKET_PRED'..."
         influx bucket create --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" --name "$$INFLUX_BUCKET_PRED" --retention 0
+      fi
+
+      # Create raw_readings bucket if missing
+      if influx bucket list --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" | grep -q " $$INFLUX_BUCKET_RAW "; then
+        echo "✅ Bucket '$$INFLUX_BUCKET_RAW' exists."
+      else
+        echo "Creating bucket '$$INFLUX_BUCKET_RAW'..."
+        influx bucket create --host "$$INFLUX_HOST" --token "$$INFLUX_TOKEN" --org "$$INFLUX_ORG" --name "$$INFLUX_BUCKET_RAW" --retention 0
       fi
 
       echo "✅ InfluxDB initialization complete."
@@ -81,6 +92,7 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_readings}
       # Supabase Config (new publishable/secret keys + legacy anon for Supabase JS)
       - SUPABASE_URL=${SUPABASE_URL:-https://bhdcbvruzvhmcogxfkil.supabase.co}
       - SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-}
@@ -134,6 +146,7 @@ services:
       - INFLUX_TOKEN=${INFLUX_TOKEN:-admin-token}
       - INFLUX_ORG=${INFLUX_ORG:-energy-monitor}
       - INFLUX_BUCKET_PRED=${INFLUX_BUCKET_PRED:-predictions}
+      - INFLUX_BUCKET_RAW=${INFLUX_BUCKET_RAW:-raw_readings}
       # Model Config
       - MODEL_REGISTRY_PATH=/app/models/registry.json
       - MODELS_DIR=/app/models
@@ -160,6 +173,8 @@ services:
       - PARQUET_PATH=/app/data/simulation_data.parquet
       - BUILDING_ID=building-1
       - DATA_POWER_COLUMN=aggregate
+      # Data source: "local" reads from parquet (default), "influx" reads from raw bucket
+      - RAW_DATA_SOURCE=local
       # Speedup: Controls how fast data is ingested into the rolling window buffer
       # Buffer needs 4096 samples before inference can start
       # - SIM_SPEEDUP=1: Realtime (1 row/sec) - takes ~68 min to fill buffer

@@ -81,9 +81,10 @@ class InfluxClient:
         """
         status = {
             "connected": False,
-            "bucket_pred": False
+            "bucket_pred": False,
+            "bucket_raw": False,
         }
-        
+
         # 1. Check connection
         if not await self.ping():
             return status
@@ -94,20 +95,20 @@ class InfluxClient:
         try:
             query_api = self._client.query_api()
             tables = await query_api.query("buckets()")
-            
+
             bucket_names = set()
             for table in tables:
                 for record in table.records:
                     name = record.values.get("name")
                     if name:
                         bucket_names.add(name)
-            
 
             status["bucket_pred"] = settings.influx_bucket_pred in bucket_names
-            
+            status["bucket_raw"] = settings.influx_bucket_raw in bucket_names
+
         except Exception as e:
             logger.error("Failed to list buckets during verification", extra={"error": str(e)})
-            
+
         return status
 
     async def bucket_exists(self, bucket_name: str) -> bool:
@@ -145,13 +146,14 @@ class InfluxClient:
     async def ensure_buckets(self) -> dict[str, bool]:
         """
         Ensure all required buckets exist.
-        
+
         Returns:
             Dict with bucket names and creation success status
         """
         settings = get_settings()
         results = {
             settings.influx_bucket_pred: await self._ensure_bucket(settings.influx_bucket_pred),
+            settings.influx_bucket_raw: await self._ensure_bucket(settings.influx_bucket_raw),
         }
         return results
 
@@ -211,16 +213,223 @@ class InfluxClient:
             except AttributeError:
                 logger.warning(
                     "InfluxDBClientAsync missing buckets_api - cannot create bucket automatically. "
-                    "Ensure 'influxdb-init' service ran successfully.", 
+                    "Ensure 'influxdb-init' service ran successfully.",
                     extra={"bucket": bucket_name}
                 )
                 return False
-            
+
         except Exception as e:
             logger.error("Failed to ensure bucket", extra={"bucket": bucket_name, "error": str(e)})
             return False
 
+    # ==========================================================================
+    # Raw Readings (for simulator/ingestion tool)
+    # ==========================================================================
 
+    async def write_raw_reading(
+        self,
+        building_id: str,
+        aggregate_kw: float,
+        source: str,
+        timestamp: datetime,
+        voltage: float | None = None,
+        current: float | None = None,
+    ) -> bool:
+        """
+        Write a raw reading to the raw_readings bucket.
+
+        Args:
+            building_id: Building identifier
+            aggregate_kw: Aggregate power in kW
+            source: Data source ("parquet" | "live")
+            timestamp: Reading timestamp
+            voltage: Optional voltage reading
+            current: Optional current reading
+
+        Returns:
+            True if write succeeded
+        """
+        settings = get_settings()
+
+        try:
+            if not self._write_api:
+                raise InfluxError(
+                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                    message="InfluxDB write API not initialized",
+                )
+
+            point = (
+                Point("raw_reading")
+                .tag("building_id", building_id)
+                .tag("source", source)
+                .field("aggregate_kw", aggregate_kw)
+                .time(timestamp)
+            )
+
+            if voltage is not None:
+                point = point.field("voltage", voltage)
+            if current is not None:
+                point = point.field("current", current)
+
+            await self._write_api.write(
+                bucket=settings.influx_bucket_raw,
+                org=settings.influx_org,
+                record=point,
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error("Failed to write raw reading", extra={"error": str(e)})
+            return False
+
+    async def write_raw_readings_batch(
+        self,
+        readings: list[dict],
+        building_id: str,
+        source: str = "parquet",
+    ) -> int:
+        """
+        Write a batch of raw readings to the raw_readings bucket.
+
+        Args:
+            readings: List of dicts with keys: timestamp, aggregate_kw, voltage?, current?
+            building_id: Building identifier
+            source: Data source ("parquet" | "live")
+
+        Returns:
+            Number of points successfully written
+        """
+        settings = get_settings()
+
+        if not self._write_api:
+            logger.error("InfluxDB write API not initialized")
+            return 0
+
+        points = []
+        for reading in readings:
+            point = (
+                Point("raw_reading")
+                .tag("building_id", building_id)
+                .tag("source", source)
+                .field("aggregate_kw", reading["aggregate_kw"])
+                .time(reading["timestamp"])
+            )
+
+            if reading.get("voltage") is not None:
+                point = point.field("voltage", reading["voltage"])
+            if reading.get("current") is not None:
+                point = point.field("current", reading["current"])
+
+            points.append(point)
+
+        try:
+            await self._write_api.write(
+                bucket=settings.influx_bucket_raw,
+                org=settings.influx_org,
+                record=points,
+            )
+            return len(points)
+
+        except Exception as e:
+            logger.error("Failed to write raw readings batch", extra={"error": str(e)})
+            return 0
+
+    async def query_raw_readings(
+        self,
+        building_id: str,
+        start: str = "-30d",
+        end: str = "now()",
+        limit: int = 3000000,
+    ) -> list[tuple[datetime, float]]:
+        """
+        Query raw readings from the raw_readings bucket for replay.
+
+        Args:
+            building_id: Building identifier
+            start: Start time (Flux duration or RFC3339)
+            end: End time (Flux duration or RFC3339)
+            limit: Maximum number of points to return
+
+        Returns:
+            List of (timestamp, aggregate_kw) tuples sorted by time
+        """
+        settings = get_settings()
+
+        try:
+            if not self._client:
+                raise InfluxError(
+                    code=ErrorCode.INFLUX_CONNECTION_ERROR,
+                    message="InfluxDB client not connected",
+                )
+
+            query = f'''
+            from(bucket: "{settings.influx_bucket_raw}")
+              |> range(start: {start}, stop: {end})
+              |> filter(fn: (r) => r._measurement == "raw_reading")
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> filter(fn: (r) => r._field == "aggregate_kw")
+              |> sort(columns: ["_time"])
+              |> limit(n: {limit})
+            '''
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(query, org=settings.influx_org)
+
+            readings: list[tuple[datetime, float]] = []
+            for table in tables:
+                for record in table.records:
+                    ts = record.get_time()
+                    value = record.get_value()
+                    if ts and value is not None:
+                        readings.append((ts, float(value)))
+
+            logger.info(
+                "Queried raw readings from InfluxDB",
+                extra={"building_id": building_id, "count": len(readings)},
+            )
+            return readings
+
+        except Exception as e:
+            logger.error("Failed to query raw readings", extra={"error": str(e)})
+            raise InfluxError(
+                code=ErrorCode.INFLUX_QUERY_ERROR,
+                message=f"Failed to query raw readings: {e}",
+            )
+
+    async def count_raw_readings(self, building_id: str) -> int:
+        """
+        Count raw readings for a building in the raw bucket.
+
+        Returns:
+            Number of raw readings
+        """
+        settings = get_settings()
+
+        try:
+            if not self._client:
+                return 0
+
+            query = f'''
+            from(bucket: "{settings.influx_bucket_raw}")
+              |> range(start: -365d)
+              |> filter(fn: (r) => r._measurement == "raw_reading")
+              |> filter(fn: (r) => r.building_id == "{building_id}")
+              |> filter(fn: (r) => r._field == "aggregate_kw")
+              |> count()
+            '''
+
+            query_api = self._client.query_api()
+            tables = await query_api.query(query, org=settings.influx_org)
+
+            for table in tables:
+                for record in table.records:
+                    return int(record.get_value() or 0)
+            return 0
+
+        except Exception as e:
+            logger.error("Failed to count raw readings", extra={"error": str(e)})
+            return 0
 
     async def write_point(
         self,

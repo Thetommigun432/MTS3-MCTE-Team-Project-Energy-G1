@@ -1,0 +1,45 @@
+# =============================================================================
+# Railway Config: NILM Data Simulator Service
+# =============================================================================
+# This config is for the data simulator that feeds the pipeline.
+# Can read from local parquet file or InfluxDB raw bucket.
+#
+# IMPORTANT: Railway config file path does NOT auto-follow root directory setting.
+# You must explicitly set the config file path to: apps/backend/railway.simulator.toml
+# =============================================================================
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/backend/Dockerfile.simulator"
+watchPatterns = [
+    "apps/backend/src/**",
+    "apps/backend/data/**",
+    "apps/backend/pyproject.toml",
+    "apps/backend/Dockerfile.simulator"
+]
+
+[deploy]
+# No healthcheck path - this is a background data producer
+restartPolicyType = "ALWAYS"
+
+# Environment variables to set in Railway dashboard:
+#
+# Required:
+# - BACKEND_URL: Backend API URL (use ${{API.RAILWAY_PRIVATE_DOMAIN}} for internal)
+#                Example: http://api.railway.internal:8000
+# - BUILDING_ID: Building identifier (default: building-1)
+#
+# Data Source (choose one):
+# - RAW_DATA_SOURCE=local  → Read from parquet file (default, local dev)
+# - RAW_DATA_SOURCE=influx → Read from InfluxDB raw bucket (production)
+#
+# If RAW_DATA_SOURCE=influx, also set:
+# - INFLUX_URL: InfluxDB URL (use ${{InfluxDB.INFLUX_URL}} or private domain)
+# - INFLUX_TOKEN: InfluxDB admin token
+# - INFLUX_ORG: InfluxDB organization (default: energy-monitor)
+# - INFLUX_BUCKET_RAW: Raw readings bucket (default: raw_readings)
+#
+# Simulation control:
+# - SIM_SPEEDUP: Playback speed multiplier (default: 1 = realtime)
+# - SIM_LOOP: Loop forever (default: true)
+# - SIM_DURATION_SECONDS: Max duration in seconds (default: 0 = unlimited)
