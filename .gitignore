@@ -138,3 +138,11 @@ supabase/.temp/
 go-cursor-help/
 config.json
 household_2025_01.csv
+
+# ============================================
+# Development files (not for deployment)
+# ============================================
+*.code-workspace
+~$*
+.claude*
+
