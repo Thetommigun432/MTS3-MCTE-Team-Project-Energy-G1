@@ -7,7 +7,7 @@ import time
 from typing import Any
 
 from app.core.config import get_settings
-from app.core.errors import AuthorizationError, ErrorCode
+from app.core.errors import AuthenticationError, AuthorizationError, ErrorCode
 from app.core.logging import get_logger
 from app.core.security import TokenPayload
 from app.core.telemetry import AUTHZ_CHECK_LATENCY
@@ -180,6 +180,43 @@ async def require_building_access(
     """
     Require building access, raising AuthorizationError if denied.
     """
+    policy = AuthzPolicy()
+    has_access = await policy.check_building_access(token, building_id)
+
+    if not has_access:
+        raise AuthorizationError(
+            code=ErrorCode.AUTHZ_BUILDING_ACCESS_DENIED,
+            message=f"Access denied to building: {building_id}",
+            details={"building_id": building_id},
+        )
+
+
+async def require_building_access_or_demo(
+    token: TokenPayload | None,
+    building_id: str,
+) -> None:
+    """
+    Require building access OR allow access to demo buildings without auth.
+    
+    This allows unauthenticated access to demo buildings (building-1, demo-residential-001)
+    while still requiring authentication for other buildings.
+    """
+    # If it's a demo building, allow access without authentication
+    if building_id in DEMO_BUILDINGS:
+        logger.debug(
+            "Allowing unauthenticated access to demo building",
+            extra={"building_id": building_id}
+        )
+        return
+    
+    # For non-demo buildings, require authentication
+    if token is None:
+        raise AuthenticationError(
+            code=ErrorCode.AUTH_MISSING_TOKEN,
+            message="Authentication required for this building",
+        )
+    
+    # Check building access via policy
     policy = AuthzPolicy()
     has_access = await policy.check_building_access(token, building_id)
 

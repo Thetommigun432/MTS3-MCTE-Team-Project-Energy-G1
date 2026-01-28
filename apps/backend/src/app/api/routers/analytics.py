@@ -6,9 +6,9 @@ Provides readings and predictions data from InfluxDB.
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.deps import CurrentUserDep, RequestIdDep
+from app.api.deps import CurrentUserDep, OptionalUserDep, RequestIdDep
 from app.core.logging import get_logger
-from app.domain.authz import require_building_access
+from app.domain.authz import require_building_access_or_demo
 from app.infra.influx import get_influx_client
 from app.schemas.analytics import (
     DataPoint,
@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 @router.get("/readings", response_model=ReadingsResponse)
 async def get_readings(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     request_id: RequestIdDep,
     building_id: str = Query(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$"),
     start: str = Query(..., description="Start time (ISO8601 or relative like -7d)"),
@@ -44,8 +44,8 @@ async def get_readings(
     If include_disaggregation=true (default), the response includes per-appliance
     predictions attached to each reading timestamp.
     """
-    # AuthZ check
-    await require_building_access(current_user, building_id)
+    # AuthZ check - allows unauthenticated access to demo buildings
+    await require_building_access_or_demo(current_user, building_id)
 
     influx = get_influx_client()
 
@@ -107,7 +107,7 @@ async def get_readings(
 
 @router.get("/predictions", response_model=PredictionsResponse)
 async def get_predictions(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     request_id: RequestIdDep,
     building_id: str = Query(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$"),
     start: str = Query(..., description="Start time (ISO8601 or relative like -7d)"),
@@ -126,8 +126,8 @@ async def get_predictions(
     - Relative: -7d, -1h, -30m
     - ISO8601: 2024-01-15T00:00:00Z
     """
-    # AuthZ check
-    await require_building_access(current_user, building_id)
+    # AuthZ check - allows unauthenticated access to demo buildings
+    await require_building_access_or_demo(current_user, building_id)
 
     influx = get_influx_client()
 
@@ -175,7 +175,7 @@ async def get_predictions(
 
 @router.get("/buildings", response_model=BuildingsListResponse)
 async def list_buildings(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     request_id: RequestIdDep,
 ) -> BuildingsListResponse:
     """
@@ -196,7 +196,7 @@ class AppliancesListResponse(BaseModel):
 
 @router.get("/appliances", response_model=AppliancesListResponse)
 async def list_appliances(
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     request_id: RequestIdDep,
     building_id: str = Query(..., min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_-]+$"),
 ) -> AppliancesListResponse:
@@ -206,6 +206,9 @@ async def list_appliances(
     For WIDE format predictions, this parses field keys like predicted_kw_HeatPump
     to extract appliance names. Falls back to appliance_id tags for legacy data.
     """
+    # AuthZ check - allows unauthenticated access to demo buildings
+    await require_building_access_or_demo(current_user, building_id)
+    
     influx = get_influx_client()
     appliances = await influx.get_unique_appliances(building_id=building_id)
     return AppliancesListResponse(appliances=appliances)
