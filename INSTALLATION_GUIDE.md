@@ -13,7 +13,10 @@ docker compose up -d
 cd apps/web && npm install && npm run dev
 ```
 
-**Open:** http://localhost:8080/live
+**Open:** http://localhost:8080/live ← **No login required!**
+
+> 💡 The `/live` route is a public dashboard that works without authentication.
+> Perfect for demos and testing.
 
 ---
 
@@ -166,6 +169,9 @@ All values have sensible defaults. Override only if needed:
 
 ## Next Steps
 
-- Open http://localhost:8080/live for the public dashboard
-- Open http://localhost:8000/docs for API documentation
-- Open http://localhost:8086 for InfluxDB UI
+| URL | Auth Required | Description |
+|-----|---------------|-------------|
+| http://localhost:8080/live | ❌ No | Public dashboard (recommended) |
+| http://localhost:8080 | ✅ Yes | Full app (needs Supabase) |
+| http://localhost:8000/docs | ❌ No | API documentation |
+| http://localhost:8086 | ❌ No | InfluxDB UI |
