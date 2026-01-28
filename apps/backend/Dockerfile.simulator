@@ -31,9 +31,16 @@ COPY apps/backend/pyproject.toml ./
 # Copy source code
 COPY apps/backend/src/ ./src/
 
-# Install dependencies (simulator needs httpx, pyarrow, and influxdb-client for cloud mode)
-RUN pip install --no-cache-dir httpx pyarrow "influxdb-client[async]" && \
-    pip install --no-cache-dir .
+# Install ONLY simulator dependencies (no torch, no heavy ML packages)
+# The simulator just needs: httpx for API calls, pyarrow for parquet, influxdb-client for cloud mode
+# Plus pydantic for config and python-json-logger for logging
+RUN pip install --no-cache-dir \
+    httpx==0.28.1 \
+    pyarrow>=14.0.0 \
+    "influxdb-client[async]==1.50.0" \
+    pydantic==2.12.5 \
+    pydantic-settings==2.12.0 \
+    python-json-logger==4.0.0
 
 # Copy data directory (for simulation_data.parquet)
 COPY apps/backend/data/ ./data/
