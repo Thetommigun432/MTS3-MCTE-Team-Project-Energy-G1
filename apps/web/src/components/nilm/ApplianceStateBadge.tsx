@@ -22,14 +22,16 @@ interface ApplianceStateBadgeProps {
  */
 export function ApplianceStateBadge({
   on,
-  confidence = 0.8,
+  confidence,  // No default - force explicit handling of missing confidence
   showConfidence = false,
   size = "default",
   className,
 }: ApplianceStateBadgeProps) {
-  const confidencePercent = Math.round(confidence * 100);
+  // Use provided confidence or 0 if not available (will show as "low confidence")
+  const effectiveConfidence = confidence ?? 0;
+  const confidencePercent = Math.round(effectiveConfidence * 100);
   const confidenceLevel =
-    confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
+    effectiveConfidence >= 0.75 ? "high" : effectiveConfidence >= 0.50 ? "medium" : "low";
 
   const confidenceColors = {
     high: "text-confidence-high",

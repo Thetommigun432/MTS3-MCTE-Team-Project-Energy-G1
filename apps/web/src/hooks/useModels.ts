@@ -58,12 +58,8 @@ export function useModels(mode: DataMode = 'api', _buildingId?: string | null): 
     } catch (err) {
       console.error("Error fetching models:", err);
       setError(err instanceof Error ? err.message : "Failed to load models");
-
-      // Fallback to demo models on API error
-      if (mode === 'api') {
-        console.log("Falling back to demo models due to API error");
-        setModels(demoRegistry.models as Model[]);
-      }
+      // In API mode, don't fallback to demo - show empty/error state
+      setModels([]);
     } finally {
       setLoading(false);
     }

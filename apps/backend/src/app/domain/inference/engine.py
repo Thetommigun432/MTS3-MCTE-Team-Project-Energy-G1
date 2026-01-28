@@ -509,8 +509,25 @@ class InferenceEngine:
             # Clamp to non-negative
             predicted_kw = max(0.0, predicted_kw)
 
-            # Confidence (placeholder - could use model uncertainty)
-            confidence = 0.85
+            # Dynamic confidence based on prediction certainty
+            # Use max power from preprocessing config
+            p_max_kw = (entry.preprocessing.max_val or 15000.0) / 1000.0  # Convert W to kW
+            if p_max_kw < 0.1:
+                p_max_kw *= 1000  # Was already in kW
+            
+            # Normalize by rated power
+            norm_power = min(predicted_kw / max(p_max_kw, 0.1), 1.0)
+            
+            # Confidence logic: high for clear ON/OFF, lower for uncertain middle
+            import math
+            if norm_power > 0.4:
+                confidence = 0.75 + 0.20 * min(norm_power, 1.0)
+            elif norm_power < 0.05:
+                confidence = 0.80 + 0.15 * (1 - norm_power / 0.05)
+            else:
+                midpoint = 0.225
+                distance_from_mid = abs(norm_power - midpoint) / midpoint
+                confidence = 0.45 + 0.30 * math.tanh(distance_from_mid * 2)
 
             return predicted_kw, confidence
 
@@ -645,8 +662,31 @@ class InferenceEngine:
                 # Clamp to non-negative
                 predicted_kw = max(0.0, predicted_kw)
 
-                # Confidence (placeholder - could use model uncertainty per head)
-                confidence = 0.85
+                # Dynamic confidence based on prediction certainty
+                # Use max power for this appliance from preprocessing config
+                p_max_kw = (entry.preprocessing.max_val or 15000.0) / 1000.0  # Convert W to kW
+                if p_max_kw < 0.1:
+                    p_max_kw *= 1000  # Was already in kW
+                
+                # Normalize by rated power
+                norm_power = min(predicted_kw / max(p_max_kw, 0.1), 1.0)
+                
+                # Confidence logic:
+                # - High confidence (0.75-0.95) for clear ON states (>40% of rated power)
+                # - High confidence (0.80-0.95) for clear OFF states (<5% of rated power)  
+                # - Lower confidence (0.45-0.75) for uncertain middle region
+                import math
+                if norm_power > 0.4:
+                    # Clearly ON - confidence increases with power
+                    confidence = 0.75 + 0.20 * min(norm_power, 1.0)
+                elif norm_power < 0.05:
+                    # Clearly OFF - high confidence for very low values
+                    confidence = 0.80 + 0.15 * (1 - norm_power / 0.05)
+                else:
+                    # Uncertain region - use sigmoid-like curve centered at ~22%
+                    midpoint = 0.225
+                    distance_from_mid = abs(norm_power - midpoint) / midpoint
+                    confidence = 0.45 + 0.30 * math.tanh(distance_from_mid * 2)
 
                 results[field_key] = (predicted_kw, confidence)
 

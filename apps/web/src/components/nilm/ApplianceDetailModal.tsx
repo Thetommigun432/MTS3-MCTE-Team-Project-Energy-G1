@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useCallback, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,17 +19,18 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Brush,
 } from "recharts";
 import { format } from "date-fns";
-import { Activity, Zap, Clock, TrendingUp } from "lucide-react";
+import { Activity, Zap, Clock, TrendingUp, BarChart2, Percent } from "lucide-react";
 import {
   ApplianceStateBadge,
   ConfidenceIndicator,
 } from "./ApplianceStateBadge";
 import {
   NilmDataRow,
-  ON_THRESHOLD,
-  computeConfidence,
+  isApplianceOn,
+  computeOnThreshold,
 } from "@/hooks/useNilmCsvData";
 
 interface ApplianceDetailModalProps {
@@ -42,6 +43,7 @@ interface ApplianceDetailModalProps {
     on: boolean;
     confidence: number;
     est_kW: number;
+    rated_kW?: number | null;
   };
 }
 
@@ -53,16 +55,27 @@ export function ApplianceDetailModal({
   currentStatus,
 }: ApplianceDetailModalProps) {
   const displayName = applianceName.replace(/_/g, " ");
+  const ratedKw = currentStatus?.rated_kW;
+  const onThreshold = computeOnThreshold(ratedKw);
+  
+  // Chart mode toggle: "prediction" shows kW, "confidence" shows confidence %
+  const [detailChartMode, setDetailChartMode] = useState<"prediction" | "confidence">("prediction");
 
-  // Calculate historical data for this appliance
+  // Calculate historical data for this appliance with numeric timestamps
   const historicalData = useMemo(() => {
     return filteredRows.map((row) => {
       const kW = row.appliances[applianceName] ?? 0;
-      const isOn = kW >= ON_THRESHOLD;
-      // Use standardized confidence calculation (returns 0-1, multiply by 100 for percentage)
-      const confidence = computeConfidence(kW) * 100;
+      const isOn = isApplianceOn(kW, ratedKw);  // Dynamic threshold
+      // Use backend confidence directly from InfluxDB (0 if not available)
+      const confidenceRecord = row.confidence || {};
+      const backendConfidence = typeof confidenceRecord === 'object' 
+        ? (confidenceRecord[applianceName] ?? 0)
+        : 0;
+      // Return 0-100 percentage for display
+      const confidence = backendConfidence * 100;
 
       return {
+        t: row.time instanceof Date ? row.time.getTime() : new Date(row.time).getTime(),
         time: format(row.time, "MM/dd HH:mm"),
         fullTime: row.time,
         kW,
@@ -70,7 +83,12 @@ export function ApplianceDetailModal({
         confidence,
       };
     });
-  }, [filteredRows, applianceName]);
+  }, [filteredRows, applianceName, ratedKw]);
+
+  // Formatters for time axis
+  const tickFormatter = useCallback((ms: number) => format(new Date(ms), "HH:mm"), []);
+  const brushFormatter = useCallback((ms: number) => format(new Date(ms), "MM/dd HH:mm"), []);
+  const tooltipLabelFormatter = useCallback((ms: number) => format(new Date(ms), "yyyy-MM-dd HH:mm"), []);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -120,14 +138,6 @@ export function ApplianceDetailModal({
       peakTime: peakEntry?.fullTime ?? null,
       onPeriods,
     };
-  }, [historicalData]);
-
-  // Confidence over time data
-  const confidenceData = useMemo(() => {
-    return historicalData.map((d) => ({
-      time: d.time,
-      confidence: d.confidence,
-    }));
   }, [historicalData]);
 
   return (
@@ -202,11 +212,12 @@ export function ApplianceDetailModal({
                 detected
               </Badge>
             </div>
-            <div className="h-40 w-full">
+            <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={historicalData}
                   margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  syncId="appliance-detail"
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -214,11 +225,15 @@ export function ApplianceDetailModal({
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="time"
+                    dataKey="t"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={tickFormatter}
                     tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
                     tickLine={false}
                     axisLine={false}
-                    interval="preserveStartEnd"
+                    minTickGap={40}
                   />
                   <YAxis
                     tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
@@ -227,12 +242,13 @@ export function ApplianceDetailModal({
                     tickFormatter={(v) => `${v.toFixed(2)}`}
                   />
                   <ReferenceLine
-                    y={ON_THRESHOLD}
+                    y={onThreshold}
                     stroke="hsl(var(--nilm-state-on))"
                     strokeDasharray="4 4"
                     strokeOpacity={0.5}
                   />
                   <Tooltip
+                    labelFormatter={tooltipLabelFormatter}
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
@@ -252,26 +268,62 @@ export function ApplianceDetailModal({
                     fillOpacity={0.3}
                     strokeWidth={1.5}
                   />
+                  <Brush
+                    dataKey="t"
+                    height={20}
+                    stroke="hsl(var(--border))"
+                    fill="hsl(var(--muted))"
+                    tickFormatter={brushFormatter}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <p className="text-xs text-muted-foreground">
-              Dashed line indicates ON threshold ({ON_THRESHOLD} kW)
+              Dashed line indicates ON threshold ({(onThreshold * 1000).toFixed(0)}W) • Drag brush to zoom
             </p>
           </div>
 
           <Separator />
 
-          {/* Confidence Over Time */}
+          {/* Switchable Detail Chart: Prediction (kW) or Confidence */}
           <div className="space-y-3">
-            <h4 className="text-sm font-medium">
-              Detection Confidence Over Time
-            </h4>
-            <div className="h-32 w-full">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">
+                {detailChartMode === "prediction" ? "Predicted Power (kW)" : "Model Confidence"}
+              </h4>
+              <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+                <button
+                  onClick={() => setDetailChartMode("prediction")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    detailChartMode === "prediction"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Show predicted power values"
+                >
+                  <BarChart2 className="h-3 w-3" />
+                  Power
+                </button>
+                <button
+                  onClick={() => setDetailChartMode("confidence")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    detailChartMode === "confidence"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Show model confidence"
+                >
+                  <Percent className="h-3 w-3" />
+                  Confidence
+                </button>
+              </div>
+            </div>
+            <div className="h-36 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={confidenceData}
+                  data={historicalData}
                   margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  syncId="appliance-detail"
                 >
                   <CartesianGrid
                     strokeDasharray="3 3"
@@ -279,35 +331,46 @@ export function ApplianceDetailModal({
                     vertical={false}
                   />
                   <XAxis
-                    dataKey="time"
+                    dataKey="t"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={tickFormatter}
                     tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
                     tickLine={false}
                     axisLine={false}
-                    interval="preserveStartEnd"
+                    minTickGap={40}
                   />
                   <YAxis
-                    domain={[0, 100]}
+                    domain={detailChartMode === "confidence" ? [0, 100] : ["auto", "auto"]}
                     tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(v) => `${v}%`}
+                    tickFormatter={(v) => 
+                      detailChartMode === "confidence" ? `${v}%` : `${v.toFixed(2)}`
+                    }
                   />
                   <Tooltip
+                    labelFormatter={tooltipLabelFormatter}
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "var(--radius)",
                       fontSize: 11,
                     }}
-                    formatter={(value: number) => [
-                      `${value.toFixed(0)}%`,
-                      "Confidence",
-                    ]}
+                    formatter={(value: number) => 
+                      detailChartMode === "confidence"
+                        ? [`${value.toFixed(0)}%`, "Confidence"]
+                        : [`${value.toFixed(4)} kW`, "Predicted Power"]
+                    }
                   />
                   <Line
                     type="monotone"
-                    dataKey="confidence"
-                    stroke="hsl(var(--nilm-confidence-high))"
+                    dataKey={detailChartMode === "confidence" ? "confidence" : "kW"}
+                    stroke={detailChartMode === "confidence" 
+                      ? "hsl(var(--nilm-confidence-high))" 
+                      : "hsl(var(--primary))"
+                    }
                     strokeWidth={1.5}
                     dot={false}
                   />
@@ -315,12 +378,18 @@ export function ApplianceDetailModal({
               </ResponsiveContainer>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground">Current:</span>
-              <ConfidenceIndicator
-                confidence={currentStatus?.confidence ?? stats.avgConfidence}
-                showLabel
-                size="sm"
-              />
+              <span className="text-xs text-muted-foreground">
+                {detailChartMode === "confidence" ? "Current:" : "Average:"}
+              </span>
+              {detailChartMode === "confidence" ? (
+                <ConfidenceIndicator
+                  confidence={currentStatus?.confidence ?? stats.avgConfidence}
+                  showLabel
+                  size="sm"
+                />
+              ) : (
+                <span className="text-sm font-medium">{stats.avgKw.toFixed(4)} kW</span>
+              )}
             </div>
           </div>
 
@@ -353,9 +422,8 @@ export function ApplianceDetailModal({
             </p>
             <p className="text-xs text-muted-foreground">
               This appliance's state is predicted by our NILM model analyzing
-              total meter readings. Confidence varies based on signal clarity
-              and typical usage patterns. Predictions are estimates, not direct
-              measurements.
+              total meter readings. Confidence values come directly from the ML model.
+              Predictions are estimates, not direct measurements.
             </p>
           </div>
         </div>

@@ -10,7 +10,7 @@ import {
 } from "@/components/nilm/ApplianceStateBadge";
 import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
 import { WaveformDecoration } from "@/components/brand/WaveformIcon";
-import { computeEnergyKwh } from "@/hooks/useNilmCsvData";
+import { computeEnergyKwh, isApplianceOn } from "@/hooks/useNilmCsvData";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 
@@ -29,8 +29,6 @@ export default function Appliances() {
 
   // Calculate historical consumption metrics per appliance
   const applianceEnergy = useMemo(() => {
-    const ON_THRESHOLD = 0.01; // kW threshold for "on" state
-
     return currentApplianceStatus.map((appliance) => {
       let totalKwh = 0;
       let totalKw = 0;
@@ -44,7 +42,8 @@ export default function Appliances() {
         totalKw += kw;
         count++;
         if (kw > peakKw) peakKw = kw;
-        if (kw >= ON_THRESHOLD) onCount++;
+        // Use dynamic threshold based on rated power
+        if (isApplianceOn(kw, appliance.rated_kW)) onCount++;
       });
 
       return {

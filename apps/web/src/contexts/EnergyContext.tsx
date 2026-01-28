@@ -17,10 +17,9 @@ import {
 import {
   useNilmCsvData,
   NilmDataRow,
-  ON_THRESHOLD,
-  computeConfidence,
   computeEnergyKwh,
   getTopAppliancesByEnergy,
+  isApplianceOn,
 } from "@/hooks/useNilmCsvData";
 import {
   useManagedAppliances,
@@ -104,8 +103,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   const [dateRange, setDateRangeInternal] = useState<DateRange>(() => {
     const now = new Date();
     const end = endOfDayLocal(now);
+    // Default to 30 days to capture more historical data
     const start = startOfDayLocal(
-      new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+      new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
     );
     return { start, end };
   });
@@ -165,10 +165,11 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
     try {
       // Use the unified backend API instead of Edge Functions
+      // Query all historical data (up to 1 year back) to show complete InfluxDB data
       const response = await energyApi.getReadings({
         building_id: selectedBuildingId,
         start: startOfDayLocal(
-          new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
         ).toISOString(),
         end: endOfDayLocal(new Date()).toISOString(),
         resolution: "15m" // Request downsampled data for performance
@@ -190,7 +191,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
           time: new Date(r.time),
           aggregate: r.value,
           appliances: anyRecord.appliances || {},
-          confidence: anyRecord.confidence || 0,
+          confidence: anyRecord.confidence || {},  // Per-appliance confidence from backend
         };
       });
 
@@ -323,6 +324,48 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, selectedBuildingId, supabaseBuildings]);
 
+  // Auto-fetch data when mode is API and building is selected (initial load)
+  useEffect(() => {
+    if (mode === "api" && isAuthenticated && selectedBuildingId && apiRows.length === 0 && !apiLoading && !apiError) {
+      // Trigger initial data fetch
+      refresh();
+    }
+  }, [mode, isAuthenticated, selectedBuildingId, apiRows.length, apiLoading, apiError, refresh]);
+
+  // Silent background update - fetches new data without showing loading states
+  // This prevents the "page refresh" feeling during live updates
+  const silentUpdate = useCallback(async () => {
+    if (!isAuthenticated || !selectedBuildingId || isRefreshing || apiLoading) {
+      return;
+    }
+    
+    try {
+      const readings = await fetchApiReadings();
+      if (readings.length > 0) {
+        // Silently update data without triggering loading states
+        setApiRows(readings);
+        setLastRefreshed(new Date());
+      }
+    } catch (err) {
+      // Silently fail - don't show error for background updates
+      console.debug("Silent update failed:", err);
+    }
+  }, [isAuthenticated, selectedBuildingId, isRefreshing, apiLoading, fetchApiReadings]);
+
+  // Periodic polling for live updates in API mode (every 30 seconds)
+  // Uses silent update to avoid visual "refresh" effect
+  useEffect(() => {
+    if (mode !== "api" || !isAuthenticated || !selectedBuildingId || apiRows.length === 0) return;
+    
+    const POLL_INTERVAL = 30000; // 30 seconds - longer interval for smoother UX
+    
+    const pollInterval = setInterval(() => {
+      silentUpdate();
+    }, POLL_INTERVAL);
+    
+    return () => clearInterval(pollInterval);
+  }, [mode, isAuthenticated, selectedBuildingId, apiRows.length, silentUpdate]);
+
   // Build a lookup map for managed appliance metadata
   const managedApplianceMap = useMemo(() => {
     const map: Record<string, ManagedAppliance> = {};
@@ -370,17 +413,24 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   }, [mode, apiApplianceKeys, managedAppliances, demoAppliances]);
 
   // Buildings from Supabase for API mode, demo building for demo mode
+  // STRICT separation: API mode only shows real buildings, demo mode only shows demo building
   const buildings = useMemo((): Building[] => {
-    if (mode === "api" && supabaseBuildings.length > 0) {
-      return supabaseBuildings.map(b => ({
-        id: b.id,
-        name: b.name,
-        address: b.address,
-        status: b.status as 'active' | 'inactive' | 'maintenance' | undefined
-      }));
+    if (mode === "api") {
+      // API mode: Only show real buildings from Supabase (exclude demo buildings)
+      if (supabaseBuildings.length > 0) {
+        return supabaseBuildings
+          .filter(b => !b.id.includes('demo')) // Filter out any demo buildings
+          .map(b => ({
+            id: b.id,
+            name: b.name,
+            address: b.address,
+            status: b.status as 'active' | 'inactive' | 'maintenance' | undefined
+          }));
+      }
+      // No buildings yet - return empty (user should see "loading" or "no buildings")
+      return [];
     }
-    // For demo mode, return demo building with realistic details
-    // Based on the NILM dataset which contains appliances from a residential building
+    // Demo mode: Only return demo building
     return [{
       id: "demo-residential-001",
       name: "Residential Demo Building",
@@ -447,17 +497,23 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     const topApp = topAppliances[0] || { name: "-", totalKwh: 0 };
 
     // Average confidence across all appliances at latest timestamp
+    // Use real confidence values from backend (InfluxDB)
     const latestRow = filteredRows[filteredRows.length - 1];
     let totalConfidence = 0;
     let count = 0;
+    const confidenceRecord = latestRow.confidence || {};
     appliances.forEach((name) => {
-      const kw = latestRow.appliances[name] || 0;
-      totalConfidence += computeConfidence(kw);
+      // Use backend confidence directly (0 if not available)
+      const backendConfidence = typeof confidenceRecord === 'object' 
+        ? (confidenceRecord[name] ?? 0)
+        : 0;
+      totalConfidence += backendConfidence;
       count++;
     });
     const avgConfidence = count > 0 ? totalConfidence / count : 0;
+    // Confidence thresholds: High (>=0.75), Medium (>=0.50), Low (<0.50)
     const level: "Good" | "Medium" | "Low" =
-      avgConfidence >= 0.5 ? "Good" : avgConfidence >= 0.3 ? "Medium" : "Low";
+      avgConfidence >= 0.75 ? "Good" : avgConfidence >= 0.50 ? "Medium" : "Low";
 
     return {
       peakLoad: { kW: peak.aggregate, timestamp: peak.time.toISOString() },
@@ -472,30 +528,38 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     if (filteredRows.length === 0) return [];
 
     const latestRow = filteredRows[filteredRows.length - 1];
+    const confidenceRecord = latestRow.confidence || {};
 
-    // If we have managed appliances, use their names; otherwise use demo appliances
-    const applianceNames =
-      managedAppliances.length > 0
-        ? managedAppliances.map((a) => a.name)
-        : demoAppliances;
+    // Use the unified 'appliances' list which:
+    // - In API mode: uses API data keys first, then Supabase fallback
+    // - In demo mode: uses demo appliances
+    const applianceNames = appliances.length > 0 ? appliances : demoAppliances;
 
     return applianceNames
       .map((name) => {
         const estKw = latestRow.appliances[name] || 0;
+        // Try to find managed appliance metadata (may not match if name format differs)
         const managed = managedApplianceMap[name];
+        const ratedKw = managed?.rated_power_kw ?? null;
+        
+        // Use backend confidence directly from InfluxDB (0 if not available)
+        const backendConfidence = typeof confidenceRecord === 'object' 
+          ? (confidenceRecord[name] ?? 0)
+          : 0;
+        const confidence = backendConfidence;
 
         return {
           name,
-          on: estKw >= ON_THRESHOLD,
-          confidence: computeConfidence(estKw),
+          on: isApplianceOn(estKw, ratedKw),  // Dynamic threshold based on rated power
+          confidence,
           est_kW: estKw,
-          rated_kW: managed?.rated_power_kw ?? null,
+          rated_kW: ratedKw,
           type: managed?.type,
           building_name: managed?.building_name,
         };
       })
       .sort((a, b) => b.est_kW - a.est_kW);
-  }, [filteredRows, managedAppliances, demoAppliances, managedApplianceMap]);
+  }, [filteredRows, appliances, demoAppliances, managedApplianceMap]);
 
   return (
     <EnergyContext.Provider

@@ -17,6 +17,8 @@ import {
   FileSpreadsheet,
   Plus,
   Building2,
+  BarChart2,
+  Layers,
 } from "lucide-react";
 import {
   LineChart,
@@ -29,6 +31,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Brush,
+  ComposedChart,
 } from "recharts";
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -50,16 +54,17 @@ import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
 import { WaveformDecoration } from "@/components/brand/WaveformIcon";
 import { ApplianceDetailModal } from "@/components/nilm/ApplianceDetailModal";
 
-// Colorblind-safe palette optimized for dark backgrounds
-const CHART_COLORS = [
-  "#E69F00", // Orange
-  "#56B4E9", // Sky
-  "#009E73", // Green
-  "#0072B2", // Blue
-  "#D55E00", // Vermillion
-  "#CC79A7", // Purple
-  "#999999", // Other/Gray
-];
+// Chart utilities
+import {
+  CHART_COLORS,
+  CHART_AXIS_STYLE,
+  CHART_GRID_STYLE,
+  tickFormatter,
+  brushFormatter,
+  SimpleEnergyTooltip,
+  groupSmallAppliances,
+  sortAppliancesByEnergy,
+} from "@/components/charts";
 
 export default function Dashboard() {
   const {
@@ -81,6 +86,44 @@ export default function Dashboard() {
   } = useEnergy();
   const [selectedAppliance, setSelectedAppliance] = useState<string | null>(
     null,
+  );
+  const [chartMode, setChartMode] = useState<"composition" | "compare">("composition");
+
+  // LTTB (Largest Triangle Three Buckets) downsampling for performance
+  const downsampleLTTB = useCallback(
+    <T extends { t: number }>(data: T[], threshold: number): T[] => {
+      if (data.length <= threshold) return data;
+      const sampled: T[] = [data[0]];
+      const bucketSize = (data.length - 2) / (threshold - 2);
+      let a = 0;
+      for (let i = 0; i < threshold - 2; i++) {
+        const bucketStart = Math.floor((i + 1) * bucketSize) + 1;
+        const bucketEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, data.length - 1);
+        let avgX = 0, avgY = 0, count = 0;
+        for (let j = bucketStart; j < bucketEnd; j++) {
+          avgX += data[j].t;
+          avgY += (data[j] as Record<string, unknown>).total as number || 0;
+          count++;
+        }
+        avgX /= count; avgY /= count;
+        const rangeStart = Math.floor(i * bucketSize) + 1;
+        const rangeEnd = Math.floor((i + 1) * bucketSize) + 1;
+        let maxArea = -1, maxIdx = rangeStart;
+        const pointA = data[a];
+        for (let j = rangeStart; j < rangeEnd; j++) {
+          const area = Math.abs(
+            (pointA.t - avgX) * ((data[j] as Record<string, unknown>).total as number - (pointA as Record<string, unknown>).total as number) -
+            (pointA.t - data[j].t) * (avgY - (pointA as Record<string, unknown>).total as number)
+          ) * 0.5;
+          if (area > maxArea) { maxArea = area; maxIdx = j; }
+        }
+        sampled.push(data[maxIdx]);
+        a = maxIdx;
+      }
+      sampled.push(data[data.length - 1]);
+      return sampled;
+    },
+    []
   );
 
   // Filter to show only active appliances in "What's ON Now" section
@@ -196,16 +239,42 @@ export default function Dashboard() {
     currentApplianceStatus,
   ]);
 
-  // Chart data for total consumption
-  const chartData = filteredRows.map((row) => ({
-    time: format(row.time, "MM/dd HH:mm"),
-    total: row.aggregate,
-    ...Object.fromEntries(
-      Object.entries(row.appliances).map(([k, v]) => [k, v]),
-    ),
-  }));
+  // Chart data with numeric timestamps for proper time-scale behavior
+  const chartData = useMemo(() => {
+    const rawData = filteredRows.map((row) => {
+      const applianceSum = Object.values(row.appliances).reduce((a, b) => a + b, 0);
+      return {
+        t: row.time instanceof Date ? row.time.getTime() : new Date(row.time).getTime(),
+        total: row.aggregate,
+        sum: applianceSum,
+        residual: Math.max(0, row.aggregate - applianceSum), // unexplained power
+        ...Object.fromEntries(
+          Object.entries(row.appliances).map(([k, v]) => [k, v]),
+        ),
+      };
+    });
+    // Downsample if > 500 points for performance
+    return downsampleLTTB(rawData, 500);
+  }, [filteredRows, downsampleLTTB]);
 
-  const topApplianceKeys = topAppliances.map((a) => a.name);
+  // Get appliance keys sorted by total energy (stable stacking order)
+  const allApplianceKeys = useMemo(() => {
+    return topAppliances.map((a) => a.name);
+  }, [topAppliances]);
+  
+  // Group appliances into Top 5 + Other with stable order
+  const { data: groupedChartData, keys: displayedKeys } = useMemo(() => {
+    // Sort keys by energy (largest first for display, but stack order reversed)
+    const sortedKeys = sortAppliancesByEnergy(
+      chartData as Array<{ t: number; [key: string]: number }>, 
+      allApplianceKeys
+    );
+    return groupSmallAppliances(
+      chartData, 
+      sortedKeys.reverse(), // reverse to get largest first for display purposes
+      5 // Always show top 5
+    );
+  }, [chartData, allApplianceKeys]);
 
   // Loading state with polished skeletons
   if (loading) {
@@ -553,42 +622,37 @@ export default function Dashboard() {
                 : "Data from smart meter • Simulated (Demo)"
           }
         >
-          <div className="h-56">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={chartData}
+              <ComposedChart
+                data={groupedChartData}
                 margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                syncId="energy"
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  vertical={false}
-                />
+                <CartesianGrid {...CHART_GRID_STYLE} />
                 <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval="preserveStartEnd"
+                  dataKey="t"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tickFormatter={tickFormatter}
+                  {...CHART_AXIS_STYLE}
+                  minTickGap={40}
                 />
                 <YAxis
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  tickLine={false}
-                  axisLine={false}
+                  {...CHART_AXIS_STYLE}
+                  domain={[0, "auto"]}
+                  label={{ value: "kW", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" } }}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                    fontSize: 12,
-                    color: "hsl(var(--foreground))",
+                <Tooltip content={<SimpleEnergyTooltip />} />
+                <Legend
+                  iconType="line"
+                  iconSize={12}
+                  wrapperStyle={{ fontSize: 10, paddingTop: 4 }}
+                  formatter={(value) => {
+                    const labels: Record<string, string> = { total: "Total", sum: "Sum" };
+                    return labels[value] || value;
                   }}
-                  labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                  formatter={(value: number) => [
-                    `${value.toFixed(3)} kW`,
-                    "Total",
-                  ]}
                 />
                 <Line
                   type="monotone"
@@ -596,16 +660,61 @@ export default function Dashboard() {
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
                   dot={false}
+                  name="total"
                 />
-              </LineChart>
+                <Line
+                  type="monotone"
+                  dataKey="sum"
+                  stroke="#56B4E9"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 2"
+                  dot={false}
+                  name="sum"
+                />
+                <Brush
+                  dataKey="t"
+                  height={24}
+                  stroke="hsl(var(--border))"
+                  fill="hsl(var(--muted))"
+                  tickFormatter={brushFormatter}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </NILMPanel>
 
-        {/* Disaggregation Chart */}
+        {/* Disaggregation Chart - Switchable Stack/Compare */}
         <NILMPanel
           title={mode === "demo" ? "Appliance Breakdown" : "Disaggregation"}
-          subtitle="Top 5 appliances by kWh"
+          subtitle="Top 5 appliances by energy consumption"
+          action={
+            <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+              <button
+                onClick={() => setChartMode("composition")}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  chartMode === "composition"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Stacked area - see composition"
+              >
+                <Layers className="h-3 w-3" />
+                Stack
+              </button>
+              <button
+                onClick={() => setChartMode("compare")}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                  chartMode === "compare"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Lines - compare appliances"
+              >
+                <BarChart2 className="h-3 w-3" />
+                Compare
+              </button>
+            </div>
+          }
           footer={
             mode === "demo"
               ? "Sub-metered readings (not AI predictions)"
@@ -614,65 +723,102 @@ export default function Dashboard() {
                 : "Simulated breakdown (Demo mode)"
           }
         >
-          <div className="h-56">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chartData}
-                margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                    fontSize: 12,
-                    color: "hsl(var(--foreground))",
-                  }}
-                  labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                  formatter={(value: number, name: string) => [
-                    `${value.toFixed(3)} kW`,
-                    name.replace(/_/g, " "),
-                  ]}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{
-                    fontSize: 10,
-                    paddingTop: 8,
-                    color: "hsl(var(--muted-foreground))",
-                  }}
-                  formatter={(value) => value.replace(/_/g, " ")}
-                />
-                {topApplianceKeys.map((key, i) => (
-                  <Area
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    stackId="1"
-                    stroke={CHART_COLORS[i]}
-                    fill={CHART_COLORS[i]}
-                    fillOpacity={0.6}
+              {chartMode === "composition" ? (
+                <AreaChart
+                  data={groupedChartData}
+                  margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  syncId="energy"
+                >
+                  <CartesianGrid {...CHART_GRID_STYLE} />
+                  <XAxis
+                    dataKey="t"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={tickFormatter}
+                    {...CHART_AXIS_STYLE}
+                    minTickGap={40}
                   />
-                ))}
-              </AreaChart>
+                  <YAxis
+                    {...CHART_AXIS_STYLE}
+                    domain={[0, "auto"]}
+                    label={{ value: "kW", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" } }}
+                  />
+                  <Tooltip content={<SimpleEnergyTooltip />} />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
+                    formatter={(value) => value.replace(/_/g, " ")}
+                  />
+                  {displayedKeys.map((key, i) => (
+                    <Area
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stackId="1"
+                      stroke={key === "Other" ? CHART_COLORS[6] : CHART_COLORS[i % (CHART_COLORS.length - 1)]}
+                      fill={key === "Other" ? CHART_COLORS[6] : CHART_COLORS[i % (CHART_COLORS.length - 1)]}
+                      fillOpacity={0.6}
+                    />
+                  ))}
+                  <Brush
+                    dataKey="t"
+                    height={24}
+                    stroke="hsl(var(--border))"
+                    fill="hsl(var(--muted))"
+                    tickFormatter={brushFormatter}
+                  />
+                </AreaChart>
+              ) : (
+                <LineChart
+                  data={groupedChartData}
+                  margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  syncId="energy"
+                >
+                  <CartesianGrid {...CHART_GRID_STYLE} />
+                  <XAxis
+                    dataKey="t"
+                    type="number"
+                    scale="time"
+                    domain={["dataMin", "dataMax"]}
+                    tickFormatter={tickFormatter}
+                    {...CHART_AXIS_STYLE}
+                    minTickGap={40}
+                  />
+                  <YAxis
+                    {...CHART_AXIS_STYLE}
+                    domain={[0, "auto"]}
+                    label={{ value: "kW", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" } }}
+                  />
+                  <Tooltip content={<SimpleEnergyTooltip />} />
+                  <Legend
+                    iconType="line"
+                    iconSize={12}
+                    wrapperStyle={{ fontSize: 10, paddingTop: 8 }}
+                    formatter={(value) => value.replace(/_/g, " ")}
+                  />
+                  {displayedKeys.map((key, i) => (
+                    <Line
+                      key={key}
+                      type="monotone"
+                      dataKey={key}
+                      stroke={key === "Other" ? CHART_COLORS[6] : CHART_COLORS[i % (CHART_COLORS.length - 1)]}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  ))}
+                  <Brush
+                    dataKey="t"
+                    height={24}
+                    stroke="hsl(var(--border))"
+                    fill="hsl(var(--muted))"
+                    tickFormatter={brushFormatter}
+                  />
+                </LineChart>
+              )}
             </ResponsiveContainer>
           </div>
         </NILMPanel>

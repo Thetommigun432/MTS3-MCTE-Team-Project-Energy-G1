@@ -33,6 +33,10 @@ interface InferenceResponse {
 
 // Backend API configuration
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const BUILDING_ID = process.env.BUILDING_ID || 'demo-residential-001';
+// Time offset in milliseconds to shift historical data to be "recent"
+// Default: shift data to end at "now"
+const TIME_OFFSET_ENABLED = process.env.TIME_OFFSET !== 'false';
 const SEQUENCE_LENGTH = 60;
 const USE_ML_INFERENCE = process.env.USE_ML_INFERENCE !== 'false'; // Default to true
 
@@ -155,7 +159,7 @@ export async function generatePredictionsML(csvPath: string): Promise<Prediction
           appliance,
           predicted_kw: Math.round(result.predicted_kw * 1000) / 1000, // 3 decimal places
           confidence: Math.round(result.confidence * 100) / 100, // 2 decimal places
-          building_id: 'local',
+          building_id: BUILDING_ID,
           model_version: result.model_version,
           inference_type: 'ml',
         });
@@ -205,14 +209,30 @@ export function generatePredictions(csvPath: string): Prediction[] {
 
   console.log(`Parsed ${parsed.data.length} rows from CSV`);
 
+  // Calculate time offset to shift historical data to be recent
+  let timeOffset = 0;
+  if (TIME_OFFSET_ENABLED && parsed.data.length > 0) {
+    const lastRow = parsed.data[parsed.data.length - 1];
+    const lastTimestamp = new Date(lastRow.Time);
+    const now = new Date();
+    // Shift so the last data point is at "now"
+    timeOffset = now.getTime() - lastTimestamp.getTime();
+    console.log(`Time offset enabled: shifting data to end at ${now.toISOString()}`);
+  }
+
   const predictions: Prediction[] = [];
 
   parsed.data.forEach((row, idx) => {
     try {
-      const timestamp = new Date(row.Time);
+      let timestamp = new Date(row.Time);
       if (isNaN(timestamp.getTime())) {
         console.warn(`Invalid timestamp at row ${idx}: ${row.Time}`);
         return;
+      }
+      
+      // Apply time offset to shift historical data to be recent
+      if (timeOffset !== 0) {
+        timestamp = new Date(timestamp.getTime() + timeOffset);
       }
 
       const aggregate = Number(row.Aggregate) || 0;
@@ -252,7 +272,7 @@ export function generatePredictions(csvPath: string): Prediction[] {
           appliance,
           predicted_kw: Math.round(predicted * 1000) / 1000, // 3 decimal places
           confidence: Math.round(confidence * 100) / 100, // 2 decimal places
-          building_id: 'local',
+          building_id: BUILDING_ID,
           inference_type: 'mock',
         });
       });

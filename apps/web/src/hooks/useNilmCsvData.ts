@@ -7,7 +7,7 @@ export interface NilmDataRow {
   time: Date;
   aggregate: number;
   appliances: Record<string, number>;
-  confidence?: number;
+  confidence?: Record<string, number>;  // Per-appliance confidence values
   inferenceType?: 'ml' | 'mock' | 'demo';
   modelVersion?: string;
 }
@@ -35,12 +35,63 @@ const APPLIANCE_COLUMNS = [
   "WashingMachine",
 ];
 
-// ON/OFF threshold
-export const ON_THRESHOLD = 0.05;
+// ON/OFF threshold configuration
+// MIN_ON_THRESHOLD: absolute minimum (20W) to reject sensor noise
+// ON_RATIO: percentage of rated power (5%) for scaled threshold
+// Formula: on = estKw >= max(MIN_ON_THRESHOLD, ratedKw * ON_RATIO)
+export const MIN_ON_THRESHOLD = 0.02;  // 20W minimum
+export const ON_RATIO = 0.05;          // 5% of rated power
+export const ON_THRESHOLD = 0.05;      // Legacy fallback (50W) when rated power unknown
 
-// Compute confidence as clamped est_kW / 1.0
+/**
+ * Compute dynamic ON threshold for an appliance based on its rated power.
+ * - If ratedKw is provided: max(20W, 5% of rated power)
+ * - If ratedKw is unknown: fallback to 50W
+ * 
+ * Examples:
+ * - RangeHood (0.5kW rated): max(0.02, 0.5*0.05) = max(0.02, 0.025) = 0.025 kW (25W)
+ * - HeatPump (5.0kW rated): max(0.02, 5.0*0.05) = max(0.02, 0.25) = 0.25 kW (250W)
+ * - EVCharger (7.5kW rated): max(0.02, 7.5*0.05) = max(0.02, 0.375) = 0.375 kW (375W)
+ */
+export function computeOnThreshold(ratedKw: number | null | undefined): number {
+  if (ratedKw != null && ratedKw > 0) {
+    return Math.max(MIN_ON_THRESHOLD, ratedKw * ON_RATIO);
+  }
+  return ON_THRESHOLD; // Legacy fallback
+}
+
+/**
+ * Determine if an appliance is ON based on estimated power and rated power.
+ */
+export function isApplianceOn(estKw: number, ratedKw: number | null | undefined): boolean {
+  return estKw >= computeOnThreshold(ratedKw);
+}
+
+/**
+ * Compute fallback confidence from power reading when backend doesn't provide confidence.
+ * This is a FALLBACK only - prefer using real confidence from API.
+ * 
+ * Logic:
+ * - Very low power (<50W): High confidence (0.80-0.95) - clearly OFF
+ * - Very high power (>500W): High confidence (0.75-0.95) - clearly ON
+ * - Middle region: Lower confidence (0.45-0.70) - uncertain state
+ */
 export function computeConfidence(estKw: number): number {
-  return Math.min(Math.max(estKw / 1.0, 0), 1);
+  const absKw = Math.abs(estKw);
+  
+  if (absKw < 0.05) {
+    // Clearly OFF - high confidence
+    return 0.80 + 0.15 * (1 - absKw / 0.05);
+  } else if (absKw > 0.5) {
+    // Clearly ON - confidence increases with power (capped at 2kW)
+    const normPower = Math.min(absKw / 2.0, 1.0);
+    return 0.75 + 0.20 * normPower;
+  } else {
+    // Uncertain middle region
+    const midpoint = 0.275;
+    const distanceFromMid = Math.abs(absKw - midpoint) / midpoint;
+    return 0.45 + 0.25 * Math.tanh(distanceFromMid * 2);
+  }
 }
 
 // Compute energy in kWh (15 min intervals = 0.25h)

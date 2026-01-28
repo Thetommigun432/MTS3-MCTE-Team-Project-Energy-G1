@@ -11,8 +11,9 @@ Pipeline flow:
 """
 
 import asyncio
+import time
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -24,6 +25,11 @@ from app.infra.redis.streams import ack, ensure_group, read_group
 from app.infra.redis.rolling_window import get_window_values, get_window_samples, get_window_length
 
 logger = get_logger(__name__)
+
+# Minimum interval between inferences per building (in seconds)
+# This ensures we don't run inference more than once per second even when
+# data is being ingested at high speed (e.g., SIM_SPEEDUP=100)
+INFERENCE_MIN_INTERVAL_SECONDS = 1.0
 
 
 class RedisInferenceWorker:
@@ -145,8 +151,22 @@ class RedisInferenceWorker:
                     logger.warning(f"Invalid timestamp: {ts_str}")
                     continue
 
+                # Rate limiting: ensure we don't run inference more than once per second
+                # This is important when SIM_SPEEDUP > 1 to avoid overwhelming the system
+                now = time.monotonic()
+                last_inference = self._last_inference.get(building_id, 0.0)
+                if now - last_inference < INFERENCE_MIN_INTERVAL_SECONDS:
+                    logger.debug(
+                        f"Rate limiting: skipping inference for {building_id}, "
+                        f"last run {now - last_inference:.2f}s ago"
+                    )
+                    continue
+
                 # Run inference for this building
                 await self._run_inference_for_building(building_id, dt)
+
+                # Update last inference time
+                self._last_inference[building_id] = now
 
             except Exception as e:
                 logger.error(f"Failed to process building {building_id}: {e}")

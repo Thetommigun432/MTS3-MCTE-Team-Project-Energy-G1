@@ -157,24 +157,33 @@ export default function Buildings() {
   const fetchOrgAppliances = useCallback(async () => {
     if (!user || mode === "demo") return;
     try {
-      // Cast supabase to any because org_appliances might be missing/mismatched in types
+      // Using 'appliances' table (the actual table name in the schema)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
-        .from("org_appliances")
-        .select("*")
+        .from("appliances")
+        .select("id, name, category, typical_power_kw, is_enabled")
+        .eq("is_enabled", true)
         .order("name");
 
       if (error) {
         if (isSchemaError(error)) {
           if (!schemaWarningLogged) {
-            console.warn("[Buildings] org_appliances table not available. Using empty state.");
+            console.warn("[Buildings] appliances table not available. Using empty state.");
             schemaWarningLogged = true;
           }
           return;
         }
         throw error;
       }
-      setOrgAppliances(data || []);
+      // Transform to match expected OrgAppliance shape
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transformed = (data || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        type: item.category || "appliance",
+        rated_power_kw: item.typical_power_kw,
+      }));
+      setOrgAppliances(transformed);
     } catch (error) {
       console.error("Error fetching org appliances:", error);
     }
@@ -207,22 +216,8 @@ export default function Buildings() {
 
       // In API mode, fetch from Supabase
       if (!user || !isSupabaseEnabled() || schemaUnavailable.current) {
-        // Fall back to context buildings if available
-        if (contextBuildings.length > 0) {
-          const fallbackBuildings = contextBuildings.map(b => ({
-            id: b.id,
-            name: b.name,
-            address: b.address || null,
-            description: null as string | null,
-            status: b.status || "active",
-            total_appliances: contextAppliances.length,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }));
-          setBuildings(fallbackBuildings);
-        } else {
-          setBuildings([]);
-        }
+        // In API mode without Supabase access, show empty state (not demo data)
+        setBuildings([]);
         setLoading(false);
         return;
       }
@@ -230,29 +225,18 @@ export default function Buildings() {
       const { data, error } = await supabase
         .from("buildings")
         .select("*")
+        .or("is_demo.is.null,is_demo.eq.false")
         .order("created_at", { ascending: false });
 
       if (error) {
         if (isSchemaError(error)) {
           schemaUnavailable.current = true;
           if (!schemaWarningLogged) {
-            console.warn("[Buildings] Supabase buildings table not available. Using context fallback.");
+            console.warn("[Buildings] Supabase buildings table not available.");
             schemaWarningLogged = true;
           }
-          // Fall back to context buildings
-          if (contextBuildings.length > 0) {
-            const fallbackBuildings = contextBuildings.map(b => ({
-              id: b.id,
-              name: b.name,
-              address: b.address || null,
-              description: null as string | null,
-              status: b.status || "active",
-              total_appliances: contextAppliances.length,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }));
-            setBuildings(fallbackBuildings);
-          }
+          // In API mode, show empty state rather than fallback to demo
+          setBuildings([]);
           setLoading(false);
           return;
         }
@@ -287,41 +271,41 @@ export default function Buildings() {
         return;
       }
 
-      // In API mode, fetch from Supabase using new schema
-      // Join building_appliances with org_appliances
+      // In API mode, fetch from Supabase using actual schema
+      // Join building_appliances with appliances table
       const { data, error } = await supabase
         .from("building_appliances")
         .select(`
           id,
           building_id,
-          is_enabled,
+          alias,
+          is_active,
           created_at,
-          updated_at,
-          org_appliances!inner (
+          appliances!inner (
             id,
             name,
-            type,
-            rated_power_kw
+            category,
+            typical_power_kw
           )
         `)
         .eq("building_id", buildingId)
-        .eq("is_enabled", true);
+        .eq("is_active", true);
 
       if (error) throw error;
 
-      // Transform result
+      // Transform result to match expected Appliance shape
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transformed: Appliance[] = (data || []).map((item: any) => ({
         id: item.id,
         building_id: item.building_id,
-        org_appliance_id: item.org_appliances?.id,
-        name: item.org_appliances?.name || "Unknown",
-        type: item.org_appliances?.type || "other",
-        rated_power_kw: item.org_appliances?.rated_power_kw,
-        status: item.is_enabled ? "active" : "inactive",
+        org_appliance_id: item.appliances?.id,
+        name: item.alias || item.appliances?.name || "Unknown",
+        type: item.appliances?.category || "other",
+        rated_power_kw: item.appliances?.typical_power_kw,
+        status: item.is_active ? "active" : "inactive",
         notes: "", // Default to empty string for notes
         created_at: item.created_at,
-        updated_at: item.updated_at
+        updated_at: item.created_at // Use created_at as updated_at fallback
       })).sort((a, b) => a.name.localeCompare(b.name));
 
       setAppliances((prev) => ({ ...prev, [buildingId]: transformed }));
@@ -484,12 +468,13 @@ export default function Buildings() {
 
     try {
       setSaving(true);
-      // Insert into building_appliances linking building and org_appliance
+      // Insert into building_appliances linking building and appliance
+      // Using actual schema: appliance_id (not org_appliance_id), is_active (not is_enabled)
       const { error } = await supabase.from("building_appliances").insert({
         building_id: selectedBuildingId,
-        org_appliance_id: applianceForm.org_appliance_id,
-        is_enabled: applianceForm.status === "active",
-        user_id: user.id,
+        appliance_id: applianceForm.org_appliance_id, // Maps to appliances.id
+        is_active: applianceForm.status === "active",
+        alias: applianceForm.name || null, // Optional custom name
       });
 
       if (error) throw error;
@@ -506,7 +491,7 @@ export default function Buildings() {
   };
 
   const handleEditAppliance = async () => {
-    // Editing only allows changing enablement status now, since properties are on org_appliance
+    // Editing only allows changing enablement status now, since properties are on appliance
     if (!editingAppliance) return;
 
     try {
@@ -514,7 +499,8 @@ export default function Buildings() {
       const { error } = await supabase
         .from("building_appliances")
         .update({
-          is_enabled: applianceForm.status === "active",
+          is_active: applianceForm.status === "active",
+          alias: applianceForm.name || null,
         })
         .eq("id", editingAppliance.id);
 

@@ -239,12 +239,15 @@ class NILMInferenceService:
                 logger.warning("No active models in registry - using mock predictions for E2E")
                 mock_appliances = ["HeatPump", "Dishwasher", "WashingMachine"]
                 for appliance in mock_appliances:
+                    mock_power = 100.0 + (hash(appliance) % 200)
+                    # Use dynamic confidence even for mocks
+                    mock_conf = 0.75 + 0.20 * min(mock_power / 300, 1.0) if mock_power > 50 else 0.85
                     result_preds.append(Prediction(
                         appliance=appliance,
-                        power_watts=100.0 + (hash(appliance) % 200),  # Deterministic mock value
-                        probability=0.85,
+                        power_watts=mock_power,  # Deterministic mock value
+                        probability=mock_conf,
                         is_on=True,
-                        confidence=0.85,
+                        confidence=mock_conf,
                         model_version="mock-e2e-v1"
                     ))
                 # Still publish these mock predictions
@@ -286,9 +289,14 @@ class NILMInferenceService:
                         p_watts = pred_power[0, -1, 0].item()
                         prob = pred_prob[0, -1, 0].item()
                     else:
-                        # Legacy/Simple models
+                        # Legacy/Simple models - compute confidence from prediction certainty
                         p_watts = output.item()
-                        prob = 1.0 if p_watts > 10.0 else 0.0
+                        # Generate dynamic confidence based on prediction magnitude
+                        # Higher absolute values (further from decision boundary) = higher confidence
+                        # Use sigmoid-like mapping: confidence = 0.5 + 0.5 * tanh(|p_watts| * 3)
+                        import math
+                        abs_pred = abs(p_watts)
+                        prob = 0.5 + 0.5 * math.tanh(abs_pred * 3)
                         
                     # Post-process
                     # Unscale power using P_MAX (Watts)
@@ -297,19 +305,41 @@ class NILMInferenceService:
                     
                     final_watts = p_watts * p_max
                     
+                    # Compute model confidence based on prediction certainty
+                    # For multi-head models, use the probability output
+                    # For single-head models, compute confidence from power magnitude
+                    if isinstance(output, tuple):
+                        confidence = prob
+                    else:
+                        # Confidence based on how certain the model is about the power level
+                        # Higher power readings = more confident (appliance clearly ON)
+                        # Very low power readings = also confident (appliance clearly OFF)
+                        # Middle values = less confident
+                        import math
+                        # Normalize by expected max power for this appliance
+                        norm_power = min(final_watts / p_max, 1.0)
+                        # High confidence for clear ON (>50% of rated) or clear OFF (<5% of rated)
+                        if norm_power > 0.5:
+                            confidence = 0.7 + 0.3 * min(norm_power, 1.0)  # 0.7-1.0 for ON
+                        elif norm_power < 0.05:
+                            confidence = 0.8 + 0.2 * (1 - norm_power / 0.05)  # 0.8-1.0 for OFF
+                        else:
+                            # Uncertain region - lower confidence
+                            confidence = 0.4 + 0.3 * abs(norm_power - 0.275) / 0.275  # 0.4-0.7
+                    
                     # Thresholding
                     thresh = entry.architecture_params.get('optimal_threshold', 0.5)
-                    is_on = prob > thresh
+                    is_on = prob > thresh if isinstance(output, tuple) else final_watts > 50.0
                     
-                    if not is_on and prob < 0.1:
+                    if not is_on and final_watts < 10.0:
                         final_watts = 0.0
                     
                     result_preds.append(Prediction(
                         appliance=entry.appliance_id,
                         power_watts=final_watts,
-                        probability=prob,
+                        probability=prob if isinstance(output, tuple) else (1.0 if is_on else 0.0),
                         is_on=is_on,
-                        confidence=prob,
+                        confidence=confidence,
                         model_version=entry.model_version
                     ))
                     

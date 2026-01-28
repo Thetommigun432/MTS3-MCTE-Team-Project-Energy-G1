@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useMemo, useCallback, useState } from "react";
 import { useEnergy } from "@/contexts/EnergyContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,15 +7,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Brush,
+  ReferenceLine,
+  ReferenceArea,
+  BarChart,
+  Bar,
+  Cell,
 } from "recharts";
 import { format } from "date-fns";
-import { ArrowLeft, AlertCircle, Info } from "lucide-react";
-import { ON_THRESHOLD, computeEnergyKwh } from "@/hooks/useNilmCsvData";
+import { ArrowLeft, AlertCircle, Info, Activity, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { isApplianceOn, computeOnThreshold, computeEnergyKwh } from "@/hooks/useNilmCsvData";
 
 // NILM Components
 import {
@@ -24,6 +33,17 @@ import {
 import { DetectionStageBadge } from "@/components/nilm/ModelTrustBadge";
 import { NILMPanel, NILMEmptyState } from "@/components/nilm/NILMPanel";
 import { WaveformDecoration } from "@/components/brand/WaveformIcon";
+
+// Chart utilities
+import {
+  CHART_AXIS_STYLE,
+  CHART_GRID_STYLE,
+  tickFormatter,
+  brushFormatter,
+  buildHourlyProfile,
+  buildDayHourHeatmap,
+} from "@/components/charts";
+import { HourlyHeatmap } from "@/components/charts/HourlyHeatmap";
 
 export default function ApplianceDetails() {
   const { name } = useParams();
@@ -46,15 +66,27 @@ export default function ApplianceDetails() {
     return "Uncertain";
   };
 
-  // Build chart data for this appliance
-  const chartData = filteredRows.map((row) => {
-    const estKw = row.appliances[decodedName] || 0;
-    return {
-      time: format(row.time, "MM/dd HH:mm"),
-      est_kW: estKw,
-      on: estKw >= ON_THRESHOLD,
-    };
-  });
+  // Build chart data for this appliance with numeric timestamps
+  const chartData = useMemo(() => {
+    const ratedKw = applianceData?.rated_kW;
+    return filteredRows.map((row) => {
+      const estKw = row.appliances[decodedName] || 0;
+      return {
+        t: row.time instanceof Date ? row.time.getTime() : new Date(row.time).getTime(),
+        time: format(row.time, "MM/dd HH:mm"),
+        est_kW: estKw,
+        on: isApplianceOn(estKw, ratedKw),  // Dynamic threshold
+      };
+    });
+  }, [filteredRows, decodedName, applianceData?.rated_kW]);
+
+  // Compute ON threshold for display
+  const onThreshold = computeOnThreshold(applianceData?.rated_kW);
+
+  // Formatters for time axis
+  const tickFormatter = useCallback((ms: number) => format(new Date(ms), "HH:mm"), []);
+  const brushFormatter = useCallback((ms: number) => format(new Date(ms), "MM/dd HH:mm"), []);
+  const tooltipLabelFormatter = useCallback((ms: number) => format(new Date(ms), "yyyy-MM-dd HH:mm:ss"), []);
 
   // Top 5 usage periods (intervals with highest kW)
   const topPeriods = [...chartData]
@@ -67,6 +99,50 @@ export default function ApplianceDetails() {
     (sum, d) => sum + computeEnergyKwh(d.est_kW),
     0,
   );
+
+  // Compute ON periods for ReferenceArea overlays
+  const onPeriods = useMemo(() => {
+    const periods: Array<{ start: number; end: number }> = [];
+    let currentStart: number | null = null;
+    
+    chartData.forEach((d, i) => {
+      if (d.on && currentStart === null) {
+        currentStart = d.t;
+      } else if (!d.on && currentStart !== null) {
+        periods.push({ start: currentStart, end: chartData[i - 1]?.t || currentStart });
+        currentStart = null;
+      }
+    });
+    
+    // Close any open period
+    if (currentStart !== null && chartData.length > 0) {
+      periods.push({ start: currentStart, end: chartData[chartData.length - 1].t });
+    }
+    
+    return periods;
+  }, [chartData]);
+
+  // Build 24h usage profile
+  const hourlyProfile = useMemo(() => {
+    const data = chartData.map(d => ({ t: d.t, est_kW: d.est_kW }));
+    return buildHourlyProfile(data as Array<{ t: number; [key: string]: number }>, "est_kW");
+  }, [chartData]);
+
+  // Build day×hour heatmap data
+  const heatmapData = useMemo(() => {
+    const data = chartData.map(d => ({ t: d.t, est_kW: d.est_kW }));
+    return buildDayHourHeatmap(data as Array<{ t: number; [key: string]: number }>, "est_kW");
+  }, [chartData]);
+
+  // Pattern view mode state
+  const [patternView, setPatternView] = useState<"profile" | "heatmap">("profile");
+  // Collapsible sections state
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Max value for profile chart
+  const maxHourlyKwh = useMemo(() => {
+    return Math.max(...hourlyProfile.map(h => h.avgKw), 0.01);
+  }, [hourlyProfile]);
 
   if (loading) {
     return (
@@ -176,140 +252,290 @@ export default function ApplianceDetails() {
         </Card>
       )}
 
-      {/* Line Chart: Est kW Over Time */}
+      {/* Line Chart: Est kW Over Time with ON period overlays */}
       <NILMPanel
         title="Estimated kW Over Time"
-        subtitle="AI-predicted power consumption for this appliance"
-        footer="Estimated by AI from total meter data • Not directly measured"
+        subtitle="AI-predicted power consumption • ON periods highlighted"
+        footer={`Threshold: ${(onThreshold * 1000).toFixed(0)}W • ${onPeriods.length} ON periods detected`}
         showWaveform
       >
-        <div className="h-64">
+        <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <AreaChart
               data={chartData}
               margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-              />
+              <CartesianGrid {...CHART_GRID_STYLE} />
               <XAxis
-                dataKey="time"
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
+                dataKey="t"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
+                tickFormatter={tickFormatter}
+                {...CHART_AXIS_STYLE}
+                minTickGap={40}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                tickLine={false}
-                axisLine={false}
+                {...CHART_AXIS_STYLE}
+                domain={[0, "auto"]}
+                label={{ value: "kW", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" } }}
               />
+              
+              {/* ON period background highlights */}
+              {onPeriods.map((period, i) => (
+                <ReferenceArea
+                  key={i}
+                  x1={period.start}
+                  x2={period.end}
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.1}
+                />
+              ))}
+              
+              {/* ON threshold reference line */}
+              <ReferenceLine 
+                y={onThreshold} 
+                stroke="hsl(var(--primary))" 
+                strokeDasharray="4 4"
+                strokeOpacity={0.5}
+                label={{ 
+                  value: `ON threshold`, 
+                  position: "right", 
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 9
+                }}
+              />
+              
               <Tooltip
+                labelFormatter={tooltipLabelFormatter}
                 contentStyle={{
                   backgroundColor: "hsl(var(--card))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "var(--radius)",
                   fontSize: 12,
                 }}
-                formatter={(value: number) => [
-                  `${value.toFixed(4)} kW`,
-                  "Est. kW",
-                ]}
+                formatter={(value: number, _name: string, props: { payload?: { on?: boolean } }) => {
+                  const isOn = props.payload?.on;
+                  return [
+                    <span key="val" className={isOn ? "text-primary font-medium" : ""}>
+                      {value.toFixed(4)} kW {isOn ? "(ON)" : "(OFF)"}
+                    </span>,
+                    "Est. kW",
+                  ];
+                }}
               />
-              <Line
+              
+              {/* Main power area */}
+              <Area
                 type="monotone"
                 dataKey="est_kW"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2}
-                dot={false}
+                fill="hsl(var(--primary))"
+                fillOpacity={0.2}
               />
-            </LineChart>
+              
+              <Brush
+                dataKey="t"
+                height={24}
+                stroke="hsl(var(--border))"
+                fill="hsl(var(--muted))"
+                tickFormatter={brushFormatter}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </NILMPanel>
 
-      {/* ON/OFF Timeline */}
+      {/* Activity Timeline - time-based ON/OFF visualization */}
       <NILMPanel
-        title="Predicted ON/OFF Timeline"
-        subtitle={`Visual representation of detected activity (threshold: ${ON_THRESHOLD} kW)`}
-        footer="AI-predicted states • Confidence varies by time period"
+        title="Activity Timeline"
+        subtitle={`Visual representation of detected ON/OFF states (${onPeriods.length} active periods)`}
+        footer="Shows when appliance was detected as ON based on power threshold"
       >
-        <div className="flex gap-0.5 h-10 rounded overflow-hidden">
-          {chartData.map((d, i) => (
-            <div
-              key={i}
-              className={`flex-1 transition-colors ${
-                d.on ? "bg-state-on" : "bg-state-off"
-              }`}
-              title={`${d.time}: ${d.on ? "Predicted ON" : "Predicted OFF"} (${d.est_kW.toFixed(3)} kW)`}
-            />
-          ))}
+        <div className="h-16">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 4, right: 8, left: -16, bottom: 4 }}
+            >
+              <XAxis
+                dataKey="t"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
+                tickFormatter={tickFormatter}
+                {...CHART_AXIS_STYLE}
+                minTickGap={60}
+              />
+              <YAxis hide domain={[0, 1]} />
+              <Area
+                type="stepAfter"
+                dataKey={(d: { on: boolean }) => (d.on ? 1 : 0)}
+                stroke="none"
+                fill="hsl(var(--primary))"
+                fillOpacity={0.6}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
-        <div className="flex justify-between text-xs text-muted-foreground mt-3">
+        <div className="flex justify-between text-xs text-muted-foreground mt-2">
           <span className="mono">{chartData[0]?.time || "—"}</span>
           <div className="flex gap-4">
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-state-on" /> Predicted ON
+              <span className="w-3 h-3 rounded bg-primary/60" /> ON ({onPeriods.length})
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded bg-state-off border border-border" />{" "}
-              Predicted OFF
+              <span className="w-3 h-3 rounded bg-muted border border-border" /> OFF
             </span>
           </div>
-          <span className="mono">
-            {chartData[chartData.length - 1]?.time || "—"}
-          </span>
+          <span className="mono">{chartData[chartData.length - 1]?.time || "—"}</span>
         </div>
       </NILMPanel>
 
-      {/* Top Usage Periods Table */}
-      <NILMPanel
-        title="Top Usage Periods"
-        subtitle="Top 5 intervals by estimated power consumption"
-        footer="Rankings based on AI-estimated values"
+      {/* Collapsible: More Details Section */}
+      <button
+        onClick={() => setShowDetails(!showDetails)}
+        className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors border border-border rounded-lg bg-muted/30 hover:bg-muted/50"
       >
-        <div className="overflow-x-auto -mx-5 px-5">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 font-medium text-muted-foreground">
-                  Time
-                </th>
-                <th className="text-left py-3 font-medium text-muted-foreground">
-                  State
-                </th>
-                <th className="text-right py-3 font-medium text-muted-foreground">
-                  Est. kW
-                </th>
-                <th className="text-right py-3 font-medium text-muted-foreground">
-                  Est. kWh
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {topPeriods.map((period, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+        {showDetails ? (
+          <>
+            <ChevronUp className="h-4 w-4" />
+            Hide Additional Details
+          </>
+        ) : (
+          <>
+            <ChevronDown className="h-4 w-4" />
+            Show Usage Patterns & Top Periods
+          </>
+        )}
+      </button>
+
+      {showDetails && (
+        <>
+          {/* 24h Usage Pattern */}
+          <NILMPanel
+            title="Usage Pattern"
+            subtitle="When is this appliance typically active?"
+            action={
+              <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+                <button
+                  onClick={() => setPatternView("profile")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    patternView === "profile"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
-                  <td className="py-3 mono text-foreground">{period.time}</td>
-                  <td className="py-3">
-                    <ApplianceStateBadge on={period.on} size="sm" />
-                  </td>
-                  <td className="py-3 text-right metric-value text-foreground">
-                    {period.est_kW.toFixed(4)}
-                  </td>
-                  <td className="py-3 text-right text-muted-foreground">
-                    {computeEnergyKwh(period.est_kW).toFixed(4)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </NILMPanel>
+                  <Activity className="h-3 w-3" />
+                  24h Profile
+                </button>
+                <button
+                  onClick={() => setPatternView("heatmap")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                    patternView === "heatmap"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Clock className="h-3 w-3" />
+                  Week Heatmap
+                </button>
+              </div>
+            }
+            footer="Aggregated from selected date range"
+          >
+            {patternView === "profile" ? (
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={hourlyProfile}
+                    margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  >
+                    <CartesianGrid {...CHART_GRID_STYLE} />
+                    <XAxis 
+                      dataKey="hour" 
+                      {...CHART_AXIS_STYLE}
+                      tickFormatter={(h) => `${h}:00`}
+                    />
+                    <YAxis 
+                      {...CHART_AXIS_STYLE}
+                      label={{ value: "kW", angle: -90, position: "insideLeft", style: { fontSize: 10, fill: "hsl(var(--muted-foreground))" } }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                        fontSize: 12,
+                      }}
+                      formatter={(value: number) => [`${value.toFixed(3)} kW avg`, "Power"]}
+                      labelFormatter={(h) => `${h}:00 - ${h}:59`}
+                    />
+                    <Bar dataKey="avgKw" radius={[2, 2, 0, 0]} maxBarSize={20}>
+                      {hourlyProfile.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`}
+                          fill={entry.avgKw > maxHourlyKwh * 0.5 ? "hsl(var(--primary))" : "hsl(var(--primary) / 0.5)"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <HourlyHeatmap data={heatmapData} showDayAxis />
+            )}
+          </NILMPanel>
+
+          {/* Top Usage Periods Table */}
+          <NILMPanel
+            title="Top Usage Periods"
+            subtitle="Top 5 intervals by estimated power consumption"
+            footer="Rankings based on AI-estimated values"
+          >
+            <div className="overflow-x-auto -mx-5 px-5">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 font-medium text-muted-foreground">
+                      Time
+                    </th>
+                    <th className="text-left py-3 font-medium text-muted-foreground">
+                      State
+                    </th>
+                    <th className="text-right py-3 font-medium text-muted-foreground">
+                      Est. kW
+                    </th>
+                    <th className="text-right py-3 font-medium text-muted-foreground">
+                      Est. kWh
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topPeriods.map((period, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                    >
+                      <td className="py-3 mono text-foreground">{period.time}</td>
+                      <td className="py-3">
+                        <ApplianceStateBadge on={period.on} size="sm" />
+                      </td>
+                      <td className="py-3 text-right metric-value text-foreground">
+                        {period.est_kW.toFixed(4)}
+                      </td>
+                      <td className="py-3 text-right text-muted-foreground">
+                        {computeEnergyKwh(period.est_kW).toFixed(4)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </NILMPanel>
+        </>
+      )}
 
       {/* Explainability Note */}
       <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/30 border border-border">

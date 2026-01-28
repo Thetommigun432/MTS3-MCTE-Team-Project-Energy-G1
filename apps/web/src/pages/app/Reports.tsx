@@ -41,6 +41,9 @@ import {
   RefreshCw,
   Info,
   Printer,
+  BarChart3,
+  Grid3X3,
+  GitCompare,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -50,9 +53,9 @@ import { ConfidenceIndicator } from "@/components/nilm/ApplianceStateBadge";
 import { EstimatedValueDisplay } from "@/components/nilm/EstimatedValueDisplay";
 import { ModelTrustBadge } from "@/components/nilm/ModelTrustBadge";
 import {
-  computeConfidence,
   computeEnergyKwh,
   ON_THRESHOLD,
+  isApplianceOn,
   getTopAppliancesByEnergy,
 } from "@/hooks/useNilmCsvData";
 import {
@@ -71,7 +74,14 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Cell,
+  LineChart,
+  Line,
+  Legend,
 } from "recharts";
+
+// Chart utilities
+import { buildDayHourHeatmap, CHART_COLORS } from "@/components/charts";
+import { HourlyHeatmap } from "@/components/charts/HourlyHeatmap";
 
 interface ReportData {
   generatedAt: Date;
@@ -114,7 +124,7 @@ function ChartTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: Array<{ value: number }>;
+  payload?: Array<{ value: number; name?: string; color?: string }>;
   label?: string;
 }) {
   if (!active || !payload || !payload.length) return null;
@@ -122,9 +132,13 @@ function ChartTooltip({
   return (
     <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
       <p className="text-xs text-muted-foreground mb-1">Hour {label}:00</p>
-      <p className="text-sm font-semibold text-foreground">
-        {payload[0].value.toFixed(2)} kWh
-      </p>
+      {payload.map((p, i) => (
+        <p key={i} className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+          {p.color && <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />}
+          <span>{p.name || "Energy"}:</span>
+          <span className="font-mono">{p.value.toFixed(3)} kWh</span>
+        </p>
+      ))}
     </div>
   );
 }
@@ -146,6 +160,13 @@ export default function Reports() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportError, setReportError] = useState<ReportError | null>(null);
+  
+  // Pattern view mode: bar chart vs heatmap
+  const [patternViewMode, setPatternViewMode] = useState<"bar" | "heatmap">("bar");
+  // Comparison mode: show appliance vs total building
+  const [showComparison, setShowComparison] = useState(false);
+  // Normalization: absolute vs percentage
+  const [normalizeComparison, setNormalizeComparison] = useState(false);
 
   // NOTE: generateReportFromData must be defined BEFORE handleGenerateReport
   // to avoid temporal dead zone errors in the dependency array
@@ -235,8 +256,14 @@ export default function Reports() {
 
       filteredRows.forEach((row) => {
         const kw = row.appliances[app.name] || 0;
-        totalConfidence += computeConfidence(kw);
-        if (kw >= ON_THRESHOLD) {
+        // Use backend confidence directly from InfluxDB (0 if not available)
+        const confidenceRecord = row.confidence || {};
+        const backendConfidence = typeof confidenceRecord === 'object' 
+          ? (confidenceRecord[app.name] ?? 0)
+          : 0;
+        totalConfidence += backendConfidence;
+        // Note: rated power not available here, use legacy threshold
+        if (isApplianceOn(kw, null)) {
           hoursOn += 15 / 60; // 15-minute intervals
         }
         count++;
@@ -429,6 +456,62 @@ export default function Reports() {
     if (!reportData) return 1;
     return Math.max(...reportData.hourlyPattern.map((h) => h.energyKwh), 0.01);
   }, [reportData]);
+
+  // Build heatmap data for the selected appliance or aggregate
+  const heatmapData = useMemo(() => {
+    if (!reportData || filteredRows.length === 0) return [];
+    
+    const isSingleAppliance = selectedAppliance !== "All";
+    const data = filteredRows.map(row => ({
+      t: row.time instanceof Date ? row.time.getTime() : new Date(row.time).getTime(),
+      value: isSingleAppliance 
+        ? (row.appliances[selectedAppliance] || 0)
+        : row.aggregate,
+    }));
+    
+    return buildDayHourHeatmap(data as Array<{ t: number; [key: string]: number }>, "value");
+  }, [reportData, filteredRows, selectedAppliance]);
+
+  // Build comparison data (appliance vs total building)
+  const comparisonData = useMemo(() => {
+    if (!reportData || selectedAppliance === "All") return null;
+    
+    // Compute hourly pattern for aggregate
+    const hourlyAggregate: Record<number, { sum: number; count: number }> = {};
+    for (let h = 0; h < 24; h++) hourlyAggregate[h] = { sum: 0, count: 0 };
+    
+    filteredRows.forEach(row => {
+      const hour = row.time.getHours();
+      hourlyAggregate[hour].sum += row.aggregate;
+      hourlyAggregate[hour].count++;
+    });
+    
+    return reportData.hourlyPattern.map((h, i) => {
+      const agg = hourlyAggregate[h.hour];
+      const aggEnergy = agg.count > 0 ? agg.sum * 0.25 : 0; // kW * 0.25h intervals
+      const appEnergy = h.energyKwh;
+      
+      // Normalize if needed
+      if (normalizeComparison) {
+        const total = aggEnergy + 0.001; // avoid division by zero
+        return {
+          hour: h.hour,
+          appliance: (appEnergy / total) * 100,
+          building: 100,
+          applianceRaw: appEnergy,
+          buildingRaw: aggEnergy,
+        };
+      }
+      
+      return {
+        hour: h.hour,
+        appliance: appEnergy,
+        building: aggEnergy,
+        applianceRaw: appEnergy,
+        buildingRaw: aggEnergy,
+      };
+    });
+  }, [reportData, selectedAppliance, filteredRows, normalizeComparison]);
 
   return (
     <TooltipProvider>
@@ -765,8 +848,7 @@ export default function Reports() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>
-                      Appliances with at least one ON reading (≥{ON_THRESHOLD}{" "}
-                      kW)
+                      Appliances with at least one ON reading (≥{(ON_THRESHOLD * 1000).toFixed(0)}W default threshold)
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -886,74 +968,218 @@ export default function Reports() {
             <NILMPanel
               title="Hourly Usage Pattern"
               icon={<Activity className="h-5 w-5" />}
+              action={
+                <div className="flex items-center gap-2">
+                  {/* Comparison toggle (only for single appliance) */}
+                  {selectedAppliance !== "All" && (
+                    <button
+                      onClick={() => setShowComparison(!showComparison)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                        showComparison
+                          ? "bg-primary/20 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      title="Compare with total building"
+                    >
+                      <GitCompare className="h-3 w-3" />
+                      Compare
+                    </button>
+                  )}
+                  
+                  {/* Normalize toggle (only when comparison is on) */}
+                  {showComparison && selectedAppliance !== "All" && (
+                    <button
+                      onClick={() => setNormalizeComparison(!normalizeComparison)}
+                      className={`px-2 py-1 rounded text-xs transition-colors ${
+                        normalizeComparison
+                          ? "bg-primary/20 text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {normalizeComparison ? "%" : "kWh"}
+                    </button>
+                  )}
+                  
+                  {/* Bar/Heatmap toggle */}
+                  <div className="flex items-center gap-1 bg-muted rounded-md p-0.5">
+                    <button
+                      onClick={() => setPatternViewMode("bar")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                        patternViewMode === "bar"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <BarChart3 className="h-3 w-3" />
+                      Bar
+                    </button>
+                    <button
+                      onClick={() => setPatternViewMode("heatmap")}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                        patternViewMode === "heatmap"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <Grid3X3 className="h-3 w-3" />
+                      Heatmap
+                    </button>
+                  </div>
+                </div>
+              }
               footer={`Energy consumption by hour of day (${reportData.scope === "single" ? reportData.appliance.replace(/_/g, " ") : "aggregate"})`}
             >
               {hasHourlyData ? (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={reportData.hourlyPattern}
-                      margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="hsl(var(--border))"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="hour"
-                        tick={{
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 11,
-                        }}
-                        tickFormatter={(h) => `${h}`}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
-                        tickLine={{ stroke: "hsl(var(--border))" }}
-                        label={{
-                          value: "Hour of Day",
-                          position: "bottom",
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 12,
-                          offset: 0,
-                        }}
-                      />
-                      <YAxis
-                        tick={{
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 11,
-                        }}
-                        tickFormatter={(v) => v.toFixed(1)}
-                        axisLine={{ stroke: "hsl(var(--border))" }}
-                        tickLine={{ stroke: "hsl(var(--border))" }}
-                        label={{
-                          value: "Energy (kWh)",
-                          angle: -90,
-                          position: "insideLeft",
-                          fill: "hsl(var(--muted-foreground))",
-                          fontSize: 12,
-                          style: { textAnchor: "middle" },
-                        }}
-                      />
-                      <RechartsTooltip content={<ChartTooltip />} />
-                      <Bar
-                        dataKey="energyKwh"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={40}
-                      >
-                        {reportData.hourlyPattern.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={
-                              entry.energyKwh > maxEnergy * 0.7
-                                ? "hsl(var(--primary))"
-                                : "hsl(var(--primary) / 0.6)"
-                            }
-                          />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <>
+                  {patternViewMode === "bar" ? (
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        {showComparison && comparisonData ? (
+                          <LineChart
+                            data={comparisonData}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="hsl(var(--border))"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="hour"
+                              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                              tickFormatter={(h) => `${h}`}
+                              axisLine={{ stroke: "hsl(var(--border))" }}
+                              tickLine={{ stroke: "hsl(var(--border))" }}
+                            />
+                            <YAxis
+                              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                              tickFormatter={(v) => normalizeComparison ? `${v.toFixed(0)}%` : v.toFixed(2)}
+                              axisLine={{ stroke: "hsl(var(--border))" }}
+                              tickLine={{ stroke: "hsl(var(--border))" }}
+                              label={{
+                                value: normalizeComparison ? "% of Total" : "Energy (kWh)",
+                                angle: -90,
+                                position: "insideLeft",
+                                fill: "hsl(var(--muted-foreground))",
+                                fontSize: 12,
+                                style: { textAnchor: "middle" },
+                              }}
+                            />
+                            <RechartsTooltip 
+                              content={({ active, payload, label }) => {
+                                if (!active || !payload) return null;
+                                return (
+                                  <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+                                    <p className="text-xs text-muted-foreground mb-1">Hour {label}:00</p>
+                                    {payload.map((p, i) => (
+                                      <p key={i} className="text-sm flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                        <span>{p.name}:</span>
+                                        <span className="font-mono font-medium">
+                                          {normalizeComparison 
+                                            ? `${Number(p.value).toFixed(1)}%` 
+                                            : `${Number(p.value).toFixed(3)} kWh`}
+                                        </span>
+                                      </p>
+                                    ))}
+                                  </div>
+                                );
+                              }}
+                            />
+                            <Legend 
+                              iconType="line" 
+                              iconSize={12}
+                              wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="appliance"
+                              name={selectedAppliance.replace(/_/g, " ")}
+                              stroke={CHART_COLORS[0]}
+                              strokeWidth={2}
+                              dot={false}
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="building"
+                              name="Total Building"
+                              stroke={CHART_COLORS[3]}
+                              strokeWidth={2}
+                              strokeDasharray="4 2"
+                              dot={false}
+                            />
+                          </LineChart>
+                        ) : (
+                          <BarChart
+                            data={reportData.hourlyPattern}
+                            margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="hsl(var(--border))"
+                              vertical={false}
+                            />
+                            <XAxis
+                              dataKey="hour"
+                              tick={{
+                                fill: "hsl(var(--muted-foreground))",
+                                fontSize: 11,
+                              }}
+                              tickFormatter={(h) => `${h}`}
+                              axisLine={{ stroke: "hsl(var(--border))" }}
+                              tickLine={{ stroke: "hsl(var(--border))" }}
+                              label={{
+                                value: "Hour of Day",
+                                position: "bottom",
+                                fill: "hsl(var(--muted-foreground))",
+                                fontSize: 12,
+                                offset: 0,
+                              }}
+                            />
+                            <YAxis
+                              tick={{
+                                fill: "hsl(var(--muted-foreground))",
+                                fontSize: 11,
+                              }}
+                              tickFormatter={(v) => v.toFixed(1)}
+                              axisLine={{ stroke: "hsl(var(--border))" }}
+                              tickLine={{ stroke: "hsl(var(--border))" }}
+                              label={{
+                                value: "Energy (kWh)",
+                                angle: -90,
+                                position: "insideLeft",
+                                fill: "hsl(var(--muted-foreground))",
+                                fontSize: 12,
+                                style: { textAnchor: "middle" },
+                              }}
+                            />
+                            <RechartsTooltip content={<ChartTooltip />} />
+                            <Bar
+                              dataKey="energyKwh"
+                              radius={[4, 4, 0, 0]}
+                              maxBarSize={40}
+                            >
+                              {reportData.hourlyPattern.map((entry, index) => (
+                                <Cell
+                                  key={`cell-${index}`}
+                                  fill={
+                                    entry.energyKwh > maxEnergy * 0.7
+                                      ? "hsl(var(--primary))"
+                                      : "hsl(var(--primary) / 0.6)"
+                                  }
+                                />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        )}
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      <HourlyHeatmap data={heatmapData} showDayAxis />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="h-48 flex flex-col items-center justify-center text-center">
                   <Activity className="h-10 w-10 text-muted-foreground/30 mb-3" />

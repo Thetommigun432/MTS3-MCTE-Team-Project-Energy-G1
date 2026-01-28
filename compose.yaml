@@ -160,8 +160,12 @@ services:
       - PARQUET_PATH=/app/data/simulation_data.parquet
       - BUILDING_ID=building-1
       - DATA_POWER_COLUMN=aggregate
-      # Speedup: 1 = send 1 row per second (realtime if data is 1Hz)
-      - SIM_SPEEDUP=${SIM_SPEEDUP:-1}
+      # Speedup: Controls how fast data is ingested into the rolling window buffer
+      # Buffer needs 4096 samples before inference can start
+      # - SIM_SPEEDUP=1: Realtime (1 row/sec) - takes ~68 min to fill buffer
+      # - SIM_SPEEDUP=100: Fast fill (~41 sec to fill buffer)
+      # NOTE: Worker rate-limits inference to 1/sec regardless of speedup
+      - SIM_SPEEDUP=${SIM_SPEEDUP:-100}
       # Duration: 0 = unlimited
       - SIM_DURATION_SECONDS=${SIM_DURATION_SECONDS:-0}
     depends_on:

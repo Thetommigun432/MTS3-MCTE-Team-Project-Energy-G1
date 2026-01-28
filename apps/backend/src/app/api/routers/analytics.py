@@ -79,12 +79,18 @@ async def get_readings(
                 if point.time in pred_map:
                     pred = pred_map[point.time]
                     appliances = {}
+                    confidence = {}
                     for key, val in pred.items():
                         if key.startswith("predicted_kw_") and val is not None:
                             appliance_name = key.replace("predicted_kw_", "")
                             appliances[appliance_name] = float(val)
+                        elif key.startswith("confidence_") and val is not None:
+                            appliance_name = key.replace("confidence_", "")
+                            confidence[appliance_name] = float(val)
                     if appliances:
                         point.appliances = appliances
+                    if confidence:
+                        point.confidence = confidence
         except Exception as e:
             logger.warning(f"Failed to merge disaggregation data: {e}")
 

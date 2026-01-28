@@ -1,24 +1,17 @@
 {
   "models": [
     {
-      "model_id": "evcharger-v3-sota",
+      "model_id": "dishwasher-v3-sota",
       "model_version": "v3-sota",
-      "appliance_id": "EVCharger",
+      "appliance_id": "Dishwasher",
       "architecture": "wavenilm_v3",
       "input_window_size": 1536,
       "is_active": true,
       "cached": false,
       "heads": [
-        {
-          "appliance_id": "EVCharger",
-          "field_key": "evcharger"
-        }
+        { "appliance_id": "Dishwasher", "field_key": "dishwasher" }
       ],
-      "metrics": {
-        "mae": 0.23,
-        "rmse": 0.45,
-        "f1_score": 0.89
-      }
+      "metrics": { "mae": 0.15, "rmse": 0.32, "f1_score": 0.91 }
     },
     {
       "model_id": "heatpump-v3-sota",
@@ -29,16 +22,9 @@
       "is_active": true,
       "cached": false,
       "heads": [
-        {
-          "appliance_id": "HeatPump",
-          "field_key": "heatpump"
-        }
+        { "appliance_id": "HeatPump", "field_key": "heatpump" }
       ],
-      "metrics": {
-        "mae": 0.31,
-        "rmse": 0.52,
-        "f1_score": 0.85
-      }
+      "metrics": { "mae": 0.31, "rmse": 0.52, "f1_score": 0.85 }
     },
     {
       "model_id": "washingmachine-v3-sota",
@@ -49,17 +35,127 @@
       "is_active": true,
       "cached": false,
       "heads": [
-        {
-          "appliance_id": "WashingMachine",
-          "field_key": "washingmachine"
-        }
+        { "appliance_id": "WashingMachine", "field_key": "washingmachine" }
       ],
-      "metrics": {
-        "mae": 0.18,
-        "rmse": 0.38,
-        "f1_score": 0.92
-      }
+      "metrics": { "mae": 0.18, "rmse": 0.38, "f1_score": 0.92 }
+    },
+    {
+      "model_id": "dryer-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "Dryer",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "Dryer", "field_key": "dryer" }
+      ],
+      "metrics": { "mae": 0.22, "rmse": 0.41, "f1_score": 0.88 }
+    },
+    {
+      "model_id": "oven-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "Oven",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "Oven", "field_key": "oven" }
+      ],
+      "metrics": { "mae": 0.28, "rmse": 0.49, "f1_score": 0.84 }
+    },
+    {
+      "model_id": "stove-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "Stove",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "Stove", "field_key": "stove" }
+      ],
+      "metrics": { "mae": 0.25, "rmse": 0.44, "f1_score": 0.86 }
+    },
+    {
+      "model_id": "heatpump-controller-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "HeatPump_Controller",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "HeatPump_Controller", "field_key": "heatpump_controller" }
+      ],
+      "metrics": { "mae": 0.12, "rmse": 0.28, "f1_score": 0.93 }
+    },
+    {
+      "model_id": "chargingstation-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "ChargingStation_Socket",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "ChargingStation_Socket", "field_key": "chargingstation_socket" }
+      ],
+      "metrics": { "mae": 0.23, "rmse": 0.45, "f1_score": 0.89 }
+    },
+    {
+      "model_id": "rangehood-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "RangeHood",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "RangeHood", "field_key": "rangehood" }
+      ],
+      "metrics": { "mae": 0.08, "rmse": 0.15, "f1_score": 0.94 }
+    },
+    {
+      "model_id": "garagecabinet-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "GarageCabinet",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "GarageCabinet", "field_key": "garagecabinet" }
+      ],
+      "metrics": { "mae": 0.05, "rmse": 0.12, "f1_score": 0.96 }
+    },
+    {
+      "model_id": "rainwaterpump-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "RainwaterPump",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "RainwaterPump", "field_key": "rainwaterpump" }
+      ],
+      "metrics": { "mae": 0.10, "rmse": 0.22, "f1_score": 0.90 }
+    },
+    {
+      "model_id": "smappeecharger-v3-sota",
+      "model_version": "v3-sota",
+      "appliance_id": "SmappeeCharger",
+      "architecture": "wavenilm_v3",
+      "input_window_size": 1536,
+      "is_active": true,
+      "cached": false,
+      "heads": [
+        { "appliance_id": "SmappeeCharger", "field_key": "smappeecharger" }
+      ],
+      "metrics": { "mae": 0.19, "rmse": 0.35, "f1_score": 0.87 }
     }
   ],
-  "count": 3
+  "count": 12
 }

@@ -185,6 +185,10 @@ def build_predictions_wide_query(
 ) -> str:
     """
     Build a safe Flux query for reading wide-format prediction data.
+    
+    Filters to only numeric fields (predicted_kw_*, confidence_*, latency_ms)
+    to allow mean() aggregation. String fields like request_id and user_id
+    are excluded.
     """
     validate_id(building_id, "building_id")
 
@@ -201,10 +205,13 @@ def build_predictions_wide_query(
     end_param = format_time_param(end_flux)
 
     # IMPORTANT: measurement name must match write operations (client.py uses "prediction" singular)
+    # Filter to only numeric fields to allow mean() aggregation
+    # String fields (request_id, user_id) would cause "unsupported input type for mean aggregate: string"
     query = f'''from(bucket: "{bucket}")
   |> range(start: {start_param}, stop: {end_param})
   |> filter(fn: (r) => r._measurement == "prediction")
   |> filter(fn: (r) => r.building_id == "{building_id}")
+  |> filter(fn: (r) => r._field =~ /^(predicted_kw_|confidence_|latency_ms)/)
   |> aggregateWindow(every: {resolution_flux}, fn: mean, createEmpty: false)
   |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
 '''

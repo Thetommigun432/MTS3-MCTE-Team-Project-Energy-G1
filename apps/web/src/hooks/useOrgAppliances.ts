@@ -68,20 +68,20 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
       setLoading(true);
       setError(null);
 
-      // Fetch org appliances with model info
+      // Fetch from 'appliances' table (actual schema)
       const { data, error: fetchError } = await supabase
-        .from("org_appliances")
+        .from("appliances")
         .select(
           `
           id,
           name,
-          slug,
           category,
-          description,
-          created_at,
-          models(id)
+          typical_power_kw,
+          is_enabled,
+          created_at
         `,
         )
+        .eq("is_enabled", true)
         .order("name");
 
       if (fetchError) {
@@ -102,11 +102,11 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
       const transformed: OrgAppliance[] = (data || []).map((a) => ({
         id: a.id,
         name: a.name,
-        slug: a.slug,
+        slug: a.name.toLowerCase().replace(/\s+/g, '_'), // Generate slug from name
         category: a.category,
-        description: a.description,
+        description: null, // Not in actual schema
         created_at: a.created_at,
-        has_model: (a.models?.length || 0) > 0,
+        has_model: false, // Models table relation not available in actual schema
       }));
 
       setAppliances(transformed);
@@ -134,14 +134,14 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
       if (!user) return null;
 
       try {
+        // Using 'appliances' table with actual schema columns
         const { data, error } = await supabase
-          .from("org_appliances")
+          .from("appliances")
           .insert({
-            user_id: user.id,
             name,
-            slug,
             category,
-            description: description || null,
+            typical_power_kw: null, // Default, can be updated later
+            is_enabled: true,
           })
           .select("id")
           .single();
@@ -166,9 +166,13 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
       updates: Partial<Pick<OrgAppliance, "name" | "category" | "description">>,
     ): Promise<boolean> => {
       try {
+        // Map to actual schema columns
         const { error } = await supabase
-          .from("org_appliances")
-          .update(updates)
+          .from("appliances")
+          .update({
+            name: updates.name,
+            category: updates.category,
+          })
           .eq("id", id);
 
         if (error) throw error;
@@ -189,7 +193,7 @@ export function useOrgAppliances(): UseOrgAppliancesResult {
     async (id: string): Promise<boolean> => {
       try {
         const { error } = await supabase
-          .from("org_appliances")
+          .from("appliances")
           .delete()
           .eq("id", id);
 

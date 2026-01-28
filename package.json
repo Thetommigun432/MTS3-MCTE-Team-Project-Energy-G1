@@ -13,5 +13,11 @@
     "typecheck:web": "npm --workspace apps/web run typecheck",
     "lint:web": "npm --workspace apps/web run lint",
     "dev:web": "npm --workspace apps/web run dev -- --port 8080"
+  },
+  "devDependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
+    "axios": "^1.13.4",
+    "dotenv": "^17.2.3",
+    "papaparse": "^5.5.3"
   }
 }

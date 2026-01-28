@@ -20,9 +20,9 @@ interface ModelTrustBadgeProps {
  * Shows model version, training date, and confidence level
  */
 export function ModelTrustBadge({
-  version = "v1.2",
-  lastTrained = "2024-01-15",
-  confidenceLevel = "Good",
+  version = "v1.0",
+  lastTrained = "2025-01",
+  confidenceLevel = "Medium",
   className,
 }: ModelTrustBadgeProps) {
   const confidenceConfig = {

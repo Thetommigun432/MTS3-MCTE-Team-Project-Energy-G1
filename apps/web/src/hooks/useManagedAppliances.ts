@@ -60,10 +60,11 @@ export function useManagedAppliances(): ManagedAppliancesData {
       setLoading(true);
       setError(null);
 
-      // Fetch org_appliances directly since building_appliances table is missing
+      // Fetch from 'appliances' table (the actual table name in the schema)
       const { data, error: fetchError } = await supabase
-        .from("org_appliances")
-        .select("id, name, rated_power_kw")
+        .from("appliances")
+        .select("id, name, typical_power_kw, category, is_enabled")
+        .eq("is_enabled", true)
         .order("name");
 
       if (fetchError) {
@@ -84,14 +85,14 @@ export function useManagedAppliances(): ManagedAppliancesData {
       // Transform the data
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transformed: ManagedAppliance[] = (data || []).map((item: any) => ({
-        id: item.id, // Using org_appliance id as the main id for now
+        id: item.id,
         building_id: "unassigned",
         building_name: "Unassigned",
         org_appliance_id: item.id,
         name: item.name || "Unknown Appliance",
-        type: "appliance",
-        rated_power_kw: item.rated_power_kw ?? null,
-        status: "active", // Default to active since we don't have is_enabled
+        type: item.category || "appliance",
+        rated_power_kw: item.typical_power_kw ?? null,
+        status: item.is_enabled ? "active" : "inactive",
         notes: null as null,
       }));
 
@@ -150,21 +151,11 @@ export function getApplianceNames(appliances: ManagedAppliance[]): string[] {
 }
 
 /**
- * Sync appliances from backend models to Supabase org_appliances
- */
-/**
- * Sync appliances from backend models to Supabase org_appliances
+ * Sync appliances from backend models to Supabase appliances table
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function syncAppliancesFromModels(models: any[]) {
   if (!models || models.length === 0) return;
-
-  // Get current user for user_id field
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error("Cannot sync appliances: No authenticated user");
-    return;
-  }
 
   // Extract unique appliances from models
   const uniqueAppliances = new Map<string, string>(); // slug -> name
@@ -195,20 +186,20 @@ export async function syncAppliancesFromModels(models: any[]) {
 
   if (uniqueAppliances.size === 0) return;
 
-  // Upsert into org_appliances
+  // Upsert into appliances table (actual schema)
   const upsertData = Array.from(uniqueAppliances.entries()).map(
-    ([slug, name]) => ({
+    ([_slug, name]) => ({
       name: name,
-      slug: slug,
-      rated_power_kw: 0,
-      user_id: user.id,
+      category: "appliance",
+      typical_power_kw: null,
+      is_enabled: true,
     }),
   );
 
-  // NOTE: We rely on the Supabase policy to allow upserts if user owns the record or is admin
+  // NOTE: We rely on the Supabase policy to allow upserts
   const { error } = await supabase
-    .from("org_appliances")
-    .upsert(upsertData, { onConflict: "slug", ignoreDuplicates: true });
+    .from("appliances")
+    .upsert(upsertData, { onConflict: "name", ignoreDuplicates: true });
 
   if (error) {
     console.error("Failed to sync appliances:", error);
