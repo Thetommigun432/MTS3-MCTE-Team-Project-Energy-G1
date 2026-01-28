@@ -120,7 +120,18 @@ curl "http://localhost:8000/api/analytics/predictions?building_id=building-1&sta
 
 ### No predictions appearing
 
-The NILM models need 4096 samples (~40 seconds with speedup=100) to fill the rolling window. Wait for the buffer to fill.
+The NILM models need **4096 samples** to fill the rolling window before inference starts:
+
+| Mode | Wait Time | Reason |
+|------|-----------|--------|
+| **Simulator** | ~40 seconds | speedup=100 → 100 samples/sec |
+| **MQTT Realtime** | ~68 minutes | 1 sample/second from real building |
+
+Check buffer status:
+```bash
+docker exec nilm-redis redis-cli LLEN nilm:building-1:window
+```
+Once it reaches 4096, predictions start appearing every second.
 
 ### Docker containers not starting
 
