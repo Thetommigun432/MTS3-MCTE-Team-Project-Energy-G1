@@ -33,10 +33,11 @@ COPY apps/backend/src/ ./src/
 
 # Install ONLY simulator dependencies (no torch, no heavy ML packages)
 # The simulator just needs: httpx for API calls, pyarrow for parquet, influxdb-client for cloud mode
-# Plus pydantic for config and python-json-logger for logging
+# Plus pydantic for config, python-json-logger for logging, and pandas for pyarrow.to_pandas()
 RUN pip install --no-cache-dir \
     httpx==0.28.1 \
     pyarrow>=14.0.0 \
+    pandas>=2.0.0 \
     "influxdb-client[async]==1.50.0" \
     pydantic==2.12.5 \
     pydantic-settings==2.12.0 \
