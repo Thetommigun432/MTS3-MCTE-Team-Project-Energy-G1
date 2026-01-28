@@ -23,6 +23,15 @@ Follow the canonical guide in [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md). It covers:
 - Frontend dev server (`npm run dev:web`)
 - Local ports and verification steps
 
+### Two Modes Available
+
+| Mode | Command | Data Source |
+|------|---------|-------------|
+| **Simulator** | `docker compose up -d` | Local simulated data |
+| **MQTT Realtime** | `docker compose -f compose.realtime.yaml up -d` | Howest Energy Lab broker |
+
+**Public Dashboard**: http://localhost:8080/live (no login required)
+
 ## Tech Stack
 - **Frontend**: React 19, Vite 7, TypeScript
 - **Backend**: FastAPI, Python 3.12, PyTorch

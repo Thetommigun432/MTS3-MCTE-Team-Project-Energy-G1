@@ -97,8 +97,43 @@ docker compose logs -f backend
 docker compose down
 ```
 
+## MQTT Realtime Mode (Howest Energy Lab)
+
+For real-time data from the Howest Energy Lab MQTT broker:
+
+```bash
+# Start with MQTT mode (replaces simulator with mqtt-ingestor)
+docker compose -f compose.realtime.yaml up -d --build
+
+# Frontend (same as before)
+npm run dev:web
+```
+
+### MQTT Configuration
+
+The `compose.realtime.yaml` connects to:
+- **Broker**: `mqtt.howest-energylab.be:10591`
+- **Topic**: `CTAI/+/+/Watt` (all buildings/appliances)
+- **Auth**: Pre-configured student credentials
+
+### Public Live Dashboard
+
+Access without login at: **http://localhost:8080/live**
+
+This route uses `building-1` (demo building) which doesn't require authentication.
+
+### Verify MQTT Data Flow
+
+```bash
+# Check MQTT ingestor is receiving data
+docker logs mqtt-ingestor --tail 20
+
+# Should show: "Sent X readings | Latest: XXX W"
+```
+
 ## Troubleshooting
 
 - **No predictions**: The model requires a full window; wait for the simulator to fill the buffer.
 - **API unreachable**: Ensure Docker containers are healthy (`docker compose ps`).
 - **CORS issues**: Use Vite proxy via `/api` or set `CORS_ORIGINS` in `.env.local`.
+- **MQTT no data**: Check broker connectivity and credentials in `compose.realtime.yaml`.
