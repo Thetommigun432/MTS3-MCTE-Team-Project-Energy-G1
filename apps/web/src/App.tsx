@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { EnergyProvider } from "@/contexts/EnergyContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -91,6 +92,11 @@ const App = () => {
                       <Route path="/contact" element={<Contact />} />
                       <Route path="/login" element={<Login />} />
                       <Route path="/signup" element={<Signup />} />
+                      {/* Public Live Dashboard - accessible without auth for demo buildings */}
+                      {/* Uses AppShell for full layout with sidebar (AppShell includes EnergyProvider) */}
+                      <Route path="/live" element={<AppShell />}>
+                        <Route index element={<Dashboard />} />
+                      </Route>
                       <Route
                         path="/forgot-password"
                         element={<ForgotPassword />}

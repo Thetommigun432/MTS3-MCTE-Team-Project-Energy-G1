@@ -31,6 +31,12 @@ import { startOfDayLocal, endOfDayLocal } from "@/lib/dateUtils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDataSource, setDataSource } from "@/lib/dataSource";
 
+// Demo buildings accessible without authentication (matches backend DEMO_BUILDINGS)
+const DEMO_BUILDINGS = new Set(["demo-residential-001", "building-1", "building_1"]);
+
+function isDemoBuilding(buildingId: string | null): boolean {
+  return buildingId !== null && DEMO_BUILDINGS.has(buildingId);
+}
 
 interface EnergyContextType {
   mode: DataMode;
@@ -81,6 +87,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   } = useManagedAppliances();
   const {
     buildings: supabaseBuildings,
+    loading: buildingsLoading,
   } = useBuildings();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -110,9 +117,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return { start, end };
   });
 
-  // Check if API is available (user must be authenticated for API mode)
+  // Check if API is available (authenticated OR demo building)
   const isApiAvailable = useMemo(
-    () => isEnergyApiAvailable() || Boolean(isAuthenticated && selectedBuildingId),
+    () => isEnergyApiAvailable() || Boolean(isAuthenticated && selectedBuildingId) || isDemoBuilding(selectedBuildingId),
     [isAuthenticated, selectedBuildingId],
   );
 
@@ -159,7 +166,9 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Fetch readings from unified backend API
   const fetchApiReadings = useCallback(async () => {
-    if (!isAuthenticated || !selectedBuildingId) {
+    // Allow access if authenticated OR if it's a demo building
+    const canAccess = (isAuthenticated || isDemoBuilding(selectedBuildingId)) && selectedBuildingId;
+    if (!canAccess) {
       return [];
     }
 
@@ -210,8 +219,10 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
     if (mode === "api") {
       // API mode: fetch from API only, do NOT fall back to demo
-      if (isAuthenticated && selectedBuildingId) {
-        // Supabase edge function mode
+      // Allow access if authenticated OR if it's a demo building
+      const canAccess = (isAuthenticated || isDemoBuilding(selectedBuildingId)) && selectedBuildingId;
+      if (canAccess) {
+        // Fetch from backend API
         try {
           setApiLoading(true);
           const readings = await fetchApiReadings();
@@ -239,12 +250,12 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
           setApiLoading(false);
         }
       } else if (isApiAvailable) {
-        // Legacy API mode removed - use Supabase Auth to access data
-        setApiError("Legacy API access unavailable. Please log in.");
+        // Can access API but no building selected
+        setApiError("Select a building to load data.");
         setApiLoading(false);
       } else {
         // API mode but missing configuration or building selection
-        if (isAuthenticated && !selectedBuildingId) {
+        if (!selectedBuildingId) {
           setApiError("Select a building to load data in API mode.");
         } else {
           setApiError(
@@ -314,19 +325,29 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
   // Auto-select first building when entering API mode or demo mode
   useEffect(() => {
-    if (mode === "api" && !selectedBuildingId && supabaseBuildings.length > 0) {
-      // Prefer building-1 if it exists (matches simulator default)
-      const building1 = supabaseBuildings.find(b => b.id === "building-1");
-      setSelectedBuildingId(building1?.id ?? supabaseBuildings[0].id);
+    // Wait for buildings to load before auto-selecting
+    if (buildingsLoading) return;
+    
+    if (mode === "api" && !selectedBuildingId) {
+      // In API mode, default to building-1 (MQTT live data)
+      // This works without authentication for demo buildings
+      if (supabaseBuildings.length > 0) {
+        const building1 = supabaseBuildings.find(b => b.id === "building-1");
+        setSelectedBuildingId(building1?.id ?? supabaseBuildings[0].id);
+      } else {
+        // No buildings from API? Default to building-1 for local/demo mode
+        setSelectedBuildingId("building-1");
+      }
     } else if (mode === "demo" && !selectedBuildingId) {
       // Auto-select demo building
       setSelectedBuildingId("demo-residential-001");
     }
-  }, [mode, selectedBuildingId, supabaseBuildings]);
+  }, [mode, selectedBuildingId, supabaseBuildings, buildingsLoading]);
 
   // Auto-fetch data when mode is API and building is selected (initial load)
   useEffect(() => {
-    if (mode === "api" && isAuthenticated && selectedBuildingId && apiRows.length === 0 && !apiLoading && !apiError) {
+    const canAccess = (isAuthenticated || isDemoBuilding(selectedBuildingId)) && selectedBuildingId;
+    if (mode === "api" && canAccess && apiRows.length === 0 && !apiLoading && !apiError) {
       // Trigger initial data fetch
       refresh();
     }
@@ -335,7 +356,8 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   // Silent background update - fetches new data without showing loading states
   // This prevents the "page refresh" feeling during live updates
   const silentUpdate = useCallback(async () => {
-    if (!isAuthenticated || !selectedBuildingId || isRefreshing || apiLoading) {
+    const canAccess = (isAuthenticated || isDemoBuilding(selectedBuildingId)) && selectedBuildingId;
+    if (!canAccess || isRefreshing || apiLoading) {
       return;
     }
     
@@ -355,7 +377,8 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
   // Periodic polling for live updates in API mode (every 30 seconds)
   // Uses silent update to avoid visual "refresh" effect
   useEffect(() => {
-    if (mode !== "api" || !isAuthenticated || !selectedBuildingId || apiRows.length === 0) return;
+    const canAccess = (isAuthenticated || isDemoBuilding(selectedBuildingId)) && selectedBuildingId;
+    if (mode !== "api" || !canAccess || apiRows.length === 0) return;
     
     const POLL_INTERVAL = 30000; // 30 seconds - longer interval for smoother UX
     
@@ -412,11 +435,11 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     return demoAppliances;
   }, [mode, apiApplianceKeys, managedAppliances, demoAppliances]);
 
-  // Buildings from Supabase for API mode, demo building for demo mode
+  // Buildings from API/Supabase for API mode, demo building for demo mode
   // STRICT separation: API mode only shows real buildings, demo mode only shows demo building
   const buildings = useMemo((): Building[] => {
     if (mode === "api") {
-      // API mode: Only show real buildings from Supabase (exclude demo buildings)
+      // API mode: Show buildings from backend API
       if (supabaseBuildings.length > 0) {
         return supabaseBuildings
           .filter(b => !b.id.includes('demo')) // Filter out any demo buildings
@@ -427,7 +450,15 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
             status: b.status as 'active' | 'inactive' | 'maintenance' | undefined
           }));
       }
-      // No buildings yet - return empty (user should see "loading" or "no buildings")
+      // Still loading or no buildings from API - show selected building if available
+      if (selectedBuildingId && isDemoBuilding(selectedBuildingId)) {
+        return [{
+          id: selectedBuildingId,
+          name: selectedBuildingId,
+          address: "Local MQTT Data",
+          status: 'active'
+        }];
+      }
       return [];
     }
     // Demo mode: Only return demo building
@@ -437,7 +468,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
       address: "Demo Location - Training Dataset",
       status: 'active'
     }];
-  }, [mode, supabaseBuildings]);
+  }, [mode, supabaseBuildings, selectedBuildingId]);
 
   // Filter rows by date range (with proper timezone handling)
   const filteredRows = useMemo(() => {

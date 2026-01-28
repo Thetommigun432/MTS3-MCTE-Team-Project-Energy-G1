@@ -14,10 +14,7 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
-      "/live": {
-        target: "http://localhost:8000",
-        changeOrigin: true,
-      },
+      // Health/metrics endpoints for backend monitoring
       "/ready": {
         target: "http://localhost:8000",
         changeOrigin: true,

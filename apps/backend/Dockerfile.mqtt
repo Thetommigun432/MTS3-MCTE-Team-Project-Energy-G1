@@ -1,0 +1,17 @@
+# MQTT Ingestor Dockerfile
+# Receives real-time data from Smappee via MQTT
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    paho-mqtt>=2.0.0 \
+    httpx>=0.25.0
+
+# Copy source
+COPY apps/backend/src/app/mqtt_ingestor.py /app/mqtt_ingestor.py
+
+# Run
+CMD ["python", "/app/mqtt_ingestor.py"]
