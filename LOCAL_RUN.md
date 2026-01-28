@@ -1,36 +1,86 @@
-# Local Development Setup
+# Local Development
 
-This file is kept for backwards compatibility.
+Quick guide for running the NILM stack locally.
 
-Use the canonical guide instead:
-[docs/LOCAL_DEV.md](docs/LOCAL_DEV.md)
-- Local proxy: `VITE_BACKEND_URL=/api`
-- Direct: `VITE_BACKEND_URL=http://localhost:8000`
+## Prerequisites
 
-## Success Signals
+- Docker Desktop with Compose v2
+- Node.js 20+
 
-When everything is working correctly, you should see:
+## Quick Start
 
-1. **Smoke test passes:**
-   ```bash
-   ./scripts/local_smoke.sh
-   # All checks show GREEN
-   ```
+```bash
+# Start backend stack
+docker compose up -d
 
-2. **Redis window at capacity:**
-   ```bash
-   docker exec nilm-redis redis-cli LLEN nilm:building-1:window
-   # Returns: 3600
-   ```
+# Start frontend
+cd apps/web && npm install && npm run dev
+```
 
-3. **Worker producing predictions:**
-   ```bash
-   docker compose logs worker | tail -20
-   # Shows: "Prediction written: building=building-1, model=..."
-   ```
+Open: http://localhost:8080/live
 
-4. **Predictions endpoint returns data:**
-   ```bash
-   curl "http://localhost:8000/api/analytics/predictions?building_id=building-1&start=-5m&end=now()"
-   # Returns JSON with count > 0
-   ```
+---
+
+## Service URLs
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:8080 |
+| Backend API | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+| InfluxDB UI | http://localhost:8086 |
+
+---
+
+## Useful Commands
+
+```bash
+# View all containers
+docker compose ps
+
+# View logs
+docker compose logs -f backend
+docker compose logs -f worker
+
+# Restart everything
+docker compose down && docker compose up -d
+
+# Rebuild after code changes
+docker compose up -d --build
+```
+
+---
+
+## MQTT Realtime Mode
+
+For live data from Howest Energy Lab:
+
+```bash
+docker compose -f compose.realtime.yaml up -d
+```
+
+Verify data flow:
+```bash
+docker logs mqtt-ingestor --tail 20
+# Should show: "Sent X readings | Latest: XXX W"
+```
+
+---
+
+## Data Flow
+
+1. **Simulator/MQTT** sends readings to Backend
+2. **Backend** stores in Redis rolling window
+3. **Worker** runs NILM inference (10 models)
+4. **Worker** writes predictions to InfluxDB
+5. **Frontend** polls predictions from Backend
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| No predictions | Wait ~40s for buffer to fill |
+| API unreachable | Check `docker compose ps` |
+| Frontend errors | Delete node_modules, npm install |

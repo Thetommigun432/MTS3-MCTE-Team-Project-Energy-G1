@@ -1,139 +1,121 @@
 # Local Development
 
-This guide is the single source of truth for running the NILM stack locally.
+Quick guide for running the NILM stack locally.
 
 ## Prerequisites
-- Node.js 22+
-- Docker Desktop with Docker Compose v2
-- (Optional) Python 3.12+ if running backend outside Docker
 
-## Quick Start (Docker + Frontend)
+- Docker Desktop with Compose v2
+- Node.js 20+
+
+## Quick Start
 
 ```bash
-# 1) Configure shared env for Docker Compose
-cp .env.local.example .env.local
+# Start backend stack
+docker compose up -d
 
-# 2) Start the backend stack (API + Worker + Redis + Influx + Simulator)
-docker compose up -d --build
-
-# 3) Install frontend deps at the repo root (npm workspace)
-npm install
-
-# 4) Start frontend dev server (port 8080)
-npm run dev:web
+# Start frontend
+cd apps/web && npm install && npm run dev
 ```
 
-Open:
-- Frontend: http://localhost:8080
-- Backend API: http://localhost:8000
-- InfluxDB UI: http://localhost:8086
+Open: http://localhost:8080/live (no login required)
 
-## Environment Files
+---
 
-| File | Purpose |
-|------|---------|
-| `.env.local` | Shared local secrets for Compose (InfluxDB token/org/bucket). |
-| `apps/web/.env` | Frontend build-time variables (Supabase + backend URL). |
+## Service URLs
 
-### Required local variables
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:8080 |
+| Public Dashboard | http://localhost:8080/live |
+| Backend API | http://localhost:8000 |
+| API Docs | http://localhost:8000/docs |
+| InfluxDB UI | http://localhost:8086 |
 
-**Root (.env.local)**
-- `INFLUX_TOKEN` (set to a local token)
-- `INFLUX_ORG` (default: `energy-monitor`)
-- `INFLUX_BUCKET_PRED` (default: `predictions`)
+---
 
-**Frontend (apps/web/.env)**
-- `VITE_SUPABASE_URL` (if using auth)
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (preferred; falls back to `VITE_SUPABASE_ANON_KEY`)
-- `VITE_BACKEND_URL` (defaults to `/api`, so you can leave it as-is for local dev)
+## Operating Modes
 
-## Local Service Ports
+### Simulator Mode (Default)
 
-| Service | URL | Notes |
-|--------|-----|------|
-| Frontend (Vite) | http://localhost:8080 | `npm run dev:web` |
-| Backend API | http://localhost:8000 | Docker Compose service `backend` |
-| InfluxDB | http://localhost:8086 | Docker Compose service `influxdb` |
-| Redis | redis://localhost:6379 | Docker Compose service `redis` |
+Replays data from a parquet file at configurable speed.
 
-## Local Dataflow (end-to-end)
-
-1. Simulator reads `apps/backend/data/simulation_data.parquet`.
-2. Simulator posts readings to `POST /ingest/readings` on the backend.
-3. Backend stores a rolling window in Redis and enqueues a Redis Stream event.
-4. Worker consumes the stream, builds an inference window, runs the model.
-5. Worker writes predictions to InfluxDB (`predictions` bucket).
-
-## Verification (Local)
-
-### Health endpoints
 ```bash
-curl http://localhost:8000/live
-curl http://localhost:8000/ready
+docker compose up -d
 ```
 
-### Verify Redis stream activity
+### MQTT Realtime Mode
+
+Connects to Howest Energy Lab live MQTT broker.
+
 ```bash
-docker exec nilm-redis redis-cli XLEN nilm:readings
+docker compose -f compose.realtime.yaml up -d
 ```
 
-### Verify predictions in InfluxDB
-```bash
-docker exec -it $(docker compose ps -q influxdb) influx query \
-  'from(bucket: "predictions") |> range(start: -5m) |> limit(n: 5)' \
-  --org energy-monitor --token $INFLUX_TOKEN
-```
+---
 
-## Common Commands
+## Useful Commands
 
 ```bash
-# View service status
+# View all containers
 docker compose ps
 
-# Tail logs
+# View logs
 docker compose logs -f backend
+docker compose logs -f worker
+docker compose logs -f mqtt-ingestor  # MQTT mode only
 
 # Restart everything
-docker compose down
+docker compose down && docker compose up -d
+
+# Rebuild after code changes
+docker compose up -d --build
 ```
 
-## MQTT Realtime Mode (Howest Energy Lab)
+---
 
-For real-time data from the Howest Energy Lab MQTT broker:
+## Data Flow
 
-```bash
-# Start with MQTT mode (replaces simulator with mqtt-ingestor)
-docker compose -f compose.realtime.yaml up -d --build
-
-# Frontend (same as before)
-npm run dev:web
+```
+Simulator/MQTT → Backend API → Redis (window) → Worker (PyTorch) → InfluxDB → Frontend
 ```
 
-### MQTT Configuration
+1. **Simulator/MQTT** sends power readings to Backend
+2. **Backend** stores readings in Redis rolling window (4096 samples)
+3. **Worker** consumes stream, runs 10 NILM models
+4. **Worker** writes predictions to InfluxDB
+5. **Frontend** polls predictions via Backend API
 
-The `compose.realtime.yaml` connects to:
-- **Broker**: `mqtt.howest-energylab.be:10591`
-- **Topic**: `CTAI/+/+/Watt` (all buildings/appliances)
-- **Auth**: Pre-configured student credentials
+---
 
-### Public Live Dashboard
+## Environment Variables
 
-Access without login at: **http://localhost:8080/live**
+All have defaults - no configuration needed for local dev.
 
-This route uses `building-1` (demo building) which doesn't require authentication.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| INFLUX_TOKEN | admin-token | InfluxDB auth |
+| INFLUX_ORG | energy-monitor | Organization |
+| SIM_SPEEDUP | 100 | Simulator speed multiplier |
 
-### Verify MQTT Data Flow
-
-```bash
-# Check MQTT ingestor is receiving data
-docker logs mqtt-ingestor --tail 20
-
-# Should show: "Sent X readings | Latest: XXX W"
-```
+---
 
 ## Troubleshooting
 
-- **No predictions**: The model requires a full window; wait for the simulator to fill the buffer.
-- **API unreachable**: Ensure Docker containers are healthy (`docker compose ps`).
-- **CORS issues**: Use Vite proxy via `/api` or set `CORS_ORIGINS` in `.env.local`.
-- **MQTT no data**: Check broker connectivity and credentials in `compose.realtime.yaml`.
+| Problem | Solution |
+|---------|----------|
+| No predictions | Wait ~40s for buffer to fill (4096 samples) |
+| API unreachable | Run `docker compose ps`, check all healthy |
+| Frontend errors | `rm -rf node_modules && npm install` |
+| MQTT no data | Check `docker logs mqtt-ingestor --tail 20` |
+
+---
+
+## Verification
+
+```bash
+# API health
+curl http://localhost:8000/health
+
+# Check predictions exist
+curl "http://localhost:8000/api/analytics/predictions?building_id=building-1&start=2026-01-01&end=2026-12-31"
+```
