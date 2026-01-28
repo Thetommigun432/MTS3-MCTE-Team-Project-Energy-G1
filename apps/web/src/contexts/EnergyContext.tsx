@@ -498,10 +498,18 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
     // Average confidence across all appliances at latest timestamp
     // Use real confidence values from backend (InfluxDB)
-    const latestRow = filteredRows[filteredRows.length - 1];
+    // Find the latest row that has appliance/confidence data
+    let latestRowWithData = filteredRows[filteredRows.length - 1];
+    for (let i = filteredRows.length - 1; i >= 0; i--) {
+      const row = filteredRows[i];
+      if (row.confidence && Object.keys(row.confidence).length > 0) {
+        latestRowWithData = row;
+        break;
+      }
+    }
     let totalConfidence = 0;
     let count = 0;
-    const confidenceRecord = latestRow.confidence || {};
+    const confidenceRecord = latestRowWithData.confidence || {};
     appliances.forEach((name) => {
       // Use backend confidence directly (0 if not available)
       const backendConfidence = typeof confidenceRecord === 'object' 
@@ -523,12 +531,22 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
     };
   }, [filteredRows, topAppliances, appliances]);
 
-  // Current appliance status (from latest row in range) with managed appliance metadata
+  // Current appliance status (from latest row WITH appliance data) with managed appliance metadata
   const currentApplianceStatus = useMemo((): ApplianceStatus[] => {
     if (filteredRows.length === 0) return [];
 
-    const latestRow = filteredRows[filteredRows.length - 1];
-    const confidenceRecord = latestRow.confidence || {};
+    // Find the latest row that has appliance data (not all rows may have predictions)
+    // Search from end to find most recent row with appliance/confidence data
+    let latestRowWithData = filteredRows[filteredRows.length - 1];
+    for (let i = filteredRows.length - 1; i >= 0; i--) {
+      const row = filteredRows[i];
+      if (row.appliances && Object.keys(row.appliances).length > 0) {
+        latestRowWithData = row;
+        break;
+      }
+    }
+
+    const confidenceRecord = latestRowWithData.confidence || {};
 
     // Use the unified 'appliances' list which:
     // - In API mode: uses API data keys first, then Supabase fallback
@@ -537,7 +555,7 @@ export function EnergyProvider({ children }: { children: ReactNode }) {
 
     return applianceNames
       .map((name) => {
-        const estKw = latestRow.appliances[name] || 0;
+        const estKw = latestRowWithData.appliances[name] || 0;
         // Try to find managed appliance metadata (may not match if name format differs)
         const managed = managedApplianceMap[name];
         const ratedKw = managed?.rated_power_kw ?? null;

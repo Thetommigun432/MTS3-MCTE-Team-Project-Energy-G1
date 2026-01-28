@@ -62,7 +62,12 @@
       "Bash(railway up --help:*)",
       "Bash(railway open:*)",
       "Bash(railway deploy --help:*)",
-      "Bash(railway up:*)"
+      "Bash(railway up:*)",
+      "Bash(railway logs:*)",
+      "Bash(railway deployment logs:*)",
+      "Bash(railway project --help:*)",
+      "Bash(railway link --help:*)",
+      "Bash(curl:*)"
     ]
   }
 }

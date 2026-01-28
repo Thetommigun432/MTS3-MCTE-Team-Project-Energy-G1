@@ -510,10 +510,14 @@ class InferenceEngine:
             predicted_kw = max(0.0, predicted_kw)
 
             # Dynamic confidence based on prediction certainty
-            # Use max power from preprocessing config
-            p_max_kw = (entry.preprocessing.max_val or 15000.0) / 1000.0  # Convert W to kW
-            if p_max_kw < 0.1:
-                p_max_kw *= 1000  # Was already in kW
+            # Use p_max_kw from preprocessing config (already in kW)
+            # Fallback to max_val (in Watts) if p_max_kw not set
+            if entry.preprocessing.p_max_kw:
+                p_max_kw = entry.preprocessing.p_max_kw
+            elif entry.preprocessing.max_val:
+                p_max_kw = entry.preprocessing.max_val / 1000.0  # Convert W to kW
+            else:
+                p_max_kw = 15.0  # Default 15 kW
             
             # Normalize by rated power
             norm_power = min(predicted_kw / max(p_max_kw, 0.1), 1.0)
@@ -663,10 +667,14 @@ class InferenceEngine:
                 predicted_kw = max(0.0, predicted_kw)
 
                 # Dynamic confidence based on prediction certainty
-                # Use max power for this appliance from preprocessing config
-                p_max_kw = (entry.preprocessing.max_val or 15000.0) / 1000.0  # Convert W to kW
-                if p_max_kw < 0.1:
-                    p_max_kw *= 1000  # Was already in kW
+                # Use p_max_kw from preprocessing config (already in kW)
+                # Fallback to max_val (in Watts) if p_max_kw not set
+                if entry.preprocessing.p_max_kw:
+                    p_max_kw = entry.preprocessing.p_max_kw
+                elif entry.preprocessing.max_val:
+                    p_max_kw = entry.preprocessing.max_val / 1000.0  # Convert W to kW
+                else:
+                    p_max_kw = 15.0  # Default 15 kW
                 
                 # Normalize by rated power
                 norm_power = min(predicted_kw / max(p_max_kw, 0.1), 1.0)

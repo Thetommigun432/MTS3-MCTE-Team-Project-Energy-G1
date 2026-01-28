@@ -63,8 +63,10 @@ async def readiness(request_id: RequestIdDep, response: Response):
     
     checks["influxdb_connected"] = influx_status["connected"]
     checks["influx_bucket_pred"] = influx_status["bucket_pred"]
+    checks["influx_bucket_raw"] = influx_status.get("bucket_raw", False)
 
-    if not all(influx_status.values()):
+    # Only require predictions bucket - raw_readings is optional (graceful degradation)
+    if not influx_status["connected"] or not influx_status["bucket_pred"]:
         is_ready = False
 
     # Check registry
