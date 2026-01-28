@@ -1,489 +1,269 @@
 # NILM Energy Monitor - Installation Guide
 
-A comprehensive guide to set up and run the NILM Energy Monitor project from source code on a fresh system.
+Complete guide to set up and run the NILM Energy Monitor on a fresh system.
 
 ---
 
 ## Table of Contents
 
 1. [System Requirements](#1-system-requirements)
-2. [Prerequisites Installation](#2-prerequisites-installation)
+2. [Prerequisites](#2-prerequisites)
 3. [Project Setup](#3-project-setup)
 4. [Running the Application](#4-running-the-application)
-5. [Verifying the Installation](#5-verifying-the-installation)
-6. [Frontend Development (Optional)](#6-frontend-development-optional)
-7. [Troubleshooting](#7-troubleshooting)
-8. [Configuration Reference](#8-configuration-reference)
+5. [Verification](#5-verification)
+6. [Troubleshooting](#6-troubleshooting)
 
 ---
 
 ## 1. System Requirements
 
-### Minimum Hardware
 | Component | Requirement |
 |-----------|-------------|
-| **RAM** | 8 GB (4 GB available for Docker containers) |
+| **RAM** | 8 GB minimum (4 GB for Docker) |
 | **Storage** | 10 GB free disk space |
 | **CPU** | 4 cores recommended |
-
-### Supported Operating Systems
-- **Windows 10/11** (with WSL2 for Docker)
-- **macOS** 12+ (Monterey or later)
-- **Linux** (Ubuntu 22.04+, Debian 11+)
+| **OS** | Windows 10/11 (WSL2), macOS 12+, Linux (Ubuntu 22.04+) |
 
 ---
 
-## 2. Prerequisites Installation
+## 2. Prerequisites
 
-### 2.1 Install Docker Desktop
+### 2.1 Docker Desktop
 
-Docker is required to run all backend services (API, database, Redis, ML inference worker).
+`ash
+# Verify installation
+docker --version          # Docker 24+
+docker compose version    # Compose v2+
+`
 
-#### Windows
-1. Download [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
-2. Run the installer and follow prompts
-3. **Enable WSL2 backend** during installation (recommended)
-4. Restart your computer when prompted
-5. Open Docker Desktop and wait for it to start
+**Install from:** https://www.docker.com/products/docker-desktop/
 
-#### macOS
-1. Download [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/)
-2. Drag to Applications folder and launch
-3. Grant permissions when prompted
+### 2.2 Node.js 22+ (for frontend)
 
-#### Linux (Ubuntu/Debian)
-```bash
-# Install Docker Engine
-curl -fsSL https://get.docker.com | sh
+`ash
+# Verify installation
+node --version   # v22.x.x
+npm --version    # 10.x.x+
+`
 
-# Add your user to docker group (avoids needing sudo)
-sudo usermod -aG docker $USER
+**Install via nvm:** https://github.com/nvm-sh/nvm
 
-# Reboot or log out/in for group changes to apply
-```
+### 2.3 Git
 
-#### Verify Docker Installation
-```bash
-docker --version          # Should show Docker version 24+
-docker compose version    # Should show Docker Compose v2+
-```
-
----
-
-### 2.2 Install Node.js (for Frontend Development)
-
-Only required if you want to run the frontend in development mode.
-
-#### Recommended: Use Node Version Manager (nvm)
-
-**Windows (PowerShell as Administrator):**
-```powershell
-# Install nvm-windows from: https://github.com/coreybutler/nvm-windows/releases
-# Then:
-nvm install 22
-nvm use 22
-```
-
-**macOS / Linux:**
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc  # or ~/.zshrc
-nvm install 22
-nvm use 22
-```
-
-#### Verify Node.js Installation
-```bash
-node --version   # Should show v22.x.x
-npm --version    # Should show 10.x.x or higher
-```
-
----
-
-### 2.3 Install Git
-
-#### Windows
-Download and install [Git for Windows](https://git-scm.com/download/win)
-
-#### macOS
-```bash
-xcode-select --install
-```
-
-#### Linux
-```bash
-sudo apt update && sudo apt install git -y
-```
+`ash
+git --version
+`
 
 ---
 
 ## 3. Project Setup
 
-### 3.1 Clone the Repository
+### 3.1 Clone Repository
 
-```bash
-git clone https://github.com/Thetommigun432/MTS3-MCTE-Team-Project-Energy-G1.git nilm-energy
-cd nilm-energy
-```
+`ash
+git clone https://github.com/Thetommigun432/MTS3-MCTE-Team-Project-Energy-G1.git
+cd MTS3-MCTE-Team-Project-Energy-G1
+`
 
-### 3.2 Verify Project Structure
+### 3.2 Environment Configuration
 
-Ensure these key files/folders exist:
-```
-nilm-energy/
-├── compose.yaml              # Docker Compose orchestration
-├── apps/
-│   ├── backend/
-│   │   ├── Dockerfile        # Backend API container
-│   │   ├── Dockerfile.worker # ML inference worker
-│   │   ├── data/
-│   │   │   └── simulation_data.parquet  # Demo dataset
-│   │   └── models/
-│   │       ├── registry.json # Model configuration
-│   │       └── tcn_sa/       # Pre-trained TCN-SA models (10 appliances)
-│   └── web/                  # React frontend
-└── checkpoints/              # Legacy checkpoint location (models are in apps/backend/models/)
-```
+`ash
+cp .env.local.example .env.local
+`
 
-### 3.3 Environment Configuration (Optional)
-
-For most local testing, defaults work out of the box. To customize:
-
-```bash
-# Copy example environment files
-cp .env.local.example .env.local        # Root settings (optional)
-cp apps/web/.env.example apps/web/.env  # Frontend settings (optional)
-```
-
-**Default values used if `.env.local` is not present:**
-| Variable | Default Value |
-|----------|---------------|
-| `INFLUX_TOKEN` | `admin-token` |
-| `INFLUX_ORG` | `energy-monitor` |
-| `INFLUX_BUCKET_PRED` | `predictions` |
+**Default values (no changes needed for local dev):**
+| Variable | Default |
+|----------|---------|
+| INFLUX_TOKEN | admin-token |
+| INFLUX_ORG | energy-monitor |
+| INFLUX_BUCKET_PRED | predictions |
 
 ---
 
 ## 4. Running the Application
 
-### 4.1 Start the Full Stack (Recommended)
+### Option A: Simulator Mode (Local Data)
 
-This command builds and starts all 5 services:
+`ash
+# Start all services
+docker compose up -d --build
 
-```bash
-docker compose up --build -d
-```
+# Start frontend
+npm install
+npm run dev:web
+`
 
-**Services Started:**
+### Option B: MQTT Realtime Mode (Howest Live Data)
+
+`ash
+# Start with MQTT ingestor
+docker compose -f compose.realtime.yaml up -d --build
+
+# Start frontend
+npm install
+npm run dev:web
+`
+
+### Services Started
+
 | Service | Port | Description |
 |---------|------|-------------|
-| `backend` | 8000 | FastAPI REST API |
-| `worker` | - | ML inference worker (no exposed port) |
-| `simulator` | - | Reads demo data & feeds pipeline |
-| `influxdb` | 8086 | Time-series database |
-| `redis` | 6379 | Rolling window cache |
+| backend | 8000 | FastAPI REST API |
+| worker | - | ML inference (10 models) |
+| influxdb | 8086 | Time-series database |
+| redis | 6379 | Rolling window cache |
+| simulator/mqtt-ingestor | - | Data source |
 
-### 4.2 Monitor Startup Progress
+### Access Points
 
-```bash
-# Watch all logs
-docker compose logs -f
-
-# Or watch specific services
-docker compose logs -f backend worker
-```
-
-**Expected startup sequence:**
-1. **InfluxDB** initializes (~10s)
-2. **Redis** becomes healthy (~5s)
-3. **Backend** starts API server (~15s)
-4. **Worker** loads ML models (~20-30s)
-5. **Simulator** begins streaming data
-
-### 4.3 Wait for Models to Warm Up
-
-The ML models require a window of historical data before producing predictions.
-
-```bash
-# Check rolling window size (needs 4096 samples - the largest model window)
-docker exec nilm-redis redis-cli LLEN nilm:building-1:window
-```
-
-At default speed (1 sample/second), expect ~68 minutes for first predictions (4096 samples).
-
-**Speed up for demo:**
-```bash
-# Stop and restart with faster simulation
-docker compose down
-SIM_SPEEDUP=100 docker compose up -d
-```
-At 100x speed, predictions appear in ~1 minute (4096 samples / 100 = ~41 seconds).
+| URL | Description |
+|-----|-------------|
+| http://localhost:8080/live | **Public Dashboard** (no login) |
+| http://localhost:8080/app | Full app with auth |
+| http://localhost:8000/api/docs | Swagger API docs |
+| http://localhost:8086 | InfluxDB UI |
 
 ---
 
-## 5. Verifying the Installation
+## 5. Verification
 
 ### 5.1 Health Checks
 
-```bash
-# Backend API is running
+`ash
+# API health
 curl http://localhost:8000/live
 # Expected: {"status":"ok"}
 
-# Backend is ready for requests
 curl http://localhost:8000/ready
 # Expected: {"status":"ready","checks":{"influxdb":"ok","redis":"ok"}}
-```
+`
 
-### 5.2 Check Model Registry
+### 5.2 Check Models
 
-```bash
-curl http://localhost:8000/api/models | python -m json.tool
-```
+`ash
+curl http://localhost:8000/api/models
+# Should return 10 loaded models
+`
 
-Should return a list of 10 loaded appliance models (HeatPump, Dryer, etc.)
+### 5.3 Check Data Flow
 
-### 5.3 Verify Data Pipeline
+`ash
+# Simulator mode
+docker compose logs simulator | tail -5
 
-```bash
-# Check simulator is sending data
-docker compose logs simulator | tail -10
-# Should show: "Sent reading: ts=..."
+# MQTT mode
+docker compose -f compose.realtime.yaml logs mqtt-ingestor | tail -5
+# Should show: "Sent X readings | Latest: XXX W"
 
-# Check Redis window is filling
-docker exec nilm-redis redis-cli LLEN nilm:building-1:window
-# Should increase over time
+# Worker predictions
+docker compose logs worker | tail -5
+# Should show: "Predictions written: building=building-1, appliances=10"
+`
 
-# Check worker is making predictions (after warmup)
-docker compose logs worker | grep -i "Prediction written"
-```
+### 5.4 Query API
 
-### 5.4 Query Predictions
+`ash
+# Get buildings
+curl http://localhost:8000/api/analytics/buildings
+# Expected: {"buildings":["building-1"]}
 
-After warmup, query the disaggregation results:
-
-```bash
-curl "http://localhost:8000/api/analytics/predictions?building_id=building-1&start=-5m"
-```
-
----
-
-## 6. Frontend Development (Optional)
-
-The frontend can run separately from Docker for faster development iteration.
-
-### 6.1 Install Dependencies
-
-```bash
-cd apps/web
-npm install
-```
-
-### 6.2 Configure Environment
-
-```bash
-# Create environment file
-cp .env.example .env
-```
-
-Edit `apps/web/.env`:
-```env
-VITE_BACKEND_URL=http://localhost:8000
-VITE_DEMO_MODE=true  # Use demo mode to bypass authentication
-```
-
-### 6.3 Start Development Server
-
-```bash
-npm run dev
-```
-
-### 6.4 Access the Application
-
-Open your browser to: **http://localhost:8080**
-
-The dashboard will display:
-- Real-time aggregate power consumption
-- Disaggregated appliance predictions (after pipeline warmup)
-- Historical trends and analytics
+# Get readings (last 5 min)
+curl "http://localhost:8000/api/analytics/readings?building_id=building-1&start=-5m&end=now()"
+`
 
 ---
 
-## 7. Troubleshooting
+## 6. Troubleshooting
 
-### Problem: Docker containers fail to start
+### Containers won't start
 
-**Solution:**
-```bash
-# Clean restart with volume removal
+`ash
 docker compose down -v
 docker compose up --build -d
-```
+`
 
-### Problem: "Port already in use" error
+### Port already in use
 
-**Solution:**
-```bash
-# Check what's using the port (e.g., 8000)
-# Windows:
+`ash
+# Windows
 netstat -ano | findstr :8000
 
-# macOS/Linux:
+# macOS/Linux
 lsof -i :8000
+`
 
-# Stop the conflicting process or change port in compose.yaml
-```
+### No predictions appearing
 
-### Problem: No predictions appearing
-
-**Causes & Solutions:**
-
-1. **Window not full yet**
-   ```bash
+1. **Check window size:**
+   `ash
    docker exec nilm-redis redis-cli LLEN nilm:building-1:window
-   # Need 4096 samples (largest model window size)
-   ```
+   # Needs 4096 samples for first prediction
+   `
 
-2. **Worker has errors**
-   ```bash
-   docker compose logs worker | grep -i error
-   ```
+2. **Speed up simulator:**
+   `ash
+   docker compose down
+   SIM_SPEEDUP=100 docker compose up -d
+   `
 
-3. **Simulator not running**
-   ```bash
-   docker compose logs simulator
-   ```
+### Frontend can't connect
 
-### Problem: Frontend can't connect to backend
+- Verify backend is running: `docker compose ps`
+- Check `VITE_BACKEND_URL` in `apps/web/.env`
 
-**Solution:**
-- Ensure Docker backend is running: `docker compose ps`
-- Check CORS settings in backend logs
-- Verify `VITE_BACKEND_URL` is set correctly
+### Out of memory
 
-### Problem: Out of memory errors
-
-**Solution:**
-- Increase Docker Desktop memory allocation (Settings > Resources)
-- Minimum recommended: 4 GB for Docker
+- Increase Docker Desktop memory (Settings > Resources > 4GB minimum)
 
 ---
 
-## 8. Configuration Reference
+## Quick Commands
 
-### Environment Variables
+`ash
+# Start
+docker compose up -d --build
 
-#### Backend (`compose.yaml` or `apps/backend/.env`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `REDIS_URL` | `redis://redis:6379/0` | Redis connection string |
-| `INFLUX_URL` | `http://influxdb:8086` | InfluxDB connection |
-| `INFLUX_TOKEN` | `admin-token` | InfluxDB authentication token |
-| `INFLUX_ORG` | `energy-monitor` | InfluxDB organization |
-| `INFLUX_BUCKET_PRED` | `predictions` | Bucket for ML predictions |
-| `PIPELINE_ROLLING_WINDOW_SIZE` | `4096` | Rolling window size (must match largest model window) |
-
-#### Simulator (`compose.yaml`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SIM_SPEEDUP` | `1` | Data streaming speed multiplier |
-| `SIM_DURATION_SECONDS` | `0` | Max duration (0 = unlimited) |
-| `BUILDING_ID` | `building-1` | Building identifier |
-
-#### Frontend (`apps/web/.env`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_BACKEND_URL` | `/api` | Backend API URL |
-| `VITE_DEMO_MODE` | `false` | Enable demo mode (no auth) |
-
----
-
-## Quick Reference Commands
-
-```bash
-# Start everything
-docker compose up --build -d
-
-# Stop everything
+# Stop
 docker compose down
 
-# Stop and clean volumes (full reset)
+# Full reset
 docker compose down -v
 
-# View logs
+# Logs
 docker compose logs -f
 
-# Restart single service
+# Restart service
 docker compose restart backend
 
-# Rebuild single service
-docker compose up --build backend -d
-
-# Check service status
+# Check status
 docker compose ps
-
-# Check Redis window size
-docker exec nilm-redis redis-cli LLEN nilm:building-1:window
-
-# Query predictions API
-curl "http://localhost:8000/api/analytics/predictions?building_id=building-1&start=-5m"
-```
+`
 
 ---
 
-## Architecture Overview
+## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Docker Compose Stack                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐  │
-│  │Simulator │───▶│ Backend  │───▶│  Redis   │◀───│  Worker  │  │
-│  │(parquet) │    │  (API)   │    │(window)  │    │(ML Infer)│  │
-│  └──────────┘    └────┬─────┘    └──────────┘    └────┬─────┘  │
-│                       │                                │        │
-│                       ▼                                ▼        │
-│                  ┌──────────────────────────────────────┐       │
-│                  │          InfluxDB                    │       │
-│                  │    (predictions time-series)         │       │
-│                  └──────────────────────────────────────┘       │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+`
+┌─────────────────────────────────────────────────────────────┐
+│                    Docker Compose Stack                     │
+│                                                             │
+│  ┌──────────┐   ┌─────────┐   ┌───────┐   ┌──────────┐    │
+│  │Simulator │──▶│ Backend │──▶│ Redis │◀──│  Worker  │    │
+│  │  /MQTT   │   │  (API)  │   │       │   │ (PyTorch)│    │
+│  └──────────┘   └────┬────┘   └───────┘   └────┬─────┘    │
+│                      │                          │          │
+│                      ▼                          ▼          │
+│                 ┌──────────────────────────────────┐       │
+│                 │           InfluxDB               │       │
+│                 │    (predictions time-series)     │       │
+│                 └──────────────────────────────────┘       │
+└─────────────────────────────────────────────────────────────┘
          ▲
          │ HTTP API (port 8000)
-         │
     ┌────┴────┐
-    │ Frontend │ (optional, port 8080)
-    │ React   │
+    │Frontend │ (port 8080)
     └─────────┘
-```
-
----
-
-## Tech Stack Summary
-
-| Layer | Technology | Version |
-|-------|------------|---------|
-| **Frontend** | React, Vite, TypeScript | React 19, Vite 7 |
-| **Backend API** | FastAPI, Python | Python 3.12, FastAPI 0.128 |
-| **ML Inference** | PyTorch | PyTorch 2.5+ |
-| **Time-Series DB** | InfluxDB | 2.8 |
-| **Cache/Queue** | Redis | 7 |
-| **Container Runtime** | Docker, Docker Compose | Docker 24+, Compose v2 |
-
----
-
-## Support
-
-For issues or questions:
-1. Check the [Troubleshooting](#7-troubleshooting) section
-2. Review logs: `docker compose logs -f`
-3. Open an issue on the GitHub repository
-4. Ask to an LLM agents integrated in your IDE :)
+`
 
 ---
 
